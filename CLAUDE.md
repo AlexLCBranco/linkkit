@@ -48,14 +48,25 @@ rule. Don't build that, but don't block it:
 
 ## Workflow
 
-1. Read `PROJECT.md` (and `git log --oneline | head`) to get oriented.
+The owner starts a fresh chat for each step with "Read PROJECT.md and
+CLAUDE.md, then do step (next)". "(next)" means the first step in
+PROJECT.md's numbered "What's next" list that isn't struck through. Each
+chat:
+
+1. Read `PROJECT.md` (and `git log --oneline | head`) to get oriented, and
+   name the step you're doing.
 2. Say briefly what you'll build and why, then build it. New pure logic
    goes in `domain/` with tests.
 3. `npm run build`, `npm test` and `npm run lint` must pass.
 4. Check it in the browser pane (dev server: `linkkit` in
    `.claude/launch.json`, port 5181). Clear any `linkkit:*` localStorage
    keys you created while testing.
-5. Update `PROJECT.md`, bump the patch version, commit on `main`, push.
+5. Update `PROJECT.md`: strike the step through (`~~...~~ (done)`), add
+   what now works, and record any decision the owner made in the step
+   (the next chat only knows what's written down). Bump the patch
+   version, commit on `main`, push.
+6. A step too big for one chat: split it in PROJECT.md (e.g. 5a, 5b) and
+   stop at a working, pushed point; the next chat picks up the rest.
 
 ## Git and deploy
 
