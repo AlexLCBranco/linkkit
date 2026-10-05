@@ -88,3 +88,62 @@ export function placeOnPage(
   for (const [id, p] of layout.positions) positions.set(id, { x: p.x + dx, y: p.y + dy });
   return { positions, page: next };
 }
+
+/**
+ * Boxes that stick out past the page (a rename made one wider, say) and
+ * where to move each so it fits again. Boxes not measured yet are left
+ * alone; an empty result means every box already fits.
+ */
+export function keepOnPage(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, insets: PageInsets): Map<NodeId, Point> {
+  const moves = new Map<NodeId, Point>();
+  for (const node of Object.values(map.nodes)) {
+    const size = sizes.get(node.id);
+    if (!size) continue;
+    const at = clampToPage(node, size, map.page, insets);
+    if (at.x !== node.x || at.y !== node.y) moves.set(node.id, at);
+  }
+  return moves;
+}
+
+/**
+ * The middle of the part of the page that is on screen, in page
+ * coordinates ("Add box" puts the new box there). Both rectangles are in
+ * screen coordinates; if none of the page shows, the page's own middle.
+ */
+export function visibleCenter(page: Bounds, view: Bounds): Point {
+  const left = Math.max(page.left, view.left);
+  const right = Math.min(page.right, view.right);
+  const top = Math.max(page.top, view.top);
+  const bottom = Math.min(page.bottom, view.bottom);
+  if (left >= right || top >= bottom) {
+    return { x: (page.right - page.left) / 2, y: (page.bottom - page.top) / 2 };
+  }
+  return { x: (left + right) / 2 - page.left, y: (top + bottom) / 2 - page.top };
+}
+
+/**
+ * `at`, or if a box of `size` there would overlap a box already on the
+ * map, the first free spot stepping diagonally down-right -- so "Add box"
+ * never hides a new box under an old one (or the old one under it). Gives
+ * up and returns `at` if nothing is free within a few dozen steps.
+ */
+export function freeSpot(
+  map: LinkMap,
+  sizes: ReadonlyMap<NodeId, Size>,
+  at: Point,
+  size: Size,
+  options: { readonly step: number; readonly fallbackSize: Size; readonly clearance: number },
+): Point {
+  const overlaps = (p: Point) =>
+    Object.values(map.nodes).some((n) => {
+      const other = sizes.get(n.id) ?? options.fallbackSize;
+      return (
+        Math.abs(n.x - p.x) < (size.width + other.width) / 2 + options.clearance &&
+        Math.abs(n.y - p.y) < (size.height + other.height) / 2 + options.clearance
+      );
+    });
+  for (let i = 0, spot = at; i < 50; i++, spot = { x: spot.x + options.step, y: spot.y + options.step }) {
+    if (!overlaps(spot)) return spot;
+  }
+  return at;
+}

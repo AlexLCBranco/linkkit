@@ -42,24 +42,46 @@ export interface LinkGeometry {
  * (there is no direction to go).
  */
 export function borderPoint(box: Box, toward: Point, gap: number): Point | null {
-  const dx = toward.x - box.center.x;
-  const dy = toward.y - box.center.y;
-  if (dx === 0 && dy === 0) return null;
-  const halfW = box.size.width / 2 + gap;
-  const halfH = box.size.height / 2 + gap;
-  // How far along the ray each pair of sides is; the nearer one is hit first.
-  const t = Math.min(dx === 0 ? Infinity : halfW / Math.abs(dx), dy === 0 ? Infinity : halfH / Math.abs(dy));
-  return { x: box.center.x + dx * t, y: box.center.y + dy * t };
+  return exitPoint(box, box.center, { x: toward.x - box.center.x, y: toward.y - box.center.y }, gap);
+}
+
+/**
+ * Where a ray from `origin` (inside the box) going along `dir` crosses the
+ * box's border pushed out by `gap`. `null` when `dir` is zero.
+ */
+function exitPoint(box: Box, origin: Point, dir: Point, gap: number): Point | null {
+  if (dir.x === 0 && dir.y === 0) return null;
+  // How far along the ray the side it heads for is, on each axis; the
+  // nearer one is hit first.
+  const along = (d: number, from: number, centre: number, half: number) =>
+    d === 0 ? Infinity : (centre + Math.sign(d) * (half + gap) - from) / d;
+  const t = Math.min(
+    along(dir.x, origin.x, box.center.x, box.size.width / 2),
+    along(dir.y, origin.y, box.center.y, box.size.height / 2),
+  );
+  return { x: origin.x + dir.x * t, y: origin.y + dir.y * t };
 }
 
 /**
  * The arrow from one box to another, or `null` when there is no room to
  * draw one: the boxes overlap (or nearly touch), so the line would run
  * backwards or be shorter than its own head.
+ *
+ * `offset` slides the whole arrow sideways, to its own right as it
+ * travels, parallel to the centre-to-centre line. Two arrows between the
+ * same boxes in opposite directions each slide to their own right, so they
+ * sit side by side instead of on top of each other.
  */
-export function linkGeometry(from: Box, to: Box, options: ArrowOptions): LinkGeometry | null {
-  const start = borderPoint(from, to.center, options.gap);
-  const tip = borderPoint(to, from.center, options.gap);
+export function linkGeometry(from: Box, to: Box, options: ArrowOptions, offset = 0): LinkGeometry | null {
+  const cx = to.center.x - from.center.x;
+  const cy = to.center.y - from.center.y;
+  const distance = Math.hypot(cx, cy);
+  if (distance === 0) return null;
+  // "Right" of the direction of travel, on screen (y points down).
+  const sx = (-cy / distance) * offset;
+  const sy = (cx / distance) * offset;
+  const start = exitPoint(from, { x: from.center.x + sx, y: from.center.y + sy }, { x: cx, y: cy }, options.gap);
+  const tip = exitPoint(to, { x: to.center.x + sx, y: to.center.y + sy }, { x: -cx, y: -cy }, options.gap);
   if (!start || !tip) return null;
 
   const dx = tip.x - start.x;

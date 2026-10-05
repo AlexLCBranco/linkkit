@@ -1,0 +1,21 @@
+/* Covers the page, above the boxes and arrows; lines may run past it. */
+.preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: var(--z-sticky);
+}
+
+.line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: var(--edge-width-lit);
+  stroke-dasharray: var(--connect-dash);
+}
+
+.head {
+  fill: var(--accent);
+}

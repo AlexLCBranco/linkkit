@@ -1,5 +1,8 @@
 import { BaseEdge, EdgeLabelRenderer, type Edge, type EdgeProps } from "@xyflow/react";
+import { X } from "lucide-react";
 import { memo, useCallback } from "react";
+
+import { InlineEditable } from "../../components/InlineEditable";
 
 import type { LinkGeometry } from "../../domain/geometry";
 import type { LinkId, Point, Size } from "../../domain/types";
@@ -34,12 +37,21 @@ export type LinkFlowEdge = Edge<LinkEdgeData, "link">;
  * While a box is selected, an arrow on a "needs" path turns teal, one on a
  * "breaks" path orange, and the rest fade.
  *
- * Subscribes narrowly: only to its own label text and its own highlight.
+ * Mouse (as in the prototype): click the label to type a new one (left
+ * empty, it goes back to "needs"); the × on its corner deletes the arrow.
+ *
+ * Subscribes narrowly: only to its own label text, its own highlight and
+ * whether its label is being typed in.
  */
 export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<LinkFlowEdge>) {
   const linkId = id as LinkId;
   const label = useMapStore((s) => s.map.links[linkId]?.label ?? "");
   const highlight = useMapStore((s) => selectLinkHighlight(s, linkId)) ?? undefined;
+  const isEditing = useMapStore((s) => s.editing?.kind === "link" && s.editing.id === linkId);
+  const startEditing = useMapStore((s) => s.startEditing);
+  const stopEditing = useMapStore((s) => s.stopEditing);
+  const setLinkLabel = useMapStore((s) => s.setLinkLabel);
+  const deleteLink = useMapStore((s) => s.deleteLink);
 
   const onLabelSize = data?.onLabelSize;
   // Measures the pill with a ResizeObserver while it is on screen (as in
@@ -83,11 +95,43 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
       <EdgeLabelRenderer>
         <div
           ref={measure}
-          className={styles.label}
+          // React Flow's opt-out classes: a press here is the label's own.
+          className={`${styles.label} nodrag nopan`}
           data-highlight={highlight}
+          data-editing={isEditing || undefined}
           style={{ transform: `translate(-50%, -50%) translate(${at.x}px, ${at.y}px)` }}
+          onClick={() => startEditing({ kind: "link", id: linkId })}
+          onDoubleClick={(e) => e.stopPropagation()}
+          title={isEditing ? undefined : "Click to change the label"}
         >
-          {label}
+          {isEditing ? (
+            <InlineEditable
+              value={label}
+              editing
+              onCommit={(next) => setLinkLabel(linkId, next)}
+              onDone={stopEditing}
+              placeholder="needs"
+              ariaLabel="Arrow label"
+            />
+          ) : (
+            <>
+              <span className={styles.text}>{label}</span>
+              {/* Floats on the corner, so showing it never changes the
+                  label's size (labels are measured to keep them apart). */}
+              <button
+                type="button"
+                className={styles.delete}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  deleteLink(linkId);
+                }}
+                aria-label="Delete arrow"
+                title="Delete arrow"
+              >
+                <X size={10} strokeWidth={2.5} />
+              </button>
+            </>
+          )}
         </div>
       </EdgeLabelRenderer>
     </>

@@ -41,6 +41,20 @@ describe("linkGeometry", () => {
     expect(linkGeometry(box(0, 0), box(0, 0), ARROW)).toBeNull();
   });
 
+  it("slides sideways to its own right, so opposite arrows sit apart", () => {
+    const there = linkGeometry(box(0, 0), box(300, 0), ARROW, 6)!;
+    const back = linkGeometry(box(300, 0), box(0, 0), ARROW, 6)!;
+    // Travelling right, "right" is down the screen; travelling left, up.
+    const near = (p: { x: number; y: number }, x: number, y: number) => {
+      expect(p.x).toBeCloseTo(x);
+      expect(p.y).toBeCloseTo(y);
+    };
+    near(there.start, 55, 6);
+    near(there.head[0], 245, 6);
+    near(back.start, 245, -6);
+    near(back.head[0], 55, -6);
+  });
+
   it("draws nothing when the line would be shorter than its head", () => {
     // Borders 112 apart on x; with 5px gaps each, 2px of line is left.
     expect(linkGeometry(box(0, 0), box(112, 0), ARROW)).toBeNull();

@@ -18,7 +18,12 @@ export function ReachStatus() {
   const name = useMapStore((s) => (s.selected ? s.map.nodes[s.selected]?.name : undefined));
 
   if (!reach) {
-    return <span className={styles.hint}>Click any box to see what it needs and what breaks without it.</span>;
+    return (
+      <span className={styles.hint}>
+        Click any box to see what it needs and what breaks without it. Double-click the paper to add a box; drag
+        a box's dot onto another to connect them.
+      </span>
+    );
   }
   const counts = reachCounts(reach);
   return (

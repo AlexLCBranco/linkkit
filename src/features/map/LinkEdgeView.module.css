@@ -32,13 +32,61 @@ path.line {
   font-size: var(--font-size-sm);
   line-height: var(--line-normal);
   text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  cursor: default;
+  /* React Flow's label layer ignores the mouse; a label takes it back. */
+  pointer-events: all;
+  cursor: text;
   transition:
     color var(--duration-medium) var(--ease-standard),
     opacity var(--duration-medium) var(--ease-standard);
+}
+
+/* One line; a long label ends in "…". */
+.text {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.label:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.label[data-editing] {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+/* The ×: a small circle straddling the label's top-right corner (like a
+   Treekit badge), shown on hover. */
+.delete {
+  position: absolute;
+  top: calc(-1 * var(--delete-button-size) / 2);
+  right: calc(-1 * var(--delete-button-size) / 2);
+  display: grid;
+  place-items: center;
+  width: var(--delete-button-size);
+  height: var(--delete-button-size);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+}
+
+.label:hover .delete {
+  opacity: 1;
+}
+
+.delete:hover {
+  background: var(--palette-red);
+  border-color: var(--palette-red);
+  color: var(--ink-light);
 }
 
 /* ---- The needs / breaks highlight (a box is selected) ---- */

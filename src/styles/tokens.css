@@ -51,9 +51,11 @@
      A box grows with its name up to the max, then wraps. */
   --box-min-width: 72px;
   --box-max-width: 220px;
-  /* The connect dot on a box's edge, and the round × buttons. */
+  /* The connect dot on a box's right edge, the buttons in a box's hover
+     toolbar, and the × on an arrow's label. */
   --box-handle-size: 14px;
-  --delete-button-size: 20px;
+  --box-button-size: 22px;
+  --delete-button-size: 16px;
   /* An arrow's label pill; longer labels end in "…". */
   --edge-label-max-width: 160px;
   --edge-width: 1.5px;
@@ -63,6 +65,8 @@
   --status-swatch-size: 10px;
   /* The ring round the selected box (as on a selected Treekit node). */
   --select-ring-width: 2px;
+  /* The ring round a box an arrow being dragged would connect to. */
+  --target-ring-width: 3px;
   /* How much of a box or arrow outside the highlight still shows (0-1). */
   --faded-opacity: 0.25;
   /* The dashed preview arrow while connecting. */

@@ -1,3 +1,4 @@
+import { AddBoxButton } from "../features/map/AddBoxButton";
 import { MapCanvas } from "../features/map/MapCanvas";
 import { ReachStatus } from "../features/map/ReachStatus";
 import { useMapStore } from "../store/mapStore";
@@ -15,6 +16,7 @@ export function App() {
     <div className={styles.app}>
       <header className={styles.header}>
         <span className={styles.name}>{name}</span>
+        <AddBoxButton />
       </header>
       <div className={styles.status} aria-live="polite">
         <ReachStatus />

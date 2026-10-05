@@ -1,17 +1,19 @@
-import { ReactFlow, ReactFlowProvider, type NodeChange, type NodeOrigin } from "@xyflow/react";
+import { ReactFlow, ReactFlowProvider, useReactFlow, type NodeChange, type NodeOrigin } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
 import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
 
 import { linkGeometry, type Box, type LinkGeometry } from "../../domain/geometry";
 import { placeLabels } from "../../domain/labels";
 import { layoutMap } from "../../domain/layout";
-import { placeOnPage } from "../../domain/page";
+import { clampToPage, keepOnPage, placeOnPage } from "../../domain/page";
 import type { LinkId, NodeId, Size } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { BoxView, type BoxFlowNode } from "./BoxView";
-import { ARROW, LABEL_FALLBACK_SIZE, LABELS, MAP_LAYOUT, PAGE_MARGIN } from "./layoutConfig";
+import { ConnectPreview } from "./ConnectPreview";
+import { ARROW, LABEL_FALLBACK_SIZE, LABELS, MAP_LAYOUT, PAGE_INSETS, PAGE_MARGIN, TWIN_OFFSET } from "./layoutConfig";
 import { LinkEdgeView, type LinkFlowEdge } from "./LinkEdgeView";
 import styles from "./MapCanvas.module.css";
+import { MAP_PAGE_ATTRIBUTE, MAP_VIEW_ATTRIBUTE } from "./pageMarkers";
 
 // Defined once at module level: React Flow warns (and re-mounts every
 // node) if these objects change identity between renders.
@@ -35,25 +37,52 @@ const NO_DATA = {};
  *
  * First visit: the example's boxes all start on one spot. They are drawn
  * hidden, measured, tidied once, and only then shown.
+ *
+ * Editing: double-click empty paper adds a box there; Delete removes the
+ * selected box. Everything else starts on a box or a label (BoxView,
+ * LinkEdgeView). A box that grows past the page's edge (a longer name) is
+ * moved back onto it.
  */
 function MapCanvasInner() {
   const map = useMapStore((s) => s.map);
   const needsTidy = useMapStore((s) => s.needsTidy);
   const placeAll = useMapStore((s) => s.placeAll);
   const select = useMapStore((s) => s.select);
+  const addBox = useMapStore((s) => s.addBox);
+  const moveBoxes = useMapStore((s) => s.moveBoxes);
+  const { screenToFlowPosition } = useReactFlow();
 
-  // Clicking a box selects it; clicking empty paper or pressing Escape
-  // clears it (as in the prototype). Selection is the store's, not React
-  // Flow's: React Flow's own selecting stays off.
-  const onNodeClick = useCallback((_: MouseEvent, node: BoxFlowNode) => select(node.id as NodeId), [select]);
+  // Clicking a box selects it (BoxView); clicking empty paper or pressing
+  // Escape clears it (as in the prototype). Selection is the store's, not
+  // React Flow's: React Flow's own selecting stays off. Delete (or
+  // Backspace) removes the selected box. Typing in a name or label never
+  // gets here: the text field keeps its keys to itself.
   const onPaneClick = useCallback(() => select(null), [select]);
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      const { selected, editing, deleteBox } = useMapStore.getState();
       if (e.key === "Escape") select(null);
+      else if ((e.key === "Delete" || e.key === "Backspace") && selected && !editing) {
+        e.preventDefault();
+        deleteBox(selected);
+      }
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [select]);
+
+  // Double-clicking empty paper adds a box there, ready for its name. React
+  // Flow has no "pane double-click", so the page listens and checks that
+  // the click landed on the bare pane (not a box, arrow or label).
+  const onPageDoubleClick = useCallback(
+    (e: MouseEvent) => {
+      if (!(e.target as Element).classList.contains("react-flow__pane")) return;
+      const at = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      // Not measured yet: a typical box's size keeps it on the page for now.
+      addBox(clampToPage(at, MAP_LAYOUT.fallbackSize, useMapStore.getState().map.page, PAGE_INSETS));
+    },
+    [addBox, screenToFlowPosition],
+  );
 
   // Measured sizes are view state, not map data: they depend on fonts and
   // CSS, so they live here, never in the saved map.
@@ -66,6 +95,15 @@ function MapCanvasInner() {
     const placed = placeOnPage(layoutMap(map, sizes, MAP_LAYOUT), map.page, PAGE_MARGIN);
     placeAll(placed.positions, placed.page);
   }, [needsTidy, allMeasured, map, sizes, placeAll]);
+
+  // A box that grew past the page's edge (renamed, or newly named) moves
+  // back onto it. Not while waiting for the first tidy: those boxes are
+  // still stacked on one spot, about to be placed anyway.
+  useEffect(() => {
+    if (needsTidy) return;
+    const moves = keepOnPage(map, sizes, PAGE_INSETS);
+    if (moves.size > 0) moveBoxes(moves);
+  }, [needsTidy, map, sizes, moveBoxes]);
 
   const nodes = useMemo<BoxFlowNode[]>(
     () =>
@@ -112,10 +150,16 @@ function MapCanvasInner() {
 
   const geometries = useMemo(() => {
     const out = new Map<LinkId, LinkGeometry>();
-    for (const link of Object.values(map.links)) {
+    const links = Object.values(map.links);
+    // An arrow whose reverse is also on the map is drawn a little to its
+    // own right, so the pair sit side by side instead of on top of each
+    // other.
+    const pairs = new Set(links.map((l) => `${l.from}>${l.to}`));
+    for (const link of links) {
       const from = boxes.get(link.from);
       const to = boxes.get(link.to);
-      const g = from && to ? linkGeometry(from, to, ARROW) : null;
+      const offset = pairs.has(`${link.to}>${link.from}`) ? TWIN_OFFSET : 0;
+      const g = from && to ? linkGeometry(from, to, ARROW, offset) : null;
       if (g) out.set(link.id, g);
     }
     return out;
@@ -169,9 +213,14 @@ function MapCanvasInner() {
   }, []);
 
   return (
-    <div className={styles.canvas} data-ready={needsTidy ? undefined : true}>
+    <div className={styles.canvas} data-ready={needsTidy ? undefined : true} {...{ [MAP_VIEW_ATTRIBUTE]: true }}>
       <div className={styles.sheet}>
-        <div className={styles.page} style={{ width: map.page.width, height: map.page.height }}>
+        <div
+          className={styles.page}
+          style={{ width: map.page.width, height: map.page.height }}
+          onDoubleClick={onPageDoubleClick}
+          {...{ [MAP_PAGE_ATTRIBUTE]: true }}
+        >
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -179,10 +228,9 @@ function MapCanvasInner() {
             edgeTypes={edgeTypes}
             nodeOrigin={CENTER_ORIGIN}
             onNodesChange={onNodesChange}
-            onNodeClick={onNodeClick}
             onPaneClick={onPaneClick}
-            // Moving and connecting come in later steps, through the store,
-            // never React Flow's own state.
+            // Moving and connecting are hand-written (useBoxGestures), so
+            // they go through the store, never React Flow's own state.
             nodesDraggable={false}
             nodesConnectable={false}
             elementsSelectable={false}
@@ -203,6 +251,7 @@ function MapCanvasInner() {
             // Bottom-right belongs to the version badge.
             attributionPosition="top-right"
           />
+          <ConnectPreview boxes={boxes} />
         </div>
       </div>
     </div>

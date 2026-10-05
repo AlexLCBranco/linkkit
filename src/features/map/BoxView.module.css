@@ -20,8 +20,12 @@
   line-height: var(--line-tight);
   text-align: center;
   overflow-wrap: anywhere;
-  /* A click selects the box. */
-  cursor: pointer;
+  /* A click selects the box; a drag moves it (Treekit's open hand). */
+  cursor: grab;
+  /* React Flow turns the mouse off on its node wrapper when it handles no
+     clicks itself (ours are hand-written, see useBoxGestures); the box
+     takes it back. */
+  pointer-events: all;
   /* Fill and fading ease in and out with the highlight. */
   transition:
     border-color var(--duration-fast) var(--ease-standard),
@@ -47,13 +51,11 @@
 }
 
 .name {
-  display: block;
   padding: var(--space-1) 0;
 }
 
-.name[data-empty] {
-  color: var(--text-muted);
-  font-weight: var(--weight-normal);
+.box[data-editing] {
+  cursor: text;
 }
 
 .handle {
@@ -87,4 +89,125 @@
   border-color: var(--border-strong);
   background: var(--surface-raised);
   opacity: var(--faded-opacity);
+}
+
+/* ---- Editing with the mouse ---- */
+
+/* The connect dot, on the right edge (as in the prototype): drag it onto
+   another box to draw an arrow. Shown on hover or while selected. */
+.dot {
+  position: absolute;
+  top: 50%;
+  right: calc(-1 * var(--box-handle-size) / 2);
+  width: var(--box-handle-size);
+  height: var(--box-handle-size);
+  margin-top: calc(-1 * var(--box-handle-size) / 2);
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  cursor: crosshair;
+  opacity: 0;
+  transform: scale(0.8);
+  transition:
+    opacity var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-spring);
+}
+
+.dot:hover {
+  transform: scale(1.25);
+}
+
+/* The hover toolbar: a pill centred just above the box (rename, delete),
+   as on a Treekit node, so its buttons never crowd the box's edges. */
+.toolbar {
+  position: absolute;
+  bottom: calc(100% + var(--space-1));
+  left: 50%;
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+  cursor: default;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, var(--space-1));
+  transition:
+    opacity var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-spring);
+}
+
+/* An invisible bridge over the gap, so moving the mouse from the box up
+   to the toolbar doesn't end the hover and hide it. */
+.toolbar::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: var(--space-1);
+}
+
+.toolbarButton {
+  display: grid;
+  place-items: center;
+  width: var(--box-button-size);
+  height: var(--box-button-size);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  transition:
+    background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.toolbarButton:hover {
+  background: var(--accent);
+  color: var(--ink-light);
+}
+
+.toolbarButton.delete:hover {
+  background: var(--palette-red);
+}
+
+.box:hover .dot,
+.box[data-highlight="selected"] .dot,
+.box[data-connect-source] .dot {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.box:hover .toolbar,
+.box[data-highlight="selected"] .toolbar {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+}
+
+/* While typing a name, or moving or connecting, the extras stay out of
+   the way. (Doubled class: outranks the hover rules above.) */
+.box.box[data-editing] .toolbar,
+.box.box[data-dragging] .toolbar,
+.box.box[data-dragging] .dot,
+.box.box[data-connect-source] .toolbar {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Being dragged, like a lifted Treekit node. */
+.box[data-dragging],
+.box[data-dragging]:hover {
+  cursor: grabbing;
+  box-shadow:
+    0 0 0 var(--select-ring-width) var(--focus-ring),
+    var(--shadow-lifted);
+}
+
+/* Letting go here would draw the arrow. */
+.box[data-connect-target] {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 var(--target-ring-width) var(--focus-ring),
+    var(--shadow-md);
 }
