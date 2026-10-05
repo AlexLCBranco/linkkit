@@ -56,6 +56,8 @@
   --box-handle-size: 14px;
   --box-button-size: 22px;
   --delete-button-size: 16px;
+  /* A colour swatch in the colour menus. */
+  --swatch-size: 20px;
   /* An arrow's label pill; longer labels end in "…". */
   --edge-label-max-width: 160px;
   --edge-width: 1.5px;

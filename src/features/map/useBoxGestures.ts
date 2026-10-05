@@ -11,6 +11,9 @@ import { DRAG_THRESHOLD, PAGE_INSETS } from "./layoutConfig";
     to the box under it. */
 export const BOX_ID_ATTRIBUTE = "data-box-id";
 
+/** Counts drags, to give each its own undo key. */
+let dragCount = 0;
+
 /**
  * The two mouse gestures that start on a box (as in the prototype):
  *
@@ -46,6 +49,9 @@ export function useBoxGestures(id: NodeId) {
       const start = screenToFlowPosition({ x: e.clientX, y: e.clientY });
       const startClient = { x: e.clientX, y: e.clientY };
       let moved = false;
+      // Every move of this one drag shares a key, so the whole drag is one
+      // undo step.
+      const gesture = `drag:${++dragCount}`;
 
       const move = (ev: PointerEvent) => {
         if (!moved && Math.hypot(ev.clientX - startClient.x, ev.clientY - startClient.y) < DRAG_THRESHOLD) return;
@@ -55,7 +61,7 @@ export function useBoxGestures(id: NodeId) {
         const size = { width: el.offsetWidth, height: el.offsetHeight };
         const { map, moveBox } = useMapStore.getState();
         const to = { x: node.x + at.x - start.x, y: node.y + at.y - start.y };
-        moveBox(id, clampToPage(to, size, map.page, PAGE_INSETS));
+        moveBox(id, clampToPage(to, size, map.page, PAGE_INSETS), gesture);
       };
       const end = (ev: PointerEvent) => {
         el.removeEventListener("pointermove", move);

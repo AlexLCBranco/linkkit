@@ -92,6 +92,90 @@ describe("map store", () => {
     expect(s.map.links[link.id]).toBeUndefined();
   });
 
+  it("does not make the example's first tidy undoable", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().placeAll(new Map(), { width: 1200, height: 700 });
+    expect(useMapStore.getState().history.past).toHaveLength(0);
+  });
+
+  it("undoes a whole drag in one step, and redoes it", async () => {
+    const useMapStore = await freshStore();
+    const [a] = Object.keys(useMapStore.getState().map.nodes) as NodeId[];
+    const start = useMapStore.getState().map;
+    useMapStore.getState().moveBox(a, { x: 10, y: 10 }, "drag:1");
+    useMapStore.getState().moveBox(a, { x: 20, y: 20 }, "drag:1");
+    useMapStore.getState().moveBox(a, { x: 30, y: 30 }, "drag:2");
+    expect(useMapStore.getState().history.past).toHaveLength(2);
+
+    useMapStore.getState().undo();
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map).toEqual(start);
+    useMapStore.getState().redo();
+    expect(useMapStore.getState().map.nodes[a]).toMatchObject({ x: 20, y: 20 });
+  });
+
+  it("undoes adding and naming a box in one step; a later rename is its own", async () => {
+    const useMapStore = await freshStore();
+    const start = useMapStore.getState().map;
+    const id = useMapStore.getState().addBox({ x: 300, y: 200 });
+    useMapStore.getState().renameBox(id, "Printer");
+    useMapStore.getState().stopEditing();
+    useMapStore.getState().renameBox(id, "Scanner");
+    expect(useMapStore.getState().history.past).toHaveLength(2);
+
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.nodes[id]?.name).toBe("Printer");
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map).toEqual(start);
+  });
+
+  it("leaves no undo step for a box added and left without a name", async () => {
+    const useMapStore = await freshStore();
+    const id = useMapStore.getState().addBox({ x: 300, y: 200 });
+    useMapStore.getState().stopEditing();
+    expect(useMapStore.getState().map.nodes[id]).toBeUndefined();
+    expect(useMapStore.getState().history).toEqual({ past: [], future: [] });
+  });
+
+  it("finishes typing before undoing, so a nameless new box can never come back", async () => {
+    const useMapStore = await freshStore();
+    const [a] = Object.keys(useMapStore.getState().map.nodes) as NodeId[];
+    useMapStore.getState().setBoxColor(a, "red");
+    const id = useMapStore.getState().addBox({ x: 300, y: 200 });
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.nodes[id]).toBeUndefined();
+    expect(useMapStore.getState().map.nodes[a].color).toBe("red");
+    useMapStore.getState().redo();
+    expect(useMapStore.getState().map.nodes[id]).toBeUndefined();
+  });
+
+  it("folds a nudge back onto the page into the change that caused it", async () => {
+    const useMapStore = await freshStore();
+    const [a] = Object.keys(useMapStore.getState().map.nodes) as NodeId[];
+    const start = useMapStore.getState().map;
+    useMapStore.getState().renameBox(a, "A much longer name");
+    useMapStore.getState().nudgeBoxes(new Map([[a, { x: 5, y: 5 }]]));
+    expect(useMapStore.getState().history.past).toHaveLength(1);
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map).toEqual(start);
+  });
+
+  it("colours a box, undoably, and lets go of a selection that undo removes", async () => {
+    const useMapStore = await freshStore();
+    const [a] = Object.keys(useMapStore.getState().map.nodes) as NodeId[];
+    useMapStore.getState().setBoxColor(a, "blue");
+    expect(useMapStore.getState().map.nodes[a].color).toBe("blue");
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.nodes[a].color).toBeNull();
+
+    const id = useMapStore.getState().addBox({ x: 300, y: 200 });
+    useMapStore.getState().renameBox(id, "New");
+    useMapStore.getState().stopEditing();
+    useMapStore.getState().select(id);
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().selected).toBeNull();
+  });
+
   it("reopens the map that was open last, already placed", async () => {
     const saved = build(["a", "b"], [["a", "b"]]);
     saveMap(saved);

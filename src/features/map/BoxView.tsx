@@ -1,12 +1,14 @@
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { Pencil, Trash2 } from "lucide-react";
+import { Palette, Pencil, Trash2 } from "lucide-react";
 import { memo, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
 
 import { InlineEditable } from "../../components/InlineEditable";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import type { NodeId } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { selectNodeHighlight } from "../../store/selectors";
 import styles from "./BoxView.module.css";
+import { SwatchRow } from "./SwatchRow";
 import { BOX_ID_ATTRIBUTE, useBoxGestures } from "./useBoxGestures";
 
 /** React Flow's node record for a box. The box's content is not copied in:
@@ -25,8 +27,9 @@ const keepToButton = (e: PointerEvent | MouseEvent) => e.stopPropagation();
  *
  * Mouse: click selects, drag moves, double-click renames. On hover (or
  * while selected) it shows a dot on its right edge to drag an arrow from,
- * and a toolbar above it to rename or delete it (Treekit's hover toolbar;
- * the prototype had a corner ×).
+ * and a toolbar above it to rename, colour or delete it (Treekit's hover
+ * toolbar; the prototype had a corner ×). Right-click opens the same
+ * choices (BoxContextMenu).
  *
  * Subscribes narrowly: only to its own node record, its own highlight (a
  * short string) and whether it is being typed in or connected to, so a
@@ -43,6 +46,7 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   const stopEditing = useMapStore((s) => s.stopEditing);
   const renameBox = useMapStore((s) => s.renameBox);
   const deleteBox = useMapStore((s) => s.deleteBox);
+  const setBoxColor = useMapStore((s) => s.setBoxColor);
   const { dragging, onBoxPointerDown, onDotPointerDown } = useBoxGestures(nodeId);
   if (!node) return null;
 
@@ -90,6 +94,16 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
         <button type="button" className={styles.toolbarButton} onClick={rename} aria-label="Rename" title="Rename">
           <Pencil size={14} />
         </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" className={styles.toolbarButton} aria-label="Colour" title="Colour">
+              <Palette size={14} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-auto" side="top" align="center" onCloseAutoFocus={(e) => e.preventDefault()}>
+            <SwatchRow value={node.color} onPick={(c) => setBoxColor(nodeId, c)} Item={DropdownMenuItem} />
+          </DropdownMenuContent>
+        </DropdownMenu>
         <button
           type="button"
           className={`${styles.toolbarButton} ${styles.delete}`}

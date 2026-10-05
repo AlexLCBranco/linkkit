@@ -75,6 +75,13 @@
     var(--shadow-md);
 }
 
+/* The selected box itself keeps its own colour: it is the one being
+   coloured (keys 1-8, its menu), and its ring already sets it apart from
+   the teal / orange boxes around it. */
+.box[data-highlight="selected"][data-colored] {
+  background: color-mix(in srgb, var(--box-accent) 22%, var(--surface-raised));
+}
+
 .box[data-highlight="need"] {
   border-color: var(--need);
   background: var(--need-bg);
@@ -179,7 +186,8 @@
 }
 
 .box:hover .toolbar,
-.box[data-highlight="selected"] .toolbar {
+.box[data-highlight="selected"] .toolbar,
+.toolbar:has([data-state="open"]) {
   opacity: 1;
   pointer-events: auto;
   transform: translate(-50%, 0);

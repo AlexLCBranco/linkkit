@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-05, v0.0.5 (after step 6)_
+_Last updated: 2026-10-05, v0.0.6 (after step 7)_
 
 ## What it is
 
@@ -26,8 +26,20 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
 
 ## What works now
 
-- Dark header (with the map's name and "Add box" and "Tidy up" buttons),
-  status line, version badge
+- Dark header (with the map's name, "Add box", "Tidy up", and undo /
+  redo buttons), status line, version badge
+- Undo / redo: the header's arrows, or Ctrl+Z and Ctrl+Shift+Z (or
+  Ctrl+Y). Every change to the map is one step: a whole drag, adding a
+  box together with its first name, a Tidy up, a page resize, a colour.
+  A box added and left without a name leaves no step behind. Undo while
+  typing a name first finishes the typing (and if that takes back a new
+  nameless box, that is the undo). The history lasts until the page is
+  reloaded; it is not saved
+- Box colours (Treekit's 8, or none): right-click a box for a menu
+  (Rename, a row of colour dots, Delete box), or the palette button in a
+  box's hover toolbar for the same row of dots; with a box selected, keys
+  1–8 pick a colour and 0 clears it. The box's colour now has a ring
+  around its dot
 - The page: a sheet of dotted paper with the map's boxes and arrows on
   it. Boxes look like Treekit's nodes (wrap past 220px, palette colours
   show as a tint); arrows are straight lines from box edge to box edge
@@ -81,7 +93,8 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   breaks" reach and the status-bar counts, a loop-safe Tidy-up layout,
   page sizing (keeping boxes on the page, a free spot for a new box, the
   resize maths for a centred page), arrow geometry (with side-by-side
-  opposite arrows) and label placement, the glide's easing, saving with a
+  opposite arrows) and label placement, the glide's easing, the undo
+  history (steps, joining a drag into one step), saving with a
   version number and repair of damaged saves, and the example map
 
 ## What's next
@@ -96,7 +109,8 @@ The first build, in order:
 5. ~~Editing with the mouse: add, rename, connect, move, delete, arrow
    labels~~ (done)
 6. ~~Page: "More room" tab, corner grip, animated Tidy up~~ (done)
-7. Undo/redo, then box colours (right-click menu, swatch row, keys 1–8 / 0)
+7. ~~Undo/redo, then box colours (right-click menu, swatch row, keys
+   1–8 / 0)~~ (done)
 8. Several saved maps: switcher, rename, new, duplicate, delete, "Add
    example map" (replaces the prototype's "Reset example": it adds a
    fresh example map and never wipes one)
@@ -107,7 +121,9 @@ The first build, in order:
 - Treekit's teal and orange box colours look like the needs / breaks
   highlights. Decided: keep all 8; a selected box's highlight hides box
   colours, and the highlight looks different (solid fill, coloured arrows,
-  the rest faded). Revisit if it still confuses in use.
+  the rest faded). Revisit if it still confuses in use. Step 7 change:
+  the selected box itself keeps its own colour (its ring sets it apart),
+  since otherwise picking a colour for it (keys, its menu) showed nothing.
 - Look choices made in step 3 where the prototype and Treekit differ
   (Treekit's look won, per CLAUDE.md): boxes wrap long names instead of
   growing forever; arrow labels have a thin border; the page is centred
@@ -130,3 +146,13 @@ The first build, in order:
   by a paused browser tab still ends with the boxes in place. Not done:
   dragging a handle past the window's edge doesn't scroll by itself
   (scroll with the wheel mid-drag, or drag again).
+- Step 7 choices (the prototype has no undo or colours, so Treekit is the
+  reference): Treekit's undo design (a step stores only the parts of the
+  map it changed) and its header undo / redo buttons. Different from
+  Treekit: colours are a row of dots, not a 9-line list, and they are
+  also in a palette button on the box's hover toolbar, so colouring
+  doesn't depend on discovering right-click. Undo pressed while a menu
+  is still fading out is ignored (as in Treekit).
+- The undo history is per session and covers only the open map. Step 8
+  (several maps) has to decide whether switching maps keeps each map's
+  history (Treekit keeps it per tree for the session).

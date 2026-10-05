@@ -1,0 +1,70 @@
+import { useEffect } from "react";
+
+import { PALETTE_COLORS } from "../../domain/types";
+import { useMapStore } from "../../store/mapStore";
+
+function isTyping(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA")
+  );
+}
+
+/** Focus is in a menu or dialog, which owns the keyboard (arrows, Enter,
+    Esc) -- Delete there must never delete a box behind it. */
+function inOverlay(target: EventTarget | null): boolean {
+  return (
+    target instanceof HTMLElement &&
+    target.closest('[role="menu"], [role="dialog"], [role="alertdialog"]') !== null
+  );
+}
+
+/**
+ * The map's keyboard extras (every one also has a mouse way):
+ *
+ *   Ctrl/Cmd+Z                 undo
+ *   Ctrl/Cmd+Shift+Z, Ctrl+Y   redo
+ *   Esc                        clear the selection
+ * On the selected box:
+ *   Delete, Backspace          delete it (and its arrows)
+ *   1-8, 0                     set a palette colour; 0 clears it
+ *
+ * All ignored while typing a name or label, so the field's own undo and
+ * Backspace keep working. Reads the store with `getState()` inside the
+ * handler, so the listener is attached once and never re-renders anything.
+ */
+export function useMapShortcuts() {
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (isTyping(e.target) || inOverlay(e.target) || e.altKey) return;
+      const store = useMapStore.getState();
+      const key = e.key.toLowerCase();
+
+      if (e.ctrlKey || e.metaKey) {
+        if (key === "z" && !e.shiftKey) {
+          e.preventDefault();
+          store.undo();
+        } else if ((key === "z" && e.shiftKey) || key === "y") {
+          e.preventDefault();
+          store.redo();
+        }
+        return;
+      }
+
+      if (key === "escape") return store.select(null);
+
+      const { selected } = store;
+      if (!selected || store.editing) return;
+      if (key === "delete" || key === "backspace") {
+        e.preventDefault();
+        store.deleteBox(selected);
+      } else if (/^[0-8]$/.test(key)) {
+        // 1-8 pick a palette colour in its listed order; 0 clears it.
+        const index = Number(key);
+        store.setBoxColor(selected, index === 0 ? null : PALETTE_COLORS[index - 1]);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+}

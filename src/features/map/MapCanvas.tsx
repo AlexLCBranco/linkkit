@@ -8,6 +8,7 @@ import { layoutMap } from "../../domain/layout";
 import { clampToPage, keepOnPage, minPageSize, placeOnPage } from "../../domain/page";
 import type { LinkId, NodeId, Point, Size } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
+import { BoxContextMenu } from "./BoxContextMenu";
 import { BoxView, type BoxFlowNode } from "./BoxView";
 import { ConnectPreview } from "./ConnectPreview";
 import {
@@ -26,6 +27,7 @@ import styles from "./MapCanvas.module.css";
 import { PageHandles } from "./PageHandles";
 import { MAP_PAGE_ATTRIBUTE, MAP_VIEW_ATTRIBUTE } from "./pageMarkers";
 import { useGlide } from "./useGlide";
+import { useMapShortcuts } from "./useMapShortcuts";
 
 // Defined once at module level: React Flow warns (and re-mounts every
 // node) if these objects change identity between renders.
@@ -66,27 +68,15 @@ function MapCanvasInner() {
   const placeAll = useMapStore((s) => s.placeAll);
   const select = useMapStore((s) => s.select);
   const addBox = useMapStore((s) => s.addBox);
-  const moveBoxes = useMapStore((s) => s.moveBoxes);
+  const nudgeBoxes = useMapStore((s) => s.nudgeBoxes);
   const { screenToFlowPosition } = useReactFlow();
 
   // Clicking a box selects it (BoxView); clicking empty paper or pressing
   // Escape clears it (as in the prototype). Selection is the store's, not
-  // React Flow's: React Flow's own selecting stays off. Delete (or
-  // Backspace) removes the selected box. Typing in a name or label never
-  // gets here: the text field keeps its keys to itself.
+  // React Flow's: React Flow's own selecting stays off. The keys (Escape,
+  // Delete, undo, colours) are in useMapShortcuts.
   const onPaneClick = useCallback(() => select(null), [select]);
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      const { selected, editing, deleteBox } = useMapStore.getState();
-      if (e.key === "Escape") select(null);
-      else if ((e.key === "Delete" || e.key === "Backspace") && selected && !editing) {
-        e.preventDefault();
-        deleteBox(selected);
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [select]);
+  useMapShortcuts();
 
   // Double-clicking empty paper adds a box there, ready for its name. React
   // Flow has no "pane double-click", so the page listens and checks that
@@ -119,8 +109,8 @@ function MapCanvasInner() {
   useEffect(() => {
     if (needsTidy) return;
     const moves = keepOnPage(map, sizes, PAGE_INSETS);
-    if (moves.size > 0) moveBoxes(moves);
-  }, [needsTidy, map, sizes, moveBoxes]);
+    if (moves.size > 0) nudgeBoxes(moves);
+  }, [needsTidy, map, sizes, nudgeBoxes]);
 
   // Read by handlers outside rendering (Tidy up, the resize handles), which
   // need the sizes at that moment without re-subscribing on every change.
@@ -264,49 +254,51 @@ function MapCanvasInner() {
   }, []);
 
   return (
-    <div className={styles.canvas} data-ready={needsTidy ? undefined : true} {...{ [MAP_VIEW_ATTRIBUTE]: true }}>
-      <div className={styles.sheet}>
-        <div
-          className={styles.page}
-          style={{ width: page.width, height: page.height }}
-          onDoubleClick={onPageDoubleClick}
-          {...{ [MAP_PAGE_ATTRIBUTE]: true }}
-        >
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            nodeOrigin={CENTER_ORIGIN}
-            onNodesChange={onNodesChange}
-            onPaneClick={onPaneClick}
-            // Moving and connecting are hand-written (useBoxGestures), so
-            // they go through the store, never React Flow's own state.
-            nodesDraggable={false}
-            nodesConnectable={false}
-            elementsSelectable={false}
-            // The camera is locked; the wheel scrolls the page natively.
-            panOnDrag={false}
-            panOnScroll={false}
-            zoomOnScroll={false}
-            zoomOnPinch={false}
-            zoomOnDoubleClick={false}
-            preventScrolling={false}
-            minZoom={1}
-            maxZoom={1}
-            panActivationKeyCode={null}
-            selectionKeyCode={null}
-            multiSelectionKeyCode={null}
-            deleteKeyCode={null}
-            disableKeyboardA11y
-            // Bottom-right belongs to the version badge.
-            attributionPosition="top-right"
-          />
-          <ConnectPreview boxes={boxes} />
-          <PageHandles minSize={minSize} onDraft={setDraftPage} />
+    <BoxContextMenu>
+      <div className={styles.canvas} data-ready={needsTidy ? undefined : true} {...{ [MAP_VIEW_ATTRIBUTE]: true }}>
+        <div className={styles.sheet}>
+          <div
+            className={styles.page}
+            style={{ width: page.width, height: page.height }}
+            onDoubleClick={onPageDoubleClick}
+            {...{ [MAP_PAGE_ATTRIBUTE]: true }}
+          >
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              nodeOrigin={CENTER_ORIGIN}
+              onNodesChange={onNodesChange}
+              onPaneClick={onPaneClick}
+              // Moving and connecting are hand-written (useBoxGestures), so
+              // they go through the store, never React Flow's own state.
+              nodesDraggable={false}
+              nodesConnectable={false}
+              elementsSelectable={false}
+              // The camera is locked; the wheel scrolls the page natively.
+              panOnDrag={false}
+              panOnScroll={false}
+              zoomOnScroll={false}
+              zoomOnPinch={false}
+              zoomOnDoubleClick={false}
+              preventScrolling={false}
+              minZoom={1}
+              maxZoom={1}
+              panActivationKeyCode={null}
+              selectionKeyCode={null}
+              multiSelectionKeyCode={null}
+              deleteKeyCode={null}
+              disableKeyboardA11y
+              // Bottom-right belongs to the version badge.
+              attributionPosition="top-right"
+            />
+            <ConnectPreview boxes={boxes} />
+            <PageHandles minSize={minSize} onDraft={setDraftPage} />
+          </div>
         </div>
       </div>
-    </div>
+    </BoxContextMenu>
   );
 }
 
