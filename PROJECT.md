@@ -167,8 +167,10 @@ problems): arrow labels can't be edited from the keyboard.
   (a page you size by hand isn't wanted), along with the paper card's
   border and margin. The page grows past the screen only where boxes
   need it. The owner had asked earlier for "a handle bar like Boardkit's
-  and Treekit's"; it was wrongly built as the page's resize handles.
-  What that handle bar should be is still to be confirmed with the owner.
+  and Treekit's"; it was wrongly built as the page's resize handles. The
+  owner meant the thin native scrollbar Boardkit shows when the board is
+  wider than the window: Linkkit already styles it the same way
+  (`styles/global.css`), so a map bigger than the screen gets that bar.
   `LinkMap.page` stays in the saved map (it records the size of the last
   Tidy up) but no longer decides what is drawn.
 - Step 7 choices (the prototype has no undo or colours, so Treekit is the
