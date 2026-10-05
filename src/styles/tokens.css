@@ -75,7 +75,9 @@
   --connect-dash: 6 5;
 
   /* ---- The page ---- */
-  --page-dot-gap: 22px;
+  /* Treekit's canvas dots: 1.5px across, every 24px. */
+  --page-dot-gap: 24px;
+  --page-dot-radius: 0.75px;
 
   /* ---- Stacking order ---- */
   --z-canvas: 1;
@@ -132,7 +134,7 @@
   /* The page: arrows, the dot grid and the paper itself. */
   --edge-stroke: rgba(255, 255, 255, 0.28);
   --canvas-dots: rgba(255, 255, 255, 0.07);
-  --page-paper: #181c22;
+  --page-paper: var(--surface-app);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.45);
@@ -168,7 +170,7 @@
 
   --edge-stroke: rgba(0, 0, 0, 0.3);
   --canvas-dots: rgba(0, 0, 0, 0.09);
-  --page-paper: #f7f9fa;
+  --page-paper: var(--surface-app);
 
   --shadow-sm: 0 1px 2px rgba(20, 30, 50, 0.14);
   --shadow-md: 0 2px 6px rgba(20, 30, 50, 0.18);

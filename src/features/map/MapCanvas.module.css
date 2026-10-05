@@ -16,7 +16,7 @@
    reach further. */
 .page {
   position: relative;
-  background-image: radial-gradient(var(--canvas-dots) 1px, transparent 1.2px);
+  background-image: radial-gradient(var(--canvas-dots) var(--page-dot-radius), transparent calc(var(--page-dot-radius) + 0.25px));
   background-size: var(--page-dot-gap) var(--page-dot-gap);
 }
 

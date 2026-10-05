@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-05, v0.0.9 (page is one screen; "More room" and the corner grip removed)_
+_Last updated: 2026-10-05, v0.0.10 (page in Treekit's darker tone)_
 
 ## What it is
 
@@ -58,7 +58,8 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   box's hover toolbar for the same row of dots; with a box selected, keys
   1–8 pick a colour and 0 clears it. The box's colour now has a ring
   around its dot
-- The page: dotted paper filling the whole screen under the header, as in
+- The page: dotted paper filling the whole screen under the header, in
+  Treekit's darker tone and dots (app background, 1.5px dots every 24px), as in
   Treekit (no card, no border, nothing to resize). It only grows past the
   screen where the boxes need it (a big map after Tidy up, or a window
   made smaller), and then the screen scrolls. Boxes look like Treekit's nodes (wrap past 220px, palette colours
