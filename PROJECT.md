@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-05, v0.0.14 (a scrollbar you can see)_
+_Last updated: 2026-10-05, v0.0.14 (engine files described)_
 
 ## What it is
 
@@ -140,19 +140,54 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   direction switch) place the map at the chosen spot too. The choice is
   remembered by the browser for every map (`linkkit:align`), not saved
   with a map. Centred until something else is chosen
-- The engine underneath, all in `src/domain/` with tests: the map model
-  (boxes with a centre position and an optional colour, arrows with a
-  label), the one place that decides which arrows are allowed, "needs /
-  breaks" reach and the status-bar counts, a loop-safe Tidy-up layout (top-down, or the same turned on its side
-  for left-right; the gap between rows from the arrow length and the
-  labels),
-  page sizing (the screen, or the boxes' reach; keeping boxes on the
-  page; a free spot for a new box; placing a block of boxes at an
-  alignment), arrow geometry (with side-by-side
-  opposite arrows) and label placement, the glide's easing, the undo
-  history (steps, joining a drag into one step), saving with a
-  version number and repair of damaged saves, the list of saved maps
-  (and "(copy)" names), and the example map
+- The engine underneath: pure TypeScript in `src/domain/` (no React, no
+  store), each file with a Vitest test beside it:
+  - `types.ts`: the model. A map is `{ id, name, kind, page, direction,
+    arrowLength, nodes, links }`; `nodes` and `links` are flat
+    `Record<id, …>` maps. A box is `{ id, name, x, y, color }` (x, y is
+    its centre); an arrow is `{ id, from, to, label }`, read "from needs
+    to". `kind` names the map's rule set; only `"connections"` exists
+  - `rules.ts`: the one place that says whether an arrow may be drawn,
+    `canLink(map, from, to)`. It looks up a rule by `map.kind` in a
+    `RULES` table; "connections" refuses only a missing box, a box
+    needing itself, or an exact repeat (loops and reverse arrows are
+    allowed). The drag (to show valid drop targets), adding an arrow and
+    repairing a save all ask it, so a new kind (say, a tree: one parent,
+    no loops) is one more entry in the table
+  - `map.ts`: every edit as a function that returns a new map (add /
+    rename / move / colour / delete a box, add / relabel / delete an
+    arrow, rename / duplicate the map, direction, arrow length, page)
+  - `reach.ts`: "needs / breaks" (walking the arrows forward or
+    backward), each box's and arrow's highlight, and the status-line
+    counts
+  - `layout.ts`: Tidy up, `layoutMap(map, sizes, options, direction)`.
+    In: the map, each box's measured size, the gaps. Out: a centre for
+    every box, the block's outer edges, and which arrows were set aside
+    to break loops. It never moves anything itself: the canvas
+    (`features/map/MapCanvas.tsx`) calls it, `page.ts` places the result
+    at the chosen alignment, and the store saves the new positions as one
+    undo step. The method is a small hand-written layered layout: set one
+    arrow of each loop aside, put each box one row below the lowest box
+    that needs it, order each row by where the boxes above it sit, centre
+    the rows. Left-right runs the same thing on its side (width and
+    height swapped, then x and y swapped back). `arrowGap` turns the
+    arrow length plus the widest label into the gap between rows. It is
+    the only file that knows how placement works, so another algorithm
+    (or a library, if the owner agrees) is a swap of this one function
+  - `page.ts`: page sizing (the screen, or the boxes' reach), keeping a
+    box on the page, a free spot for a new box, placing a block of boxes
+    at an alignment
+  - `geometry.ts` and `labels.ts`: where an arrow starts and ends on a
+    box's edge (opposite arrows side by side), and sliding labels apart
+  - `glide.ts`: the easing of Tidy up's glide
+  - `history.ts`: undo steps (each stores only what changed; a drag
+    joined into one step)
+  - `persistence.ts` and `registry.ts`: saving a map with a version
+    number and repairing a damaged save (an unknown `kind` can't be
+    read; arrows the rules refuse are dropped), and the list of saved
+    maps (with "(copy)" names)
+  - `example.ts`, `ids.ts`, `testMaps.ts`: the example map, ids, test
+    fixtures
 
 ## What's next
 
