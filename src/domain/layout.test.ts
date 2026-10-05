@@ -84,3 +84,45 @@ describe("layoutMap", () => {
     expect(bounds).toEqual({ left: 0, top: 0, right: 0, bottom: 0 });
   });
 });
+
+describe("layoutMap left-right", () => {
+  const map = build(["a", "b", "c"], [["a", "b"], ["a", "c"]]);
+  const wide = new Map<NodeId, Size>([
+    [asNodeId("a"), { width: 200, height: 40 }],
+    [asNodeId("b"), { width: 100, height: 40 }],
+    [asNodeId("c"), { width: 100, height: 60 }],
+  ]);
+
+  it("puts a box left of what it needs, rows becoming columns", () => {
+    const { positions } = layoutMap(map, wide, options, "LR");
+    const a = positions.get(asNodeId("a"))!;
+    const b = positions.get(asNodeId("b"))!;
+    const c = positions.get(asNodeId("c"))!;
+    // a is 200 wide: its column ends at 200, then rowGap, then b and c.
+    expect(a).toEqual({ x: 100, y: 0 });
+    expect(b.x).toBe(200 + 70 + 50);
+    expect(c.x).toBe(b.x);
+    // b and c stack top to bottom, columnGap apart, centred on y = 0.
+    // (40 + 30 + 60 = 130 tall, from -65 to 65.)
+    expect(b.y).toBe(-45);
+    expect(c.y).toBe(35);
+  });
+
+  it("is the top-down layout with x and y swapped (on swapped sizes)", () => {
+    const swapped = new Map([...wide].map(([id, s]) => [id, { width: s.height, height: s.width }]));
+    const down = layoutMap(map, swapped, { ...options, fallbackSize: { width: 36, height: 100 } }, "TB");
+    const across = layoutMap(map, wide, options, "LR");
+    for (const [id, p] of down.positions) expect(across.positions.get(id)).toEqual({ x: p.y, y: p.x });
+    expect(across.bounds).toEqual({
+      left: down.bounds.top,
+      top: down.bounds.left,
+      right: down.bounds.bottom,
+      bottom: down.bounds.right,
+    });
+  });
+
+  it("follows the map's own direction by default", () => {
+    const lr = { ...map, direction: "LR" as const };
+    expect(layoutMap(lr, wide, options)).toEqual(layoutMap(map, wide, options, "LR"));
+  });
+});

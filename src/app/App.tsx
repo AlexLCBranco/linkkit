@@ -1,4 +1,6 @@
 import { AddBoxButton } from "../features/map/AddBoxButton";
+import { AlignPanel } from "../features/map/AlignPanel";
+import { DirectionToggle } from "../features/map/DirectionToggle";
 import { HistoryButtons } from "../features/map/HistoryButtons";
 import { MapCanvas } from "../features/map/MapCanvas";
 import { ReachStatus } from "../features/map/ReachStatus";
@@ -22,6 +24,8 @@ export function App() {
         <AddBoxButton />
         <TidyButton />
         <HistoryButtons />
+        <DirectionToggle />
+        <AlignPanel />
       </header>
       <div className={styles.status} aria-live="polite">
         <ReachStatus />

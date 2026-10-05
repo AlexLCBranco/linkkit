@@ -14,6 +14,7 @@ import {
   renameNode,
   setLinkLabel,
   setNodeColor,
+  setDirection,
   setPage,
 } from "./map";
 import { build } from "./testMaps";
@@ -74,6 +75,13 @@ describe("map edits", () => {
     expect(setPage(map, { width: 800, height: 600 })).toBe(map);
     expect(setPage(map, { width: 900, height: 600 }).page.width).toBe(900);
     expect(map.nodes[c]).toBeDefined();
+  });
+
+  it("switches direction, top-down by default", () => {
+    const map = build(["c"]);
+    expect(map.direction).toBe("TB");
+    expect(setDirection(map, "TB")).toBe(map);
+    expect(setDirection(map, "LR").direction).toBe("LR");
   });
 
   it("duplicates a map under a new id and name, sharing its content", () => {

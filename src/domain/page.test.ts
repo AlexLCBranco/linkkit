@@ -4,6 +4,7 @@ import { asNodeId } from "./ids";
 import { layoutMap } from "./layout";
 import { moveNode } from "./map";
 import {
+  boxBounds,
   clampToPage,
   defaultPageSize,
   freeSpot,
@@ -11,6 +12,7 @@ import {
   pageSize,
   placeOnPage,
   visibleCenter,
+  type Align,
 } from "./page";
 import { build } from "./testMaps";
 import type { NodeId, Size } from "./types";
@@ -94,5 +96,26 @@ describe("page", () => {
 
     const tight = placeOnPage(layout, { width: 200, height: 100 }, { x: 50, y: 60 });
     expect(tight.page).toEqual({ width: 330, height: 262 });
+  });
+
+  it("aligns a layout flush to either edge, margin in from it", () => {
+    // 230 wide (two 100s and a 30 gap), 142 tall; "a" is top-centre.
+    const map = build(["a", "b", "c"], [["a", "b"], ["a", "c"]]);
+    const layout = layoutMap(map, noSizes, { columnGap: 30, rowGap: 70, fallbackSize: box });
+    const screen = { width: 800, height: 600 };
+    const at = (x: Align, y: Align) => placeOnPage(layout, screen, { x: 50, y: 60 }, { x, y }).positions.get(asNodeId("a"));
+    expect(at("start", "start")).toEqual({ x: 50 + 115, y: 60 + 18 });
+    expect(at("end", "end")).toEqual({ x: 800 - 50 - 115, y: 600 - 60 - 142 + 18 });
+    // With no spare room there is nothing to align in: start and end agree.
+    const tight = (x: Align) => placeOnPage(layout, { width: 200, height: 100 }, { x: 50, y: 60 }, { x, y: x });
+    expect(tight("end").positions).toEqual(tight("start").positions);
+  });
+
+  it("measures the edges of the boxes where they are", () => {
+    let map = moveNode(build(["a", "b"]), asNodeId("a"), { x: 100, y: 50 });
+    map = moveNode(map, asNodeId("b"), { x: 300, y: 200 });
+    const sizes = new Map<NodeId, Size>([[asNodeId("b"), { width: 40, height: 20 }]]);
+    expect(boxBounds(map, sizes, box)).toEqual({ left: 50, top: 32, right: 320, bottom: 210 });
+    expect(boxBounds(build([]), sizes, box)).toEqual({ left: 0, top: 0, right: 0, bottom: 0 });
   });
 });

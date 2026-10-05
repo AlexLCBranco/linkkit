@@ -16,13 +16,14 @@ import {
   renameMap,
   renameNode,
   setLinkLabel,
+  setDirection,
   setNodeColor,
   setPage,
 } from "../domain/map";
 import { defaultPageSize } from "../domain/page";
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
-import type { LinkId, LinkMap, MapId, NodeId, PaletteColor, Point, Size } from "../domain/types";
+import type { LayoutDirection, LinkId, LinkMap, MapId, NodeId, PaletteColor, Point, Size } from "../domain/types";
 import { deleteStoredMap, loadActiveMapId, loadMap, loadRegistry, saveActiveMapId, saveMap } from "./persistMap";
 import { cancelSave, flushSave } from "./saveQueue";
 
@@ -36,6 +37,14 @@ export interface Connecting {
   readonly at: Point;
   /** The box under the pointer, if the rules allow an arrow to it. */
   readonly target: NodeId | null;
+}
+
+/** A press of "Tidy up" (or of the Top-down / Left-right switch, which
+    tidies in the new direction). */
+export interface TidyRequest {
+  /** Counts presses: the canvas tidies when it changes. */
+  readonly count: number;
+  readonly direction: LayoutDirection;
 }
 
 /**
@@ -63,7 +72,7 @@ export interface MapState {
   readonly connecting: Connecting | null;
   /** Bumped by the "Tidy up" button. The canvas, which knows every box's
       measured size, watches it, tidies and glides the boxes there. */
-  readonly tidyRequest: number;
+  readonly tidyRequest: TidyRequest;
   readonly history: history.History;
   /** Which edit the latest undo step belongs to (a drag, a new box being
       named), so the next edit with the same key joins that step instead of
@@ -75,13 +84,15 @@ export interface MapState {
       while another map is open. */
   readonly histories: Readonly<Record<MapId, history.History>>;
 
-  /** Puts every box where Tidy up said and records the page size it used,
-      in one change. */
-  placeAll(positions: ReadonlyMap<NodeId, Point>, page: Size): void;
+  /** Puts every box where Tidy up (or Align) said, and records the page
+      size and direction Tidy up used, in one change. */
+  placeAll(positions: ReadonlyMap<NodeId, Point>, page?: Size, direction?: LayoutDirection): void;
   /** Selects a box (`null` clears the selection). */
   select(id: NodeId | null): void;
-  /** Asks the canvas to tidy the map up (see `tidyRequest`). */
-  requestTidy(): void;
+  /** Asks the canvas to tidy the map up (see `tidyRequest`), in the
+      map's own direction unless another is given: switching direction
+      is a tidy in the new one, saved as one change with it. */
+  requestTidy(direction?: LayoutDirection): void;
   undo(): void;
   redo(): void;
 
@@ -233,20 +244,23 @@ export const useMapStore = create<MapState>()((set, get) => ({
   selected: null,
   editing: null,
   connecting: null,
-  tidyRequest: 0,
+  tidyRequest: { count: 0, direction: "TB" },
   history: history.EMPTY_HISTORY,
   stepKey: null,
   histories: {},
 
   // The example's first tidy places boxes that were never shown anywhere
   // else: not something to undo back to.
-  placeAll: (positions, page) =>
+  placeAll: (positions, page, direction) =>
     set((s) => {
-      const next = setPage(moveNodes(s.map, positions), page);
+      let next = moveNodes(s.map, positions);
+      if (page) next = setPage(next, page);
+      if (direction) next = setDirection(next, direction);
       return s.needsTidy ? { map: next, needsTidy: false } : commit(s, next);
     }),
   select: (id) => set({ selected: id }),
-  requestTidy: () => set((s) => ({ tidyRequest: s.tidyRequest + 1 })),
+  requestTidy: (direction) =>
+    set((s) => ({ tidyRequest: { count: s.tidyRequest.count + 1, direction: direction ?? s.map.direction } })),
 
   // Undo and redo apply a recorded patch directly; they never go through
   // `commit`, or undoing would record an "undo the undo" step. Typing is

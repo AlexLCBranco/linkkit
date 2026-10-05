@@ -44,8 +44,26 @@ describe("map store", () => {
     const useMapStore = await freshStore();
     const before = useMapStore.getState().map;
     useMapStore.getState().requestTidy();
-    expect(useMapStore.getState().tidyRequest).toBe(1);
+    expect(useMapStore.getState().tidyRequest).toEqual({ count: 1, direction: "TB" });
     expect(useMapStore.getState().map).toBe(before);
+    useMapStore.getState().requestTidy("LR");
+    expect(useMapStore.getState().tidyRequest).toEqual({ count: 2, direction: "LR" });
+    expect(useMapStore.getState().map).toBe(before);
+  });
+
+  it("switches direction and moves the boxes as one undo step", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().placeAll(new Map(), { width: 1200, height: 700 });
+    const before = useMapStore.getState().map;
+    const id = Object.keys(before.nodes)[0] as NodeId;
+    useMapStore.getState().placeAll(new Map([[id, { x: 5, y: 6 }]]), undefined, "LR");
+    const after = useMapStore.getState().map;
+    expect(after.direction).toBe("LR");
+    expect(after.nodes[id]).toMatchObject({ x: 5, y: 6 });
+    expect(after.page).toBe(before.page);
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.direction).toBe("TB");
+    expect(useMapStore.getState().map.nodes[id]).toEqual(before.nodes[id]);
   });
 
   it("adds a box ready for typing, and drops it if left without a name", async () => {

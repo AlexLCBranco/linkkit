@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-05, v0.0.10 (page in Treekit's darker tone)_
+_Last updated: 2026-10-05, v0.0.11 (Top-down / Left-right and Align, from Treekit)_
 
 ## What it is
 
@@ -26,10 +26,12 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
 
 ## What works now
 
-- Dark header (with the map switcher, "Add box", "Tidy up", and undo /
-  redo buttons), status line, version badge. On a phone-sized window
-  (480px or less) "Add box" and "Tidy up" show only their icons, so the
-  map's name has room; their tooltips still say what they do
+- Dark header (with the map switcher, "Add box", "Tidy up", undo /
+  redo, the Top-down / Left-right switch and "Align"), status line,
+  version badge. On a phone-sized window
+  (480px or less) "Add box" and "Tidy up" show only their icons, and
+  Top-down / Left-right show a down / right arrow, so the map's name has
+  room; their tooltips still say what they do
 - Keyboard extras for boxes: Tab moves through the boxes (and each box's
   toolbar buttons, which show while it has focus); Enter on a box selects
   it, as in the prototype. Tab skips the arrow lines; an arrow label's ×
@@ -103,12 +105,26 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   the map needs more room), and the boxes glide there with their arrows attached. Saved as
   one change. With "reduce motion" switched on in the system, they jump
   there instead
+- Top-down / Left-right (Treekit's switch): which way Tidy up lays the
+  map out. Left-right puts each box to the left of what it needs, in
+  columns. Picking the other one tidies the map that way at once (the
+  boxes glide); the direction is saved with each map, and switching is
+  one undo step. "Tidy up" then keeps using that direction
+- Align (Treekit's panel): left / centre / right and top / middle /
+  bottom for the whole map on the screen. The boxes glide there together,
+  keeping their shape (one undo step); pressing the spot already chosen
+  puts a map back there after boxes were dragged. Tidy up (and the
+  direction switch) place the map at the chosen spot too. The choice is
+  remembered by the browser for every map (`linkkit:align`), not saved
+  with a map. Centred until something else is chosen
 - The engine underneath, all in `src/domain/` with tests: the map model
   (boxes with a centre position and an optional colour, arrows with a
   label), the one place that decides which arrows are allowed, "needs /
-  breaks" reach and the status-bar counts, a loop-safe Tidy-up layout,
+  breaks" reach and the status-bar counts, a loop-safe Tidy-up layout (top-down, or the same turned on its side
+  for left-right),
   page sizing (the screen, or the boxes' reach; keeping boxes on the
-  page; a free spot for a new box), arrow geometry (with side-by-side
+  page; a free spot for a new box; placing a block of boxes at an
+  alignment), arrow geometry (with side-by-side
   opposite arrows) and label placement, the glide's easing, the undo
   history (steps, joining a drag into one step), saving with a
   version number and repair of damaged saves, the list of saved maps
@@ -132,6 +148,7 @@ The first build, in order:
    example map" (replaces the prototype's "Reset example": it adds a
    fresh example map and never wipes one)~~ (done)
 9. ~~Polish and a full check against the "done when" list~~ (done)
+10. ~~Treekit's view modes: Top-down / Left-right and Align~~ (done)
 
 The first build is complete. Nothing further is planned yet: the owner
 picks what comes next. Small things noticed but left alone (see Open
@@ -203,3 +220,12 @@ problems): arrow labels can't be edited from the keyboard.
   header buttons no longer wrap onto two lines on a narrow window. If
   the original "done when" list still exists somewhere, add it here and
   re-check against it.
+- Step 10 (owner asked for Treekit's "Top-down / Left-right" and "Align"
+  header controls): Treekit's look and names. Differences, because
+  Linkkit's camera is locked and boxes sit where they are put: Align moves
+  the boxes (an undoable change) where Treekit moves its view, and the
+  direction only matters when the map is tidied, so switching it tidies.
+  The direction is part of the map (saved, undoable; older saves read as
+  top-down without counting as a repair); the alignment is a browser-wide
+  view preference, as in Treekit. On a phone-sized window the header's
+  gaps are tighter so the map's name keeps some room.

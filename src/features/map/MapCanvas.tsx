@@ -5,9 +5,10 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { linkGeometry, type Box, type LinkGeometry } from "../../domain/geometry";
 import { placeLabels } from "../../domain/labels";
 import { layoutMap } from "../../domain/layout";
-import { clampToPage, keepOnPage, pageSize, placeOnPage } from "../../domain/page";
+import { boxBounds, clampToPage, keepOnPage, pageSize, placeOnPage } from "../../domain/page";
 import type { LinkId, NodeId, Point, Size } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
+import { useViewStore } from "../../store/viewStore";
 import { BoxContextMenu } from "./BoxContextMenu";
 import { BoxView, type BoxFlowNode } from "./BoxView";
 import { ConnectPreview } from "./ConnectPreview";
@@ -58,9 +59,11 @@ const FILL = { width: "100%", height: "100%" };
  * LinkEdgeView). A box that grows past the screen's edge (a longer name, a
  * smaller window) is moved back onto it.
  *
- * Tidy up (asked for by the header button) runs here, because only the
- * canvas knows each box's size; the boxes glide to their new places,
- * centred on the screen.
+ * Tidy up (asked for by the header button, or by switching between
+ * Top-down and Left-right) runs here, because only the canvas knows each
+ * box's size; the boxes glide to their new places, set on the screen where
+ * the Align panel says (centred unless chosen otherwise). Align itself
+ * moves the whole map there as it is, and glides the same way.
  */
 function MapCanvasInner() {
   const map = useMapStore((s) => s.map);
@@ -106,7 +109,8 @@ function MapCanvasInner() {
 
   useEffect(() => {
     if (!needsTidy || !allMeasured || !screen) return;
-    const placed = placeOnPage(layoutMap(map, sizes, MAP_LAYOUT), screen, PAGE_MARGIN);
+    const align = useViewStore.getState().alignment;
+    const placed = placeOnPage(layoutMap(map, sizes, MAP_LAYOUT), screen, PAGE_MARGIN, align);
     placeAll(placed.positions, placed.page);
   }, [needsTidy, allMeasured, screen, map, sizes, placeAll]);
 
@@ -164,24 +168,42 @@ function MapCanvasInner() {
     [addBox, screenToFlowPosition],
   );
 
-  // Tidy up (the header button): the new places go into the store at once,
-  // as one change; `useGlide` then draws the boxes on their way there.
+  // Tidy up and Align: the new places go into the store at once, as one
+  // change; `useGlide` then draws the boxes on their way there.
   const glide = useGlide(map.nodes, TIDY_GLIDE_MS);
   const startGlide = glide.start;
-  useEffect(
-    () =>
-      useMapStore.subscribe((s, prev) => {
-        if (s.tidyRequest === prev.tidyRequest || s.needsTidy) return;
-        const before = s.map;
-        const screen = screenRef.current;
-        if (!screen) return;
-        const placed = placeOnPage(layoutMap(before, sizesRef.current, MAP_LAYOUT), screen, PAGE_MARGIN);
-        const from = new Map<NodeId, Point>(Object.values(before.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
-        s.placeAll(placed.positions, placed.page);
-        startGlide(from, useMapStore.getState().map.nodes);
-      }),
-    [startGlide],
-  );
+  useEffect(() => {
+    const centres = (m: typeof map) => new Map<NodeId, Point>(Object.values(m.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
+    const glideFrom = (from: Map<NodeId, Point>) => startGlide(from, useMapStore.getState().map.nodes);
+    // Tidy up, in the direction asked for (switching Top-down / Left-right
+    // is a tidy in the new direction, saved together with it).
+    const offTidy = useMapStore.subscribe((s, prev) => {
+      if (s.tidyRequest === prev.tidyRequest || s.needsTidy) return;
+      const screen = screenRef.current;
+      if (!screen) return;
+      const { direction } = s.tidyRequest;
+      const layout = layoutMap(s.map, sizesRef.current, MAP_LAYOUT, direction);
+      const placed = placeOnPage(layout, screen, PAGE_MARGIN, useViewStore.getState().alignment);
+      const from = centres(s.map);
+      s.placeAll(placed.positions, placed.page, direction);
+      glideFrom(from);
+    });
+    // Align: the whole map moves as one block, its shape untouched.
+    const offAlign = useViewStore.subscribe((v, prev) => {
+      const s = useMapStore.getState();
+      const screen = screenRef.current;
+      if (v.applied === prev.applied || s.needsTidy || !screen) return;
+      const from = centres(s.map);
+      const bounds = boxBounds(s.map, sizesRef.current, MAP_LAYOUT.fallbackSize);
+      const placed = placeOnPage({ positions: from, bounds }, screen, PAGE_MARGIN, v.alignment);
+      s.placeAll(placed.positions);
+      glideFrom(from);
+    });
+    return () => {
+      offTidy();
+      offAlign();
+    };
+  }, [startGlide]);
   const at = useCallback((id: NodeId): Point => glide.shown?.get(id) ?? map.nodes[id], [glide.shown, map.nodes]);
 
   const nodes = useMemo<BoxFlowNode[]>(

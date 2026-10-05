@@ -1,6 +1,6 @@
 import { canLink } from "./rules";
-import type { Link, LinkId, LinkMap, MapId, MapKind, MapNode, NodeId, PaletteColor, Size } from "./types";
-import { DEFAULT_LINK_LABEL, MAP_KINDS, PALETTE_COLORS } from "./types";
+import type { LayoutDirection, Link, LinkId, LinkMap, MapId, MapKind, MapNode, NodeId, PaletteColor, Size } from "./types";
+import { DEFAULT_LINK_LABEL, LAYOUT_DIRECTIONS, MAP_KINDS, PALETTE_COLORS } from "./types";
 
 /**
  * The saved shape of a map, and how to read it back safely. Pure: where it
@@ -20,10 +20,13 @@ export interface PersistedMap {
 }
 
 export function serializeMap(map: LinkMap): PersistedMap {
-  const { id, name, kind, page, nodes, links } = map;
+  const { id, name, kind, page, direction, nodes, links } = map;
   // Copies out exactly the content fields, so nothing else that happens to
   // ride along on the object can leak into storage.
-  return { version: SCHEMA_VERSION, map: { id, name, kind, page: { width: page.width, height: page.height }, nodes, links } };
+  return {
+    version: SCHEMA_VERSION,
+    map: { id, name, kind, page: { width: page.width, height: page.height }, direction, nodes, links },
+  };
 }
 
 export type MapRead =
@@ -71,6 +74,15 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
       ? { width: rawPage.width, height: rawPage.height }
       : fix(fallbackPage);
 
+  // Saves from before the direction existed have none: they were top-down.
+  // That is not damage, so it is not counted as a repair.
+  const direction: LayoutDirection =
+    raw.direction === undefined
+      ? "TB"
+      : LAYOUT_DIRECTIONS.includes(raw.direction as LayoutDirection)
+        ? (raw.direction as LayoutDirection)
+        : fix("TB");
+
   // Boxes.
   const rawNodes: Record<string, unknown> = isObject(raw.nodes) ? raw.nodes : fix({});
   const nodes: Record<NodeId, MapNode> = {};
@@ -95,7 +107,7 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
   // far, so an exact repeat is caught the same way the UI would catch it.
   const rawLinks: Record<string, unknown> = isObject(raw.links) ? raw.links : fix({});
   const links: Record<LinkId, Link> = {};
-  const map: LinkMap = { id: raw.id as MapId, name, kind, page, nodes, links };
+  const map: LinkMap = { id: raw.id as MapId, name, kind, page, direction, nodes, links };
   for (const [key, link] of Object.entries(rawLinks)) {
     if (!isObject(link) || typeof link.from !== "string" || typeof link.to !== "string") {
       fix(null);

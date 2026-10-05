@@ -33,6 +33,12 @@ export const PALETTE_COLORS = [
 ] as const;
 export type PaletteColor = (typeof PALETTE_COLORS)[number];
 
+/** Which way Tidy up lays a map out: "TB" top-down (a box above what it
+    needs), "LR" left-right (a box to the left of what it needs). Treekit's
+    two directions and names. */
+export const LAYOUT_DIRECTIONS = ["TB", "LR"] as const;
+export type LayoutDirection = (typeof LAYOUT_DIRECTIONS)[number];
+
 /** The word an arrow shows when its label is left empty. */
 export const DEFAULT_LINK_LABEL = "needs";
 
@@ -75,6 +81,9 @@ export interface LinkMap {
       the canvas draws the page as the screen, or bigger where the boxes
       reach further (see domain/page.ts). */
   readonly page: Size;
+  /** Which way Tidy up lays the map out. Saved with the map, and undoable:
+      switching it re-tidies the boxes. */
+  readonly direction: LayoutDirection;
   readonly nodes: Readonly<Record<NodeId, MapNode>>;
   readonly links: Readonly<Record<LinkId, Link>>;
 }

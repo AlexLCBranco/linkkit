@@ -1,0 +1,56 @@
+/* Treekit's Top-down / Left-right switch. */
+.group {
+  display: inline-flex;
+  flex-shrink: 0;
+  padding: 2px;
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-subtle);
+}
+
+.option {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  transition:
+    background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.option:hover {
+  color: var(--text-primary);
+}
+
+.option[aria-checked="true"] {
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.icon {
+  display: none;
+}
+
+/* On a phone-sized window an arrow stands in for each word (as the other
+   header buttons drop theirs); the word stays for screen readers. */
+@media (max-width: 480px) {
+  .option {
+    padding: var(--space-1) var(--space-2);
+  }
+
+  .icon {
+    display: block;
+  }
+
+  .word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+}

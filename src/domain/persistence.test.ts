@@ -28,6 +28,16 @@ describe("readMap", () => {
     expect(readMap({ ...saved, map: { ...saved.map, id: 7 } }, fallbackPage).status).toBe("unreadable");
   });
 
+  it("keeps the direction, reads an older save (none) as top-down, repairs a bad one", () => {
+    const map = { ...build(["a"]), direction: "LR" as const };
+    expect(readMap(roundTrip(serializeMap(map)), fallbackPage)).toEqual({ status: "ok", map });
+    const old = roundTrip(serializeMap(map));
+    delete old.map.direction;
+    expect(readMap(old, fallbackPage)).toMatchObject({ status: "ok", map: { direction: "TB" } });
+    old.map.direction = "sideways";
+    expect(readMap(old, fallbackPage)).toMatchObject({ status: "repaired", map: { direction: "TB" }, fixes: 1 });
+  });
+
   it("repairs bad fields and drops arrows the rules would refuse", () => {
     const data = roundTrip(serializeMap(build(["a", "b"], [["a", "b"]])));
     data.map.name = "";

@@ -1,6 +1,18 @@
 import { createLinkId, createNodeId } from "./ids";
 import { canLink, type LinkVerdict } from "./rules";
-import type { Link, LinkId, LinkMap, MapId, MapKind, MapNode, NodeId, PaletteColor, Point, Size } from "./types";
+import type {
+  LayoutDirection,
+  Link,
+  LinkId,
+  LinkMap,
+  MapId,
+  MapKind,
+  MapNode,
+  NodeId,
+  PaletteColor,
+  Point,
+  Size,
+} from "./types";
 import { DEFAULT_LINK_LABEL } from "./types";
 
 /**
@@ -11,7 +23,7 @@ import { DEFAULT_LINK_LABEL } from "./types";
  */
 
 export function createMap(id: MapId, name: string, page: Size, kind: MapKind = "connections"): LinkMap {
-  return { id, name, kind, page, nodes: {}, links: {} };
+  return { id, name, kind, page, direction: "TB", nodes: {}, links: {} };
 }
 
 /** Tidies a typed name: runs of whitespace become one space, ends trimmed. */
@@ -101,6 +113,9 @@ export function renameMap(map: LinkMap, name: string): LinkMap {
 export function duplicateMap(map: LinkMap, id: MapId, name: string): LinkMap {
   return { ...map, id, name: cleanName(name) || map.name };
 }
+
+export const setDirection = (map: LinkMap, direction: LayoutDirection): LinkMap =>
+  direction === map.direction ? map : { ...map, direction };
 
 export function setPage(map: LinkMap, page: Size): LinkMap {
   return page.width === map.page.width && page.height === map.page.height ? map : { ...map, page };

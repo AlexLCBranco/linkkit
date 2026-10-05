@@ -1,4 +1,4 @@
-import type { LinkId, LinkMap, NodeId, Point, Size } from "./types";
+import type { LayoutDirection, LinkId, LinkMap, NodeId, Point, Size } from "./types";
 
 /**
  * Tidy up: turns a map plus each box's measured size into box centres. This
@@ -21,6 +21,11 @@ import type { LinkId, LinkMap, NodeId, Point, Size } from "./types";
  *     arrows run as straight as cheaply possible. Ties keep creation order,
  *     which makes the result deterministic.
  *  4. Centre every row on x = 0; rows stack from y = 0 downward.
+ *
+ * Left-right is the same layout turned on its side: it runs top-down on
+ * boxes with width and height swapped, then swaps x and y back, so rows
+ * become columns (a box left of what it needs) and every gap keeps its
+ * meaning along the arrows ("rowGap") and across them ("columnGap").
  */
 
 export interface LayoutOptions {
@@ -117,7 +122,25 @@ export function layerNodes(map: LinkMap, loopLinks: ReadonlySet<LinkId> = loopBr
   return layer;
 }
 
-export function layoutMap(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, options: LayoutOptions): MapLayout {
+export function layoutMap(
+  map: LinkMap,
+  sizes: ReadonlyMap<NodeId, Size>,
+  options: LayoutOptions,
+  direction: LayoutDirection = map.direction,
+): MapLayout {
+  if (direction === "TB") return layoutTopDown(map, sizes, options);
+  const flip = ({ width, height }: Size): Size => ({ width: height, height: width });
+  const flipped = new Map([...sizes].map(([id, s]) => [id, flip(s)]));
+  const down = layoutTopDown(map, flipped, { ...options, fallbackSize: flip(options.fallbackSize) });
+  const b = down.bounds;
+  return {
+    positions: new Map([...down.positions].map(([id, p]) => [id, { x: p.y, y: p.x }])),
+    bounds: { left: b.top, top: b.left, right: b.bottom, bottom: b.right },
+    loopLinks: down.loopLinks,
+  };
+}
+
+function layoutTopDown(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, options: LayoutOptions): MapLayout {
   const { columnGap, rowGap, fallbackSize } = options;
   const sizeOf = (id: NodeId) => sizes.get(id) ?? fallbackSize;
   const loopLinks = loopBreakingLinks(map);

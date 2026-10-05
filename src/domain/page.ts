@@ -67,28 +67,60 @@ export function pageSize(
   return { width: Math.ceil(width), height: Math.ceil(height) };
 }
 
+/** Start / middle / end of an axis: left-centre-right, or top-middle-bottom
+    (Treekit's names). */
+export type Align = "start" | "center" | "end";
+
+/** Where the whole map sits on the screen, on each axis. */
+export interface PageAlign {
+  readonly x: Align;
+  readonly y: Align;
+}
+
+export const CENTERED: PageAlign = { x: "center", y: "center" };
+
+/** The outer edges of all the boxes, where they are now. */
+export function boxBounds(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, fallbackSize: Size): Bounds {
+  const nodes = Object.values(map.nodes);
+  if (nodes.length === 0) return { left: 0, top: 0, right: 0, bottom: 0 };
+  let left = Infinity;
+  let top = Infinity;
+  let right = -Infinity;
+  let bottom = -Infinity;
+  for (const node of nodes) {
+    const size = sizes.get(node.id) ?? fallbackSize;
+    left = Math.min(left, node.x - size.width / 2);
+    right = Math.max(right, node.x + size.width / 2);
+    top = Math.min(top, node.y - size.height / 2);
+    bottom = Math.max(bottom, node.y + size.height / 2);
+  }
+  return { left, top, right, bottom };
+}
+
 /**
- * Puts a finished layout on the screen: centred on it, or on a bigger page
- * if the layout needs more room than the screen has. `margin` is the clear space wanted around the
- * whole layout on each side.
+ * Puts a group of boxes (a finished layout, or the whole map as it is) on
+ * the screen as one block: flush to the start, centred, or flush to the end
+ * of each axis, `margin` in from the edge. If the block needs more room
+ * than the screen has, the page grows to fit it (and then there is no
+ * spare room to align in). Like Treekit's placeOnPage.
  */
 export function placeOnPage(
-  layout: MapLayout,
+  layout: Pick<MapLayout, "positions" | "bounds">,
   screen: Size,
   margin: { readonly x: number; readonly y: number },
+  align: PageAlign = CENTERED,
 ): { positions: Map<NodeId, Point>; page: Size } {
   const b: Bounds = layout.bounds;
-  const needW = b.right - b.left + 2 * margin.x;
-  const needH = b.bottom - b.top + 2 * margin.y;
-  const next: Size = {
-    width: Math.max(screen.width, Math.ceil(needW)),
-    height: Math.max(screen.height, Math.ceil(needH)),
+  const axis = (lo: number, hi: number, room: number, m: number, a: Align) => {
+    const page = Math.max(room, Math.ceil(hi - lo + 2 * m));
+    const free = page - (hi - lo) - 2 * m;
+    return { page, shift: m + (a === "start" ? 0 : a === "center" ? free / 2 : free) - lo };
   };
-  const dx = next.width / 2 - (b.left + b.right) / 2;
-  const dy = next.height / 2 - (b.top + b.bottom) / 2;
+  const x = axis(b.left, b.right, screen.width, margin.x, align.x);
+  const y = axis(b.top, b.bottom, screen.height, margin.y, align.y);
   const positions = new Map<NodeId, Point>();
-  for (const [id, p] of layout.positions) positions.set(id, { x: p.x + dx, y: p.y + dy });
-  return { positions, page: next };
+  for (const [id, p] of layout.positions) positions.set(id, { x: p.x + x.shift, y: p.y + y.shift });
+  return { positions, page: { width: x.page, height: y.page } };
 }
 
 /**

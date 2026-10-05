@@ -25,3 +25,12 @@
   flex: 1;
   min-height: 0;
 }
+
+/* A phone-sized window: tighter gaps, so the map's name keeps some room
+   beside the buttons. (Media queries can't read CSS variables.) */
+@media (max-width: 480px) {
+  .header {
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+}
