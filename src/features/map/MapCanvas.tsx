@@ -276,6 +276,9 @@ function MapCanvasInner() {
               nodesDraggable={false}
               nodesConnectable={false}
               elementsSelectable={false}
+              // Tab visits boxes (Enter selects one) and arrow labels, not
+              // the arrow lines, which have nothing to do with focus.
+              edgesFocusable={false}
               // The camera is locked; the wheel scrolls the page natively.
               panOnDrag={false}
               panOnScroll={false}

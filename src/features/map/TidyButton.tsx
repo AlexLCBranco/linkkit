@@ -13,7 +13,7 @@ export function TidyButton() {
   return (
     <button type="button" className={styles.button} onClick={requestTidy} title="Arrange the boxes neatly">
       <WandSparkles size={16} />
-      Tidy up
+      <span className={styles.word}>Tidy up</span>
     </button>
   );
 }

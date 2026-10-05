@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-05, v0.0.7 (after step 8)_
+_Last updated: 2026-10-05, v0.0.8 (after step 9)_
 
 ## What it is
 
@@ -27,7 +27,13 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
 ## What works now
 
 - Dark header (with the map switcher, "Add box", "Tidy up", and undo /
-  redo buttons), status line, version badge
+  redo buttons), status line, version badge. On a phone-sized window
+  (480px or less) "Add box" and "Tidy up" show only their icons, so the
+  map's name has room; their tooltips still say what they do
+- Keyboard extras for boxes: Tab moves through the boxes (and each box's
+  toolbar buttons, which show while it has focus); Enter on a box selects
+  it, as in the prototype. Tab skips the arrow lines; an arrow label's ×
+  shows when Tab reaches it
 - Several saved maps (Treekit's tree switcher): click the map's name in
   the header to rename it; the arrow beside it opens a menu listing every
   map (newest first, a tick on the open one) to switch to, plus "+ New
@@ -127,10 +133,13 @@ The first build, in order:
 8. ~~Several saved maps: switcher, rename, new, duplicate, delete, "Add
    example map" (replaces the prototype's "Reset example": it adds a
    fresh example map and never wipes one)~~ (done)
-9. Polish and a full check against the "done when" list. Known
-   leftovers: on a window narrower than ~1000px a new map's page is a
-   few pixels wider than the space, so a horizontal scrollbar shows (the
-   new-page width doesn't allow for the vertical scrollbar)
+9. ~~Polish and a full check against the "done when" list~~ (done)
+
+The first build is complete. Nothing further is planned yet: the owner
+picks what comes next. Small things noticed but left alone (see Open
+problems): arrow labels can't be edited from the keyboard; dragging a
+page handle past the window's edge doesn't scroll by itself; on a phone
+the page is wider than the screen and scrolls sideways.
 
 ## Open problems
 
@@ -180,3 +189,14 @@ The first build, in order:
   padding, border and red "Delete" colour, because the page's own button
   reset sat outside Tailwind's layers and so overrode them. Treekit has
   the same reset, so its dialogs likely show the same plain buttons.
+- Step 9 check: the "done when" list from the original brief was never
+  written into the repo, so the check was against CLAUDE.md's rules,
+  this file and every behaviour in `reference/prototype.html`. Fixed:
+  a new map's page no longer makes the window scroll sideways when the
+  map is taller than the window (it now leaves room for the scrollbar,
+  so it is up to 12px narrower); Enter on a focused box selects it (the
+  prototype did this; it was missing); Tab no longer stops on invisible
+  things (the arrow lines, a box's hidden toolbar, an arrow's hidden ×);
+  header buttons no longer wrap onto two lines on a narrow window. If
+  the original "done when" list still exists somewhere, add it here and
+  re-check against it.

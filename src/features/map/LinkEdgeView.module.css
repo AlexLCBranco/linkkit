@@ -79,7 +79,8 @@ path.line {
     background var(--duration-fast) var(--ease-standard);
 }
 
-.label:hover .delete {
+.label:hover .delete,
+.delete:focus-visible {
   opacity: 1;
 }
 

@@ -42,7 +42,7 @@ export function AddBoxButton() {
   return (
     <button type="button" className={styles.button} onClick={onClick} title="Add a box (or double-click the paper)">
       <Plus size={16} />
-      Add box
+      <span className={styles.word}>Add box</span>
     </button>
   );
 }

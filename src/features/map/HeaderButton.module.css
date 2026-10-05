@@ -9,6 +9,10 @@
   color: var(--text-secondary);
   font-size: var(--font-size-sm);
   font-weight: var(--weight-medium);
+  /* On a narrow window the map's name gives way (it shortens with "…");
+     the buttons keep their words on one line. */
+  white-space: nowrap;
+  flex-shrink: 0;
   transition:
     background var(--duration-fast) var(--ease-standard),
     color var(--duration-fast) var(--ease-standard);
@@ -17,4 +21,18 @@
 .button:hover {
   background: var(--surface-hover);
   color: var(--text-primary);
+}
+
+/* On a phone-sized window the buttons show only their icons, leaving room
+   for the map's name. The word stays for screen readers, and the tooltip
+   still says it. (Media queries can't read CSS variables, hence the
+   number here.) */
+@media (max-width: 480px) {
+  .word {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
 }

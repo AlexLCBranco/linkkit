@@ -185,8 +185,13 @@
   transform: scale(1);
 }
 
+/* Keyboard focus on the box (React Flow's wrapper around it) or on one of
+   its toolbar buttons shows the toolbar too, so Tab never lands on a
+   button that can't be seen. */
 .box:hover .toolbar,
 .box[data-highlight="selected"] .toolbar,
+:global(.react-flow__node:focus-visible) .toolbar,
+.toolbar:focus-within,
 .toolbar:has([data-state="open"]) {
   opacity: 1;
   pointer-events: auto;

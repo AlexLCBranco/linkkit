@@ -1,7 +1,9 @@
 import { useEffect } from "react";
 
 import { PALETTE_COLORS } from "../../domain/types";
+import type { NodeId } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
+import { BOX_ID_ATTRIBUTE } from "./useBoxGestures";
 
 function isTyping(target: EventTarget | null): boolean {
   return (
@@ -19,12 +21,21 @@ function inOverlay(target: EventTarget | null): boolean {
   );
 }
 
+/** The box whose React Flow wrapper has keyboard focus (Tab reaches
+    boxes), if that is where the key was pressed. */
+function focusedBox(target: EventTarget | null): NodeId | null {
+  if (!(target instanceof HTMLElement) || !target.classList.contains("react-flow__node")) return null;
+  const id = target.querySelector(`[${BOX_ID_ATTRIBUTE}]`)?.getAttribute(BOX_ID_ATTRIBUTE);
+  return id ? (id as NodeId) : null;
+}
+
 /**
  * The map's keyboard extras (every one also has a mouse way):
  *
  *   Ctrl/Cmd+Z                 undo
  *   Ctrl/Cmd+Shift+Z, Ctrl+Y   redo
  *   Esc                        clear the selection
+ *   Enter on a focused box     select it (as in the prototype)
  * On the selected box:
  *   Delete, Backspace          delete it (and its arrows)
  *   1-8, 0                     set a palette colour; 0 clears it
@@ -52,6 +63,14 @@ export function useMapShortcuts() {
       }
 
       if (key === "escape") return store.select(null);
+      if (key === "enter") {
+        const box = focusedBox(e.target);
+        if (box && !store.editing) {
+          e.preventDefault();
+          store.select(box);
+        }
+        return;
+      }
 
       const { selected } = store;
       if (!selected || store.editing) return;

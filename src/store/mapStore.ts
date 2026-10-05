@@ -136,8 +136,11 @@ export interface MapState {
 /**
  * A new map's page: as wide as the window allows (the prototype's numbers),
  * 560px tall. The canvas never shrinks it, only grows it to fit a layout.
+ * The gutter is the space around the page (16px each side) plus room for a
+ * vertical scrollbar (10px, rounded up), so a tall map on a narrow window
+ * doesn't also scroll sideways.
  */
-const NEW_PAGE = { minWidth: 360, maxWidth: 980, viewportGutter: 36, height: 560 };
+const NEW_PAGE = { minWidth: 360, maxWidth: 980, viewportGutter: 48, height: 560 };
 
 function newPageSize(): Size {
   return defaultPageSize(typeof window === "undefined" ? NEW_PAGE.maxWidth : window.innerWidth, NEW_PAGE);
