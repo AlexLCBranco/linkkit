@@ -1,0 +1,202 @@
+import { ReactFlow, ReactFlowProvider, type NodeChange, type NodeOrigin } from "@xyflow/react";
+import "@xyflow/react/dist/base.css";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { linkGeometry, type Box, type LinkGeometry } from "../../domain/geometry";
+import { placeLabels } from "../../domain/labels";
+import { layoutMap } from "../../domain/layout";
+import { placeOnPage } from "../../domain/page";
+import type { LinkId, NodeId, Size } from "../../domain/types";
+import { useMapStore } from "../../store/mapStore";
+import { BoxView, type BoxFlowNode } from "./BoxView";
+import { ARROW, LABEL_FALLBACK_SIZE, LABELS, MAP_LAYOUT, PAGE_MARGIN } from "./layoutConfig";
+import { LinkEdgeView, type LinkFlowEdge } from "./LinkEdgeView";
+import styles from "./MapCanvas.module.css";
+
+// Defined once at module level: React Flow warns (and re-mounts every
+// node) if these objects change identity between renders.
+const nodeTypes = { box: BoxView };
+const edgeTypes = { link: LinkEdgeView };
+/** A node's position is its centre, matching how the map stores boxes. */
+const CENTER_ORIGIN: NodeOrigin = [0.5, 0.5];
+const NO_DATA = {};
+
+/**
+ * The map on its page: a fixed-size sheet of dotted paper. The camera never
+ * moves (no pan, no zoom); when the page is bigger than the screen, the
+ * browser scrolls it natively.
+ *
+ * Data flow, one direction only:
+ *   store map (+ measured sizes) -> arrow geometry and label spots
+ *   -> React Flow nodes/edges -> BoxView / LinkEdgeView.
+ * React Flow is a renderer, not the source of truth. The one thing read
+ * back from it is each box's measured size, which arrows and Tidy up need
+ * (a long name makes a wider or taller box); labels report their own.
+ *
+ * First visit: the example's boxes all start on one spot. They are drawn
+ * hidden, measured, tidied once, and only then shown.
+ */
+function MapCanvasInner() {
+  const map = useMapStore((s) => s.map);
+  const needsTidy = useMapStore((s) => s.needsTidy);
+  const placeAll = useMapStore((s) => s.placeAll);
+
+  // Measured sizes are view state, not map data: they depend on fonts and
+  // CSS, so they live here, never in the saved map.
+  const [sizes, setSizes] = useState<ReadonlyMap<NodeId, Size>>(() => new Map());
+  const nodeIds = useMemo(() => Object.keys(map.nodes) as NodeId[], [map.nodes]);
+  const allMeasured = nodeIds.every((id) => sizes.has(id));
+
+  useEffect(() => {
+    if (!needsTidy || !allMeasured) return;
+    const placed = placeOnPage(layoutMap(map, sizes, MAP_LAYOUT), map.page, PAGE_MARGIN);
+    placeAll(placed.positions, placed.page);
+  }, [needsTidy, allMeasured, map, sizes, placeAll]);
+
+  const nodes = useMemo<BoxFlowNode[]>(
+    () =>
+      nodeIds.map((id) => {
+        const node = map.nodes[id];
+        return {
+          id,
+          type: "box",
+          position: { x: node.x, y: node.y },
+          data: NO_DATA,
+          // Handing React Flow back the size it measured (normally done by
+          // `applyNodeChanges`): these node objects are rebuilt every render,
+          // and without it React Flow forgets the measurement -- and with it
+          // the arrows, which need it.
+          measured: sizes.get(id),
+        };
+      }),
+    [nodeIds, map.nodes, sizes],
+  );
+
+  // Labels are not measured by React Flow: each reports its own size.
+  const [labelSizes, setLabelSizes] = useState<ReadonlyMap<LinkId, Size>>(() => new Map());
+  const onLabelSize = useCallback((id: LinkId, size: Size | null) => {
+    setLabelSizes((prev) => {
+      const old = prev.get(id);
+      if (size ? old && old.width === size.width && old.height === size.height : !old) return prev;
+      const next = new Map(prev);
+      if (size) next.set(id, size);
+      else next.delete(id);
+      return next;
+    });
+  }, []);
+
+  // Every arrow's line, then every label's spot, worked out together here
+  // because labels must keep clear of each other (see domain/labels.ts).
+  const boxes = useMemo(() => {
+    const out = new Map<NodeId, Box>();
+    for (const id of nodeIds) {
+      const size = sizes.get(id);
+      if (size) out.set(id, { center: { x: map.nodes[id].x, y: map.nodes[id].y }, size });
+    }
+    return out;
+  }, [nodeIds, map.nodes, sizes]);
+
+  const geometries = useMemo(() => {
+    const out = new Map<LinkId, LinkGeometry>();
+    for (const link of Object.values(map.links)) {
+      const from = boxes.get(link.from);
+      const to = boxes.get(link.to);
+      const g = from && to ? linkGeometry(from, to, ARROW) : null;
+      if (g) out.set(link.id, g);
+    }
+    return out;
+  }, [map.links, boxes]);
+
+  const labelSpots = useMemo(
+    () =>
+      placeLabels(
+        [...geometries].map(([id, g]) => ({
+          id,
+          start: g.start,
+          tip: g.head[0],
+          size: labelSizes.get(id) ?? LABEL_FALLBACK_SIZE,
+        })),
+        [...boxes.values()],
+        LABELS,
+      ),
+    [geometries, boxes, labelSizes],
+  );
+
+  const edges = useMemo<LinkFlowEdge[]>(
+    () =>
+      (Object.keys(map.links) as LinkId[]).map((id) => {
+        const link = map.links[id];
+        return {
+          id,
+          source: link.from,
+          target: link.to,
+          type: "link",
+          data: { geometry: geometries.get(id) ?? null, labelAt: labelSpots.get(id) ?? null, onLabelSize },
+        };
+      }),
+    [map.links, geometries, labelSpots, onLabelSize],
+  );
+
+  const onNodesChange = useCallback((changes: NodeChange<BoxFlowNode>[]) => {
+    // Only measured sizes are read back.
+    setSizes((prev) => {
+      let next: Map<NodeId, Size> | null = null;
+      for (const change of changes) {
+        if (change.type !== "dimensions" || !change.dimensions) continue;
+        const id = change.id as NodeId;
+        const { width, height } = change.dimensions;
+        const old = prev.get(id);
+        if (old && old.width === width && old.height === height) continue;
+        next ??= new Map(prev);
+        next.set(id, { width, height });
+      }
+      return next ?? prev;
+    });
+  }, []);
+
+  return (
+    <div className={styles.canvas} data-ready={needsTidy ? undefined : true}>
+      <div className={styles.sheet}>
+        <div className={styles.page} style={{ width: map.page.width, height: map.page.height }}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            nodeOrigin={CENTER_ORIGIN}
+            onNodesChange={onNodesChange}
+            // Moving, connecting and selecting come in later steps, through
+            // the store, never React Flow's own state.
+            nodesDraggable={false}
+            nodesConnectable={false}
+            elementsSelectable={false}
+            // The camera is locked; the wheel scrolls the page natively.
+            panOnDrag={false}
+            panOnScroll={false}
+            zoomOnScroll={false}
+            zoomOnPinch={false}
+            zoomOnDoubleClick={false}
+            preventScrolling={false}
+            minZoom={1}
+            maxZoom={1}
+            panActivationKeyCode={null}
+            selectionKeyCode={null}
+            multiSelectionKeyCode={null}
+            deleteKeyCode={null}
+            disableKeyboardA11y
+            // Bottom-right belongs to the version badge.
+            attributionPosition="top-right"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function MapCanvas() {
+  return (
+    <ReactFlowProvider>
+      <MapCanvasInner />
+    </ReactFlowProvider>
+  );
+}

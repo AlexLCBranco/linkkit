@@ -54,6 +54,8 @@
   /* The connect dot on a box's edge, and the round × buttons. */
   --box-handle-size: 14px;
   --delete-button-size: 20px;
+  /* An arrow's label pill; longer labels end in "…". */
+  --edge-label-max-width: 160px;
   --edge-width: 1.5px;
   /* Arrows inside the needs / breaks highlight are a bit thicker. */
   --edge-width-lit: 2.2px;

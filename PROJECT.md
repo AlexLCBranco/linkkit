@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-05, v0.0.1 (after step 2)_
+_Last updated: 2026-10-05, v0.0.2 (after step 3)_
 
 ## What it is
 
@@ -26,20 +26,31 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
 
 ## What works now
 
-- Project scaffold: dark header, status line and an empty dotted page
-- The engine underneath (not on screen yet), all in `src/domain/` with
-  tests: the map model (boxes with a centre position and an optional
-  colour, arrows with a label), the one place that decides which arrows
-  are allowed, "needs / breaks" reach and the status-bar counts, a
-  loop-safe Tidy-up layout, page sizing, saving with a version number and
-  repair of damaged saves, and the Microsoft 365 sign-in example
+- Dark header (with the map's name), status line, version badge
+- The page: a sheet of dotted paper with the map's boxes and arrows on
+  it. Boxes look like Treekit's nodes (wrap past 220px, palette colours
+  show as a tint); arrows are straight lines from box edge to box edge
+  with an arrowhead, and their label in a small pill. Labels of crossing
+  arrows slide along their arrow so they don't pile up
+- First visit: the Microsoft 365 sign-in example appears already tidied
+  (boxes measured out of sight, Tidy up runs once, then they show)
+- Saved automatically in the browser; a reload reopens the same map where
+  it was. A damaged save is repaired and the original kept aside
+- Nothing is clickable yet (step 4 onward)
+- The engine underneath, all in `src/domain/` with tests: the map model
+  (boxes with a centre position and an optional colour, arrows with a
+  label), the one place that decides which arrows are allowed, "needs /
+  breaks" reach and the status-bar counts, a loop-safe Tidy-up layout,
+  page sizing, arrow geometry and label placement, saving with a version
+  number and repair of damaged saves, and the example map
 
 ## What's next
 
 The first build, in order:
 1. ~~Scaffold~~ (done)
 2. ~~Domain + tests~~ (done)
-3. The page: boxes and arrows, the example map tidied on first load
+3. ~~The page: boxes and arrows, the example map tidied on first load~~
+   (done)
 4. Click a box: teal needs / orange breaks highlight and the status bar
    (a box both needed and broken, in a loop, shows teal and counts only
    under "Needs", as in the prototype)
@@ -59,3 +70,10 @@ The first build, in order:
   highlights. Decided: keep all 8; a selected box's highlight hides box
   colours, and the highlight looks different (solid fill, coloured arrows,
   the rest faded). Revisit if it still confuses in use.
+- Look choices made in step 3 where the prototype and Treekit differ
+  (Treekit's look won, per CLAUDE.md): boxes wrap long names instead of
+  growing forever; arrow labels have a thin border; the page is centred
+  on the screen rather than left-aligned. Easy to change if unwanted.
+- Two arrows between the same two boxes in opposite directions (allowed)
+  are drawn on top of each other, as in the prototype. Worth bending them
+  apart once editing makes that easy to create (step 5).

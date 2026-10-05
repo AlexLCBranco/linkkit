@@ -1,0 +1,61 @@
+/* React Flow ships only structural CSS here (`base.css`); every visual
+   comes from tokens.css through the overrides below. They are `:global`
+   because React Flow owns those class names, and scoped under `.canvas` so
+   they cannot leak anywhere else. */
+
+/* The screen around the page: scrolls natively when the page is bigger. */
+.canvas {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  background: var(--surface-app);
+}
+
+/* Centres the page, keeping clear space around it on every side (padding
+   on a fixed-width child, so the scrollable area includes it). */
+.sheet {
+  width: max-content;
+  min-width: 100%;
+  padding: var(--space-4);
+}
+
+.page {
+  position: relative;
+  margin: 0 auto;
+  background-color: var(--page-paper);
+  background-image: radial-gradient(var(--canvas-dots) 1px, transparent 1.2px);
+  background-size: var(--page-dot-gap) var(--page-dot-gap);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--page-radius);
+}
+
+/* Until the first Tidy up, boxes and arrows are measured but not shown, so
+   the example never flashes up as a pile on one spot. */
+.canvas:not([data-ready]) :global(.react-flow__viewport),
+.canvas:not([data-ready]) :global(.react-flow__edgelabel-renderer) {
+  visibility: hidden;
+}
+
+/* The page draws the paper; React Flow stays see-through. */
+.canvas :global(.react-flow) {
+  background: transparent;
+}
+
+.canvas :global(.react-flow__edge-path) {
+  stroke: var(--edge-stroke);
+  stroke-width: var(--edge-width);
+}
+
+.canvas :global(.react-flow__attribution) {
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.canvas :global(.react-flow__attribution a) {
+  color: inherit;
+}
+
+.canvas :global(.react-flow__pane) {
+  cursor: default;
+}
