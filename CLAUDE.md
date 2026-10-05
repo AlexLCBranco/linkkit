@@ -61,8 +61,10 @@ rule. Don't build that, but don't block it:
 
 - Repo: github.com/AlexLCBranco/linkkit (public). Work on `main`, one
   commit per coherent change, only after the build passes.
-- Every push to `main` deploys on Vercel once the owner has imported the
-  repo there.
+- Vercel project `linkkit` (team `alexlcbrancos-projects`): every push to
+  `main` deploys to https://linkkit-lake.vercel.app (`linkkit.vercel.app`
+  belongs to someone else). The Vercel CLI is logged in: `npx -y
+  vercel@latest ls linkkit` lists deployments.
 
 ## Testing in the browser pane
 
