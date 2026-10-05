@@ -1,0 +1,44 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-raised);
+}
+
+.name {
+  font-weight: var(--weight-bold);
+}
+
+.status {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-sm);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.main {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-4);
+}
+
+/* Placeholder until the map canvas lands (step 3). */
+.page {
+  width: 900px;
+  height: 560px;
+  background-color: var(--page-paper);
+  background-image: radial-gradient(var(--canvas-dots) 1px, transparent 1.2px);
+  background-size: var(--page-dot-gap) var(--page-dot-gap);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--page-radius);
+}

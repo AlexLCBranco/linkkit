@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Connections stone prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E6EAEE; --paper:#F7F9FA; --dot:#C7CFD8; --ink:#1E2833; --muted:#5D6B79; --node:#FFFFFF; --node-border:#B9C3CD;
+  --line:#8693A0; --sel:#2B4C7E; --ring:rgba(43,76,126,.18);
+  --need:#0E7C6B; --need-bg:#D3EFE8; --break:#BF4A16; --break-bg:#FBE2D4;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#12161B; --paper:#181E25; --dot:#2B333D; --ink:#E6EBF0; --muted:#97A3AF; --node:#1F262E; --node-border:#3A4550;
+    --line:#6E7B88; --sel:#8FB3E8; --ring:rgba(143,179,232,.22);
+    --need:#4FD1B5; --need-bg:#123A33; --break:#F08A5D; --break-bg:#43241A;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12161B; --paper:#181E25; --dot:#2B333D; --ink:#E6EBF0; --muted:#97A3AF; --node:#1F262E; --node-border:#3A4550;
+  --line:#6E7B88; --sel:#8FB3E8; --ring:rgba(143,179,232,.22);
+  --need:#4FD1B5; --need-bg:#123A33; --break:#F08A5D; --break-bg:#43241A;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:"Instrument Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+#app{padding:16px}
+.panel{background:var(--node);border:1px solid var(--node-border);border-radius:12px;color:var(--ink)}
+#toolbar{padding:12px 14px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 18px;margin-bottom:10px}
+#toolbar h1{margin:0 0 2px;font-size:16px;font-weight:600;letter-spacing:-.01em}
+#toolbar p{margin:0;font-size:13px;color:var(--muted)}
+.btns{display:flex;flex-wrap:wrap;gap:6px}
+button.b{font:inherit;font-size:13px;font-weight:500;color:var(--ink);background:transparent;border:1px solid var(--node-border);border-radius:8px;padding:6px 11px;cursor:pointer}
+button.b:hover{border-color:var(--sel);color:var(--sel)}
+button.b.warn{border-color:var(--break);color:var(--break)}
+button:focus-visible,.node:focus-visible{outline:2px solid var(--sel);outline-offset:2px}
+#status{padding:9px 14px;font-size:13px;line-height:1.5;margin-bottom:12px;min-height:40px}
+#status .who{font-weight:600;margin-right:14px}
+.chip{display:inline-flex;align-items:center;gap:6px;margin-right:12px;white-space:nowrap}
+.sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+.sw.need{background:var(--need)}
+.sw.break{background:var(--break)}
+#status .hint{color:var(--muted)}
+
+#wrap{overflow:auto;padding:2px 2px 28px}
+#page{position:relative;background-color:var(--paper);background-image:radial-gradient(var(--dot) 1px,transparent 1.2px);background-size:22px 22px;border:1px solid var(--node-border);border-radius:12px;touch-action:none}
+#edges{position:absolute;left:0;top:0;width:1px;height:1px;overflow:visible;pointer-events:none}
+#edges path{fill:none;stroke:var(--line);stroke-width:1.5;transition:opacity .2s}
+#edges path.need{stroke:var(--need);stroke-width:2.2}
+#edges path.break{stroke:var(--break);stroke-width:2.2}
+#edges path.faded{opacity:.18}
+#edges path.temp{stroke:var(--sel);stroke-dasharray:6 5;stroke-width:2}
+
+#grip{position:absolute;right:-1px;bottom:-1px;width:26px;height:26px;cursor:nwse-resize;touch-action:none;border-radius:0 0 12px 0;display:flex;align-items:flex-end;justify-content:flex-end;padding:5px;color:var(--muted)}
+#grip:hover,#grip.on{color:var(--sel)}
+#tab{position:absolute;left:50%;bottom:-14px;transform:translateX(-50%);height:28px;padding:0 14px;display:flex;align-items:center;gap:6px;border-radius:14px;background:var(--node);border:1px solid var(--node-border);font-size:12px;color:var(--muted);cursor:ns-resize;touch-action:none;user-select:none;-webkit-user-select:none;white-space:nowrap}
+#tab:hover,#tab.on{color:var(--sel);border-color:var(--sel)}
+#sizeTip{position:absolute;right:30px;bottom:6px;font-size:12px;color:var(--sel);opacity:0;transition:opacity .15s;pointer-events:none}
+#sizeTip.on{opacity:1}
+
+.node{position:absolute;transform:translate(-50%,-50%);background:var(--node);border:1.5px solid var(--node-border);border-radius:10px;padding:9px 15px;font-size:14px;font-weight:500;line-height:1.3;white-space:nowrap;user-select:none;-webkit-user-select:none;cursor:pointer;touch-action:none;transition:opacity .2s,background-color .2s,border-color .2s,box-shadow .2s}
+.node:hover{border-color:var(--sel)}
+.node.sel{border-color:var(--sel);box-shadow:0 0 0 4px var(--ring)}
+.node.need{background:var(--need-bg);border-color:var(--need)}
+.node.break{background:var(--break-bg);border-color:var(--break)}
+.node.faded{opacity:.3}
+.node.target{border-color:var(--sel);box-shadow:0 0 0 4px var(--ring)}
+.node .txt{outline:none;display:inline-block;min-width:4ch}
+.node .txt.editing{cursor:text;user-select:text;-webkit-user-select:text}
+.node .txt:empty::before{content:"Type a name";color:var(--muted);font-weight:400}
+.handle{position:absolute;right:-8px;top:50%;width:14px;height:14px;margin-top:-7px;border-radius:50%;background:var(--node);border:2px solid var(--sel);opacity:0;cursor:crosshair;transition:opacity .15s,transform .15s}
+.handle:hover{transform:scale(1.25)}
+.node:hover .handle,.node.sel .handle{opacity:1}
+.del{position:absolute;top:-9px;right:-9px;width:20px;height:20px;border-radius:50%;border:1px solid var(--node-border);background:var(--node);color:var(--muted);font-family:inherit;font-size:14px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;opacity:0;transition:opacity .15s}
+.node:hover .del,.node.sel .del{opacity:1}
+.del:hover{color:var(--break);border-color:var(--break)}
+.elabel{position:absolute;transform:translate(-50%,-50%);font-size:12px;color:var(--muted);background:var(--paper);padding:1px 7px;border-radius:6px;white-space:nowrap;cursor:text;transition:opacity .2s;user-select:none;-webkit-user-select:none}
+.elabel:hover{color:var(--ink);box-shadow:0 0 0 1px var(--node-border)}
+.elabel.need{color:var(--need);font-weight:500}
+.elabel.break{color:var(--break);font-weight:500}
+.elabel.faded{opacity:.2}
+.elabel .txt{outline:none}
+.elabel .txt:empty::before{content:"label";color:var(--muted)}
+.elabel .del{position:static;display:inline-flex;width:16px;height:16px;margin-left:5px;vertical-align:-3px;font-size:12px;opacity:0}
+.elabel:hover .del,.elabel.active .del{opacity:1}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="toolbar" class="panel">
+    <div>
+      <h1>What does this depend on?</h1>
+      <p>Double-click empty space to add a box. Drag from a box's dot to connect.</p>
+    </div>
+    <div class="btns">
+      <button class="b" id="addBtn">Add box</button>
+      <button class="b" id="tidyBtn">Tidy up</button>
+      <button class="b" id="resetBtn">Reset example</button>
+    </div>
+  </div>
+  <div id="status" class="panel" aria-live="polite"></div>
+  <div id="wrap">
+    <div id="page" aria-label="Diagram page">
+      <svg id="edges" aria-hidden="true"></svg>
+      <div id="tab" title="Drag to make the page taller"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 4.5L6 1.5L9 4.5M3 7.5L6 10.5L9 7.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>More room</div>
+      <div id="grip" title="Drag to resize the page"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M11 3L3 11M11 7L7 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+      <div id="sizeTip"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const KEY = 'connections-stone-proto-v2';
+const uid = () => Math.random().toString(36).slice(2, 9);
+
+function example(){
+  const N = (id,label)=>({id,label,x:0,y:0});
+  const E = (from,to,label='needs')=>({id:uid(),from,to,label});
+  return {
+    nodes:[
+      N('outlook','Outlook'), N('teams','Teams'), N('sharepoint','SharePoint'),
+      N('signin','Microsoft 365 sign-in'), N('license','User license'),
+      N('entra','Entra ID account'), N('mfa','MFA approval'), N('ca','Conditional Access'),
+      N('internet','Internet connection'), N('auth','Authenticator app'),
+      N('laptop','Compliant laptop'), N('intune','Intune enrollment')
+    ],
+    edges:[
+      E('outlook','signin'), E('outlook','license'),
+      E('teams','signin'), E('teams','license'),
+      E('sharepoint','signin'),
+      E('signin','entra'), E('signin','mfa'), E('signin','ca','checked by'), E('signin','internet'),
+      E('mfa','auth','comes from'), E('ca','laptop','requires'), E('laptop','intune','managed by')
+    ]
+  };
+}
+
+
+let state = null, needsLayout = false;
+try { state = JSON.parse(localStorage.getItem(KEY)); } catch(e) { state = null; }
+if (!state || !Array.isArray(state.nodes) || !Array.isArray(state.edges)) { state = example(); needsLayout = true; }
+if (!state.page) state.page = defaultPage();
+
+function defaultPage(){ return {w: Math.max(360, Math.min(980, window.innerWidth - 36)), h: 560}; }
+
+const page = document.getElementById('page');
+const svg = document.getElementById('edges');
+const statusEl = document.getElementById('status');
+const grip = document.getElementById('grip');
+const tab = document.getElementById('tab');
+const sizeTip = document.getElementById('sizeTip');
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const PAD = 14;
+
+let selected = null, temp = null, editing = null;
+let hl = {needs:new Set(), breaks:new Set()};
+const els = new Map(), labels = new Map();
+
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e) {} }
+function nodeById(id){ return state.nodes.find(n => n.id === id); }
+function applyPage(){ page.style.width = state.page.w + 'px'; page.style.height = state.page.h + 'px'; }
+
+function render(){
+  page.querySelectorAll('.node,.elabel').forEach(e => e.remove());
+  els.clear(); labels.clear();
+  state.nodes.forEach(makeNode);
+  state.edges.forEach(makeLabel);
+  positions(); highlight();
+}
+
+function makeNode(n){
+  const el = document.createElement('div');
+  el.className = 'node'; el.dataset.id = n.id; el.tabIndex = 0;
+  const t = document.createElement('span'); t.className = 'txt'; t.textContent = n.label;
+  const h = document.createElement('div'); h.className = 'handle'; h.title = 'Drag to another box to connect';
+  const d = document.createElement('button'); d.className = 'del'; d.textContent = '×'; d.setAttribute('aria-label', 'Delete box');
+  el.append(t, h, d);
+  page.appendChild(el); els.set(n.id, el);
+  el.addEventListener('pointerdown', ev => nodeDown(ev, n));
+  el.addEventListener('dblclick', ev => { ev.stopPropagation(); editNode(n); });
+  el.addEventListener('keydown', ev => { if (ev.key === 'Enter' && !editing) { selected = n.id; highlight(); } });
+  h.addEventListener('pointerdown', ev => { ev.stopPropagation(); startConnect(ev, n); });
+  d.addEventListener('pointerdown', ev => ev.stopPropagation());
+  d.addEventListener('click', ev => { ev.stopPropagation(); deleteNode(n.id); });
+}
+
+function makeLabel(e){
+  const el = document.createElement('div'); el.className = 'elabel';
+  const t = document.createElement('span'); t.className = 'txt'; t.textContent = e.label;
+  const d = document.createElement('button'); d.className = 'del'; d.textContent = '×'; d.setAttribute('aria-label', 'Delete connection');
+  el.append(t, d);
+  page.appendChild(el); labels.set(e.id, el);
+  el.addEventListener('pointerdown', ev => ev.stopPropagation());
+  el.addEventListener('dblclick', ev => ev.stopPropagation());
+  el.addEventListener('click', ev => {
+    if (ev.target.closest('.del')) return;
+    el.classList.add('active');
+    startEdit(t, e.label, v => { e.label = v || 'needs'; save(); render(); }, () => render());
+  });
+  d.addEventListener('pointerdown', ev => { ev.preventDefault(); ev.stopPropagation(); });
+  d.addEventListener('click', ev => {
+    ev.stopPropagation(); if (editing) { editing.span.onblur = null; editing = null; }
+    state.edges = state.edges.filter(x => x.id !== e.id); save(); render();
+  });
+}
+
+function positions(){
+  applyPage();
+  for (const n of state.nodes){ const el = els.get(n.id); if (el){ el.style.left = n.x + 'px'; el.style.top = n.y + 'px'; } }
+  drawEdges();
+}
+
+function half(n){ const el = els.get(n.id); return el ? [el.offsetWidth/2, el.offsetHeight/2] : [60, 18]; }
+function clamp(n){
+  const [hw, hh] = half(n);
+  n.x = Math.min(Math.max(n.x, hw + PAD), state.page.w - hw - PAD);
+  n.y = Math.min(Math.max(n.y, hh + PAD), state.page.h - hh - PAD - 10);
+}
+
+function clip(n, tx, ty){
+  const el = els.get(n.id); if (!el) return [n.x, n.y];
+  const hw = el.offsetWidth/2 + 5, hh = el.offsetHeight/2 + 5;
+  const dx = tx - n.x, dy = ty - n.y;
+  if (!dx && !dy) return [n.x, n.y];
+  const t = Math.min(hw/Math.max(Math.abs(dx),1e-6), hh/Math.max(Math.abs(dy),1e-6));
+  return t >= 1 ? [n.x, n.y] : [n.x + dx*t, n.y + dy*t];
+}
+
+function edgeClass(e){
+  if (!selected) return '';
+  const {needs, breaks} = hl;
+  if ((e.from === selected || needs.has(e.from)) && needs.has(e.to)) return 'need';
+  if (breaks.has(e.from) && (e.to === selected || breaks.has(e.to))) return 'break';
+  return 'faded';
+}
+
+function drawEdges(){
+  let out = `<defs>
+    <marker id="m-base" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M1 1L9 5L1 9z" style="fill:var(--line);stroke:none"/></marker>
+    <marker id="m-need" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1L9 5L1 9z" style="fill:var(--need);stroke:none"/></marker>
+    <marker id="m-break" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1L9 5L1 9z" style="fill:var(--break);stroke:none"/></marker>
+    <marker id="m-temp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1L9 5L1 9z" style="fill:var(--sel);stroke:none"/></marker>
+  </defs>`;
+  for (const e of state.edges){
+    const a = nodeById(e.from), b = nodeById(e.to); if (!a || !b) continue;
+    const [x1,y1] = clip(a, b.x, b.y), [x2,y2] = clip(b, a.x, a.y);
+    const c = edgeClass(e);
+    const m = c === 'need' ? 'm-need' : c === 'break' ? 'm-break' : 'm-base';
+    out += `<path class="${c}" d="M${x1} ${y1}L${x2} ${y2}" marker-end="url(#${m})"/>`;
+    const lab = labels.get(e.id);
+    if (lab){ lab.style.left = ((x1+x2)/2) + 'px'; lab.style.top = ((y1+y2)/2) + 'px'; lab.className = 'elabel ' + c + (lab.classList.contains('active') ? ' active' : ''); }
+  }
+  if (temp){
+    const [x1,y1] = clip(temp.from, temp.x, temp.y);
+    out += `<path class="temp" d="M${x1} ${y1}L${temp.x} ${temp.y}" marker-end="url(#m-temp)"/>`;
+  }
+  svg.innerHTML = out;
+}
+
+function reach(start, dir){
+  const seen = new Set(), stack = [start];
+  while (stack.length){
+    const c = stack.pop();
+    for (const e of state.edges){
+      const a = dir === 'out' ? e.from : e.to, b = dir === 'out' ? e.to : e.from;
+      if (a === c && b !== start && !seen.has(b)){ seen.add(b); stack.push(b); }
+    }
+  }
+  return seen;
+}
+
+function highlight(){
+  if (selected && !nodeById(selected)) selected = null;
+  const needs = selected ? reach(selected, 'out') : new Set();
+  const breaks = selected ? reach(selected, 'in') : new Set();
+  hl = {needs, breaks};
+  for (const [id, el] of els){
+    el.classList.toggle('sel', id === selected);
+    el.classList.toggle('need', needs.has(id));
+    el.classList.toggle('break', breaks.has(id) && !needs.has(id));
+    el.classList.toggle('faded', !!selected && id !== selected && !needs.has(id) && !breaks.has(id));
+  }
+  updateStatus(); drawEdges();
+}
+
+function plural(n, one, many){ return n + ' ' + (n === 1 ? one : many); }
+function esc(s){ return s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function updateStatus(){
+  if (!selected){ statusEl.innerHTML = `<span class="hint">Click any box to see what it needs and what breaks without it.</span>`; return; }
+  const n = nodeById(selected);
+  const nb = [...hl.breaks].filter(x => !hl.needs.has(x)).length;
+  statusEl.innerHTML =
+    `<span class="who">${esc(n.label || 'Untitled')}</span>` +
+    `<span class="chip"><span class="sw need"></span>Needs ${plural(hl.needs.size,'thing','things')}</span>` +
+    `<span class="chip"><span class="sw break"></span>${plural(nb,'thing breaks','things break')} without it</span>`;
+}
+
+function toPage(cx, cy){ const r = page.getBoundingClientRect(); return {x: cx - r.left, y: cy - r.top}; }
+
+function nodeDown(ev, n){
+  if (editing && editing.span.closest('.node') === els.get(n.id)) return;
+  ev.stopPropagation();
+  if (editing) finishEdit(true);
+  const el = els.get(n.id); if (!el) return;
+  el.setPointerCapture(ev.pointerId);
+  const sx = ev.clientX, sy = ev.clientY, ox = n.x, oy = n.y; let moved = false;
+  const move = e => {
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (!moved && Math.hypot(dx, dy) < 4) return;
+    moved = true; n.x = ox + dx; n.y = oy + dy; clamp(n);
+    el.style.left = n.x + 'px'; el.style.top = n.y + 'px'; drawEdges();
+  };
+  const up = () => {
+    el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
+    if (moved) save(); else { selected = n.id; highlight(); }
+  };
+  el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+}
+
+let lastTarget = null;
+function setTarget(id){
+  if (lastTarget && els.get(lastTarget)) els.get(lastTarget).classList.remove('target');
+  lastTarget = id; if (id && els.get(id)) els.get(id).classList.add('target');
+}
+function nodeAt(cx, cy){
+  const el = document.elementFromPoint(cx, cy);
+  const nd = el && el.closest && el.closest('.node');
+  return nd ? nd.dataset.id : null;
+}
+
+function startConnect(ev, n){
+  if (editing) finishEdit(true);
+  const h = ev.currentTarget; h.setPointerCapture(ev.pointerId);
+  const move = e => {
+    const p = toPage(e.clientX, e.clientY); temp = {from:n, x:p.x, y:p.y};
+    const t = nodeAt(e.clientX, e.clientY); setTarget(t && t !== n.id ? t : null); drawEdges();
+  };
+  const up = e => {
+    h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); h.removeEventListener('pointercancel', up);
+    const t = nodeAt(e.clientX, e.clientY); temp = null; setTarget(null);
+    if (t && t !== n.id && !state.edges.some(x => x.from === n.id && x.to === t)){
+      state.edges.push({id:uid(), from:n.id, to:t, label:'needs'}); save(); render();
+    } else drawEdges();
+  };
+  h.addEventListener('pointermove', move); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up);
+}
+
+function startEdit(span, orig, onCommit, onCancel){
+  if (editing) finishEdit(true);
+  span.contentEditable = 'true'; span.classList.add('editing'); span.textContent = orig; span.focus();
+  const r = document.createRange(); r.selectNodeContents(span); const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  editing = {span, onCommit, onCancel};
+  span.onkeydown = e => {
+    e.stopPropagation();
+    if (e.key === 'Enter'){ e.preventDefault(); finishEdit(true); }
+    else if (e.key === 'Escape'){ e.preventDefault(); finishEdit(false); }
+  };
+  span.onblur = () => finishEdit(true);
+  span.onpointerdown = e => e.stopPropagation();
+}
+function finishEdit(ok){
+  if (!editing) return;
+  const {span, onCommit, onCancel} = editing; editing = null;
+  span.onblur = null; span.contentEditable = 'false';
+  const v = span.textContent.replace(/\s+/g, ' ').trim();
+  ok ? onCommit(v) : onCancel();
+}
+
+function editNode(n){
+  const el = els.get(n.id); if (!el) return;
+  startEdit(el.querySelector('.txt'), n.label,
+    v => { if (v) { n.label = v; render(); clamp(n); positions(); save(); } else if (!n.label) deleteNode(n.id); else render(); },
+    () => { if (!n.label) deleteNode(n.id); else render(); });
+}
+
+function addNode(x, y){
+  const n = {id:uid(), label:'', x, y};
+  state.nodes.push(n); render(); clamp(n); positions(); editNode(n);
+}
+
+function deleteNode(id){
+  state.nodes = state.nodes.filter(n => n.id !== id);
+  state.edges = state.edges.filter(e => e.from !== id && e.to !== id);
+  if (selected === id) selected = null;
+  save(); render();
+}
+
+function computeLayout(){
+  const layer = {}; state.nodes.forEach(n => layer[n.id] = 0);
+  for (let i = 0; i < state.nodes.length; i++){
+    let changed = false;
+    for (const e of state.edges){
+      if (layer[e.from] == null || layer[e.to] == null) continue;
+      const want = layer[e.from] + 1;
+      if (layer[e.to] < want && want < state.nodes.length){ layer[e.to] = want; changed = true; }
+    }
+    if (!changed) break;
+  }
+  const rows = [];
+  state.nodes.forEach(n => (rows[layer[n.id]] = rows[layer[n.id]] || []).push(n));
+  const target = {}, key = new Map(), GAPY = 105, GAPX = 30;
+  let minx = Infinity, maxx = -Infinity, maxy = 0;
+  rows.forEach((row, ri) => {
+    if (!row) return;
+    if (ri > 0){
+      row.forEach(n => {
+        const xs = state.edges.filter(e => e.to === n.id && target[e.from]).map(e => target[e.from].x);
+        key.set(n.id, xs.length ? xs.reduce((a,b) => a+b, 0)/xs.length : 0);
+      });
+      row.sort((a,b) => key.get(a.id) - key.get(b.id));
+    }
+    const w = row.map(n => half(n)[0]*2);
+    const total = w.reduce((a,b) => a+b, 0) + GAPX*(row.length - 1);
+    let x = -total/2;
+    row.forEach((n, i) => { target[n.id] = {x: x + w[i]/2, y: ri*GAPY}; x += w[i] + GAPX; });
+    minx = Math.min(minx, -total/2); maxx = Math.max(maxx, total/2); maxy = ri*GAPY;
+  });
+  const needW = (maxx - minx) + 2*(PAD + 40), needH = maxy + 2*(PAD + 50);
+  if (needW > state.page.w) state.page.w = Math.ceil(needW);
+  if (needH > state.page.h) state.page.h = Math.ceil(needH);
+  const ox = state.page.w/2, oy = (state.page.h - maxy)/2;
+  for (const id in target){ target[id].x += ox; target[id].y += oy; }
+  return target;
+}
+
+function tidy(animate){
+  const t = computeLayout(); applyPage();
+  if (!animate || reduceMotion){
+    state.nodes.forEach(n => { if (t[n.id]){ n.x = t[n.id].x; n.y = t[n.id].y; } });
+    positions(); save(); return;
+  }
+  const from = new Map(state.nodes.map(n => [n.id, {x:n.x, y:n.y}]));
+  const start = performance.now();
+  const step = now => {
+    const p = Math.min(1, (now - start)/450), e = 1 - Math.pow(1 - p, 3);
+    state.nodes.forEach(n => { const a = from.get(n.id), b = t[n.id]; if (a && b){ n.x = a.x + (b.x - a.x)*e; n.y = a.y + (b.y - a.y)*e; } });
+    positions();
+    if (p < 1) requestAnimationFrame(step); else save();
+  };
+  requestAnimationFrame(step);
+}
+
+function minSize(){
+  let mw = 320, mh = 240;
+  for (const n of state.nodes){ const [hw, hh] = half(n); mw = Math.max(mw, n.x + hw + PAD); mh = Math.max(mh, n.y + hh + PAD + 10); }
+  return [Math.ceil(mw), Math.ceil(mh)];
+}
+
+function resizer(el, horiz){
+  el.addEventListener('pointerdown', ev => {
+    ev.stopPropagation(); ev.preventDefault();
+    if (editing) finishEdit(true);
+    el.setPointerCapture(ev.pointerId); el.classList.add('on'); sizeTip.classList.add('on');
+    const sx = ev.clientX, sy = ev.clientY, ow = state.page.w, oh = state.page.h;
+    const [mw, mh] = minSize();
+    const move = e => {
+      if (horiz) state.page.w = Math.max(mw, Math.round(ow + e.clientX - sx));
+      state.page.h = Math.max(mh, Math.round(oh + e.clientY - sy));
+      applyPage(); sizeTip.textContent = state.page.w + ' × ' + state.page.h;
+    };
+    const up = () => {
+      el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); el.removeEventListener('pointercancel', up);
+      el.classList.remove('on'); sizeTip.classList.remove('on'); save();
+    };
+    el.addEventListener('pointermove', move); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+  });
+}
+resizer(grip, true);
+resizer(tab, false);
+
+page.addEventListener('pointerdown', ev => {
+  if (ev.target.closest('.node,.elabel,#grip,#tab')) return;
+  if (editing) finishEdit(true);
+  if (selected){ selected = null; highlight(); }
+});
+page.addEventListener('dblclick', ev => {
+  if (ev.target.closest('.node,.elabel,#grip,#tab')) return;
+  const p = toPage(ev.clientX, ev.clientY); addNode(p.x, p.y);
+});
+
+document.addEventListener('keydown', ev => {
+  if (editing) return;
+  if (ev.key === 'Escape' && selected){ selected = null; highlight(); }
+  if ((ev.key === 'Delete' || ev.key === 'Backspace') && selected){ ev.preventDefault(); deleteNode(selected); }
+});
+
+document.getElementById('addBtn').addEventListener('click', () => addNode(state.page.w/2, 60));
+document.getElementById('tidyBtn').addEventListener('click', () => tidy(true));
+
+const resetBtn = document.getElementById('resetBtn');
+let resetTimer = null;
+resetBtn.addEventListener('click', () => {
+  if (!resetTimer){
+    resetBtn.textContent = 'Click again to reset'; resetBtn.classList.add('warn');
+    resetTimer = setTimeout(() => { resetTimer = null; resetBtn.textContent = 'Reset example'; resetBtn.classList.remove('warn'); }, 3000);
+    return;
+  }
+  clearTimeout(resetTimer); resetTimer = null; resetBtn.textContent = 'Reset example'; resetBtn.classList.remove('warn');
+  state = example(); state.page = defaultPage(); selected = null; render(); tidy(false);
+});
+
+applyPage();
+render();
+const ready = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+ready.then(() => { if (needsLayout) tidy(false); else positions(); });
+</script>
+</body>
+</html>
