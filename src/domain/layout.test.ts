@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { exampleMap } from "./example";
 import { asNodeId } from "./ids";
-import { layerNodes, layoutMap, loopBreakingLinks } from "./layout";
+import { arrowGap, layerNodes, layoutMap, loopBreakingLinks } from "./layout";
 import { build } from "./testMaps";
 import type { NodeId, Size } from "./types";
 
@@ -124,5 +124,22 @@ describe("layoutMap left-right", () => {
   it("follows the map's own direction by default", () => {
     const lr = { ...map, direction: "LR" as const };
     expect(layoutMap(lr, wide, options)).toEqual(layoutMap(map, wide, options, "LR"));
+  });
+});
+
+describe("arrowGap", () => {
+  const labels = [
+    { width: 48, height: 22 },
+    { width: 80, height: 20 },
+  ];
+
+  it("leaves room for the deepest label along the arrows, then the extra", () => {
+    // Top-down the tallest label (22) counts; left-right the widest (80).
+    expect(arrowGap(15, labels, "TB", 19)).toBe(22 + 19 + 15);
+    expect(arrowGap(15, labels, "LR", 19)).toBe(80 + 19 + 15);
+  });
+
+  it("is only the ends and the extra when there are no labels", () => {
+    expect(arrowGap(47, [], "TB", 19)).toBe(66);
   });
 });

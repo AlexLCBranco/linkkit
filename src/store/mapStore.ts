@@ -15,6 +15,7 @@ import {
   moveNodes,
   renameMap,
   renameNode,
+  setArrowLength,
   setLinkLabel,
   setDirection,
   setNodeColor,
@@ -23,7 +24,7 @@ import {
 import { defaultPageSize } from "../domain/page";
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
-import type { LayoutDirection, LinkId, LinkMap, MapId, NodeId, PaletteColor, Point, Size } from "../domain/types";
+import type { LinkId, LinkMap, MapId, NodeId, PaletteColor, Point, Size } from "../domain/types";
 import { deleteStoredMap, loadActiveMapId, loadMap, loadRegistry, saveActiveMapId, saveMap } from "./persistMap";
 import { cancelSave, flushSave } from "./saveQueue";
 
@@ -39,12 +40,14 @@ export interface Connecting {
   readonly target: NodeId | null;
 }
 
-/** A press of "Tidy up" (or of the Top-down / Left-right switch, which
-    tidies in the new direction). */
-export interface TidyRequest {
+/** The map's settings Tidy up follows: which way, and how long the arrows. */
+export type TidySettings = Pick<LinkMap, "direction" | "arrowLength">;
+
+/** A press of "Tidy up" (or of the Top-down / Left-right switch or an
+    arrow length, which tidy with the new setting). */
+export interface TidyRequest extends TidySettings {
   /** Counts presses: the canvas tidies when it changes. */
   readonly count: number;
-  readonly direction: LayoutDirection;
 }
 
 /**
@@ -85,14 +88,14 @@ export interface MapState {
   readonly histories: Readonly<Record<MapId, history.History>>;
 
   /** Puts every box where Tidy up (or Align) said, and records the page
-      size and direction Tidy up used, in one change. */
-  placeAll(positions: ReadonlyMap<NodeId, Point>, page?: Size, direction?: LayoutDirection): void;
+      size and settings Tidy up used, in one change. */
+  placeAll(positions: ReadonlyMap<NodeId, Point>, page?: Size, settings?: TidySettings): void;
   /** Selects a box (`null` clears the selection). */
   select(id: NodeId | null): void;
   /** Asks the canvas to tidy the map up (see `tidyRequest`), in the
-      map's own direction unless another is given: switching direction
-      is a tidy in the new one, saved as one change with it. */
-  requestTidy(direction?: LayoutDirection): void;
+      map's own settings unless others are given: switching direction or
+      arrow length is a tidy with the new one, saved as one change with it. */
+  requestTidy(change?: Partial<TidySettings>): void;
   undo(): void;
   redo(): void;
 
@@ -244,23 +247,29 @@ export const useMapStore = create<MapState>()((set, get) => ({
   selected: null,
   editing: null,
   connecting: null,
-  tidyRequest: { count: 0, direction: "TB" },
+  tidyRequest: { count: 0, direction: "TB", arrowLength: "medium" },
   history: history.EMPTY_HISTORY,
   stepKey: null,
   histories: {},
 
   // The example's first tidy places boxes that were never shown anywhere
   // else: not something to undo back to.
-  placeAll: (positions, page, direction) =>
+  placeAll: (positions, page, settings) =>
     set((s) => {
       let next = moveNodes(s.map, positions);
       if (page) next = setPage(next, page);
-      if (direction) next = setDirection(next, direction);
+      if (settings) next = setArrowLength(setDirection(next, settings.direction), settings.arrowLength);
       return s.needsTidy ? { map: next, needsTidy: false } : commit(s, next);
     }),
   select: (id) => set({ selected: id }),
-  requestTidy: (direction) =>
-    set((s) => ({ tidyRequest: { count: s.tidyRequest.count + 1, direction: direction ?? s.map.direction } })),
+  requestTidy: (change) =>
+    set((s) => ({
+      tidyRequest: {
+        count: s.tidyRequest.count + 1,
+        direction: change?.direction ?? s.map.direction,
+        arrowLength: change?.arrowLength ?? s.map.arrowLength,
+      },
+    })),
 
   // Undo and redo apply a recorded patch directly; they never go through
   // `commit`, or undoing would record an "undo the undo" step. Typing is

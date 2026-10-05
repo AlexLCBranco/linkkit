@@ -122,6 +122,21 @@ export function layerNodes(map: LinkMap, loopLinks: ReadonlySet<LinkId> = loopBr
   return layer;
 }
 
+/**
+ * The gap between rows (`rowGap`) for an arrow length. A label sits on its
+ * arrow, so the gap is the deepest label along the arrows (its height
+ * top-down, its width left-right: labels are wider than tall), plus the
+ * arrow's own ends (the space at the boxes and the arrowhead), plus
+ * `extra`: the bare arrow the chosen length shows beside the label. So
+ * even the shortest arrows never have a label covering a box, in either
+ * direction.
+ */
+export function arrowGap(extra: number, labels: Iterable<Size>, direction: LayoutDirection, ends: number): number {
+  let deepest = 0;
+  for (const s of labels) deepest = Math.max(deepest, direction === "TB" ? s.height : s.width);
+  return deepest + ends + extra;
+}
+
 export function layoutMap(
   map: LinkMap,
   sizes: ReadonlyMap<NodeId, Size>,

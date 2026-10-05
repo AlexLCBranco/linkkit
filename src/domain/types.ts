@@ -39,6 +39,12 @@ export type PaletteColor = (typeof PALETTE_COLORS)[number];
 export const LAYOUT_DIRECTIONS = ["TB", "LR"] as const;
 export type LayoutDirection = (typeof LAYOUT_DIRECTIONS)[number];
 
+/** How long Tidy up makes the arrows: the gap from one row of boxes to the
+    next (one column to the next, left-right). The pixel numbers sit with
+    the other layout numbers, in features/map/layoutConfig.ts. */
+export const ARROW_LENGTHS = ["short", "medium", "long"] as const;
+export type ArrowLength = (typeof ARROW_LENGTHS)[number];
+
 /** The word an arrow shows when its label is left empty. */
 export const DEFAULT_LINK_LABEL = "needs";
 
@@ -84,6 +90,9 @@ export interface LinkMap {
   /** Which way Tidy up lays the map out. Saved with the map, and undoable:
       switching it re-tidies the boxes. */
   readonly direction: LayoutDirection;
+  /** How long Tidy up makes the arrows. Saved and undoable like the
+      direction: picking another re-tidies the boxes. */
+  readonly arrowLength: ArrowLength;
   readonly nodes: Readonly<Record<NodeId, MapNode>>;
   readonly links: Readonly<Record<LinkId, Link>>;
 }

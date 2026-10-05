@@ -6,7 +6,7 @@ import { linkGeometry, type Box, type LinkGeometry } from "../../domain/geometry
 import { placeLabels } from "../../domain/labels";
 import { layoutMap } from "../../domain/layout";
 import { boxBounds, clampToPage, keepOnPage, pageSize, placeOnPage } from "../../domain/page";
-import type { LinkId, NodeId, Point, Size } from "../../domain/types";
+import type { ArrowLength, LayoutDirection, LinkId, LinkMap, NodeId, Point, Size } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { useViewStore } from "../../store/viewStore";
 import { BoxContextMenu } from "./BoxContextMenu";
@@ -16,6 +16,7 @@ import {
   ARROW,
   LABEL_FALLBACK_SIZE,
   LABELS,
+  layoutOptions,
   MAP_LAYOUT,
   PAGE_INSETS,
   PAGE_MARGIN,
@@ -37,6 +38,13 @@ const CENTER_ORIGIN: NodeOrigin = [0.5, 0.5];
 const NO_DATA = {};
 /** The page before the screen is first measured. */
 const FILL = { width: "100%", height: "100%" };
+
+/** Tidy up's options: the arrow length and direction asked for, with room
+    for every arrow's label (measured, or a typical one's size if not yet). */
+function tidyOptions(map: LinkMap, labelSizes: ReadonlyMap<LinkId, Size>, arrowLength: ArrowLength, direction: LayoutDirection) {
+  const labels = (Object.keys(map.links) as LinkId[]).map((id) => labelSizes.get(id) ?? LABEL_FALLBACK_SIZE);
+  return layoutOptions(arrowLength, direction, labels);
+}
 
 /**
  * The map on its page: dotted paper filling the screen (the area under the
@@ -107,10 +115,19 @@ function MapCanvasInner() {
   const nodeIds = useMemo(() => Object.keys(map.nodes) as NodeId[], [map.nodes]);
   const allMeasured = nodeIds.every((id) => sizes.has(id));
 
+  // Labels are not measured by React Flow: each reports its own size.
+  // Tidy up reads them too, to leave every label room on its arrow.
+  const [labelSizes, setLabelSizes] = useState<ReadonlyMap<LinkId, Size>>(() => new Map());
+  const labelSizesRef = useRef(labelSizes);
+  useEffect(() => {
+    labelSizesRef.current = labelSizes;
+  }, [labelSizes]);
+
   useEffect(() => {
     if (!needsTidy || !allMeasured || !screen) return;
     const align = useViewStore.getState().alignment;
-    const placed = placeOnPage(layoutMap(map, sizes, MAP_LAYOUT), screen, PAGE_MARGIN, align);
+    const options = tidyOptions(map, labelSizesRef.current, map.arrowLength, map.direction);
+    const placed = placeOnPage(layoutMap(map, sizes, options), screen, PAGE_MARGIN, align);
     placeAll(placed.positions, placed.page);
   }, [needsTidy, allMeasured, screen, map, sizes, placeAll]);
 
@@ -175,17 +192,17 @@ function MapCanvasInner() {
   useEffect(() => {
     const centres = (m: typeof map) => new Map<NodeId, Point>(Object.values(m.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
     const glideFrom = (from: Map<NodeId, Point>) => startGlide(from, useMapStore.getState().map.nodes);
-    // Tidy up, in the direction asked for (switching Top-down / Left-right
-    // is a tidy in the new direction, saved together with it).
+    // Tidy up, in the direction and arrow length asked for (switching
+    // either is a tidy with the new setting, saved together with it).
     const offTidy = useMapStore.subscribe((s, prev) => {
       if (s.tidyRequest === prev.tidyRequest || s.needsTidy) return;
       const screen = screenRef.current;
       if (!screen) return;
-      const { direction } = s.tidyRequest;
-      const layout = layoutMap(s.map, sizesRef.current, MAP_LAYOUT, direction);
+      const { direction, arrowLength } = s.tidyRequest;
+      const layout = layoutMap(s.map, sizesRef.current, tidyOptions(s.map, labelSizesRef.current, arrowLength, direction), direction);
       const placed = placeOnPage(layout, screen, PAGE_MARGIN, useViewStore.getState().alignment);
       const from = centres(s.map);
-      s.placeAll(placed.positions, placed.page, direction);
+      s.placeAll(placed.positions, placed.page, { direction, arrowLength });
       glideFrom(from);
     });
     // Align: the whole map moves as one block, its shape untouched.
@@ -225,8 +242,6 @@ function MapCanvasInner() {
     [nodeIds, at, sizes],
   );
 
-  // Labels are not measured by React Flow: each reports its own size.
-  const [labelSizes, setLabelSizes] = useState<ReadonlyMap<LinkId, Size>>(() => new Map());
   const onLabelSize = useCallback((id: LinkId, size: Size | null) => {
     setLabelSizes((prev) => {
       const old = prev.get(id);

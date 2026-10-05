@@ -1,7 +1,8 @@
 import type { ArrowOptions } from "../../domain/geometry";
 import type { LabelOptions } from "../../domain/labels";
-import type { LayoutOptions } from "../../domain/layout";
+import { arrowGap, type LayoutOptions } from "../../domain/layout";
 import type { PageInsets } from "../../domain/page";
+import type { ArrowLength, LayoutDirection, Size } from "../../domain/types";
 
 /**
  * Numbers the pure layout and arrow geometry need as plain JS values (as in
@@ -11,10 +12,23 @@ import type { PageInsets } from "../../domain/page";
  */
 export const MAP_LAYOUT: LayoutOptions = {
   columnGap: 32,
-  // Tall enough for crossing arrows' labels to sit apart between two rows.
+  // Medium arrows top-down: tall enough for crossing arrows' labels to sit
+  // apart between two rows. Tidy up works its own out (`layoutOptions`).
   rowGap: 88,
   fallbackSize: { width: 120, height: 40 },
 };
+
+/** How much bare arrow each arrow length shows beside its label (see
+    `arrowGap`). Top-down, with the usual one-line labels, this makes gaps
+    of 56, 88 (Tidy up's length before there was a choice) and 144. */
+export const ARROW_LENGTH_EXTRA: Record<ArrowLength, number> = { short: 15, medium: 47, long: 103 };
+
+/** Tidy up's options for an arrow length, in a direction, around these
+    labels. */
+export function layoutOptions(length: ArrowLength, direction: LayoutDirection, labels: Iterable<Size>): LayoutOptions {
+  const ends = 2 * ARROW.gap + ARROW.headLength;
+  return { ...MAP_LAYOUT, rowGap: arrowGap(ARROW_LENGTH_EXTRA[length], labels, direction, ends) };
+}
 
 /** Clear space around a tidied map on the page (the prototype's numbers). */
 export const PAGE_MARGIN = { x: 54, y: 64 };

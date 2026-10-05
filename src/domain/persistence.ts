@@ -1,6 +1,18 @@
 import { canLink } from "./rules";
-import type { LayoutDirection, Link, LinkId, LinkMap, MapId, MapKind, MapNode, NodeId, PaletteColor, Size } from "./types";
-import { DEFAULT_LINK_LABEL, LAYOUT_DIRECTIONS, MAP_KINDS, PALETTE_COLORS } from "./types";
+import type {
+  ArrowLength,
+  LayoutDirection,
+  Link,
+  LinkId,
+  LinkMap,
+  MapId,
+  MapKind,
+  MapNode,
+  NodeId,
+  PaletteColor,
+  Size,
+} from "./types";
+import { ARROW_LENGTHS, DEFAULT_LINK_LABEL, LAYOUT_DIRECTIONS, MAP_KINDS, PALETTE_COLORS } from "./types";
 
 /**
  * The saved shape of a map, and how to read it back safely. Pure: where it
@@ -20,12 +32,12 @@ export interface PersistedMap {
 }
 
 export function serializeMap(map: LinkMap): PersistedMap {
-  const { id, name, kind, page, direction, nodes, links } = map;
+  const { id, name, kind, page, direction, arrowLength, nodes, links } = map;
   // Copies out exactly the content fields, so nothing else that happens to
   // ride along on the object can leak into storage.
   return {
     version: SCHEMA_VERSION,
-    map: { id, name, kind, page: { width: page.width, height: page.height }, direction, nodes, links },
+    map: { id, name, kind, page: { width: page.width, height: page.height }, direction, arrowLength, nodes, links },
   };
 }
 
@@ -83,6 +95,14 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
         ? (raw.direction as LayoutDirection)
         : fix("TB");
 
+  // Likewise the arrow length: older saves were tidied at medium.
+  const arrowLength: ArrowLength =
+    raw.arrowLength === undefined
+      ? "medium"
+      : ARROW_LENGTHS.includes(raw.arrowLength as ArrowLength)
+        ? (raw.arrowLength as ArrowLength)
+        : fix("medium");
+
   // Boxes.
   const rawNodes: Record<string, unknown> = isObject(raw.nodes) ? raw.nodes : fix({});
   const nodes: Record<NodeId, MapNode> = {};
@@ -107,7 +127,7 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
   // far, so an exact repeat is caught the same way the UI would catch it.
   const rawLinks: Record<string, unknown> = isObject(raw.links) ? raw.links : fix({});
   const links: Record<LinkId, Link> = {};
-  const map: LinkMap = { id: raw.id as MapId, name, kind, page, direction, nodes, links };
+  const map: LinkMap = { id: raw.id as MapId, name, kind, page, direction, arrowLength, nodes, links };
   for (const [key, link] of Object.entries(rawLinks)) {
     if (!isObject(link) || typeof link.from !== "string" || typeof link.to !== "string") {
       fix(null);

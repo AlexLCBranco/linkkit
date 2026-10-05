@@ -1,6 +1,7 @@
 import { createLinkId, createNodeId } from "./ids";
 import { canLink, type LinkVerdict } from "./rules";
 import type {
+  ArrowLength,
   LayoutDirection,
   Link,
   LinkId,
@@ -23,7 +24,7 @@ import { DEFAULT_LINK_LABEL } from "./types";
  */
 
 export function createMap(id: MapId, name: string, page: Size, kind: MapKind = "connections"): LinkMap {
-  return { id, name, kind, page, direction: "TB", nodes: {}, links: {} };
+  return { id, name, kind, page, direction: "TB", arrowLength: "medium", nodes: {}, links: {} };
 }
 
 /** Tidies a typed name: runs of whitespace become one space, ends trimmed. */
@@ -116,6 +117,9 @@ export function duplicateMap(map: LinkMap, id: MapId, name: string): LinkMap {
 
 export const setDirection = (map: LinkMap, direction: LayoutDirection): LinkMap =>
   direction === map.direction ? map : { ...map, direction };
+
+export const setArrowLength = (map: LinkMap, arrowLength: ArrowLength): LinkMap =>
+  arrowLength === map.arrowLength ? map : { ...map, arrowLength };
 
 export function setPage(map: LinkMap, page: Size): LinkMap {
   return page.width === map.page.width && page.height === map.page.height ? map : { ...map, page };

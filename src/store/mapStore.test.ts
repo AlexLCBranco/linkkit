@@ -44,25 +44,27 @@ describe("map store", () => {
     const useMapStore = await freshStore();
     const before = useMapStore.getState().map;
     useMapStore.getState().requestTidy();
-    expect(useMapStore.getState().tidyRequest).toEqual({ count: 1, direction: "TB" });
+    expect(useMapStore.getState().tidyRequest).toEqual({ count: 1, direction: "TB", arrowLength: "medium" });
     expect(useMapStore.getState().map).toBe(before);
-    useMapStore.getState().requestTidy("LR");
-    expect(useMapStore.getState().tidyRequest).toEqual({ count: 2, direction: "LR" });
+    useMapStore.getState().requestTidy({ direction: "LR" });
+    expect(useMapStore.getState().tidyRequest).toEqual({ count: 2, direction: "LR", arrowLength: "medium" });
+    useMapStore.getState().requestTidy({ arrowLength: "long" });
+    expect(useMapStore.getState().tidyRequest).toEqual({ count: 3, direction: "TB", arrowLength: "long" });
     expect(useMapStore.getState().map).toBe(before);
   });
 
-  it("switches direction and moves the boxes as one undo step", async () => {
+  it("switches direction and arrow length and moves the boxes as one undo step", async () => {
     const useMapStore = await freshStore();
     useMapStore.getState().placeAll(new Map(), { width: 1200, height: 700 });
     const before = useMapStore.getState().map;
     const id = Object.keys(before.nodes)[0] as NodeId;
-    useMapStore.getState().placeAll(new Map([[id, { x: 5, y: 6 }]]), undefined, "LR");
+    useMapStore.getState().placeAll(new Map([[id, { x: 5, y: 6 }]]), undefined, { direction: "LR", arrowLength: "short" });
     const after = useMapStore.getState().map;
-    expect(after.direction).toBe("LR");
+    expect(after).toMatchObject({ direction: "LR", arrowLength: "short" });
     expect(after.nodes[id]).toMatchObject({ x: 5, y: 6 });
     expect(after.page).toBe(before.page);
     useMapStore.getState().undo();
-    expect(useMapStore.getState().map.direction).toBe("TB");
+    expect(useMapStore.getState().map).toMatchObject({ direction: "TB", arrowLength: "medium" });
     expect(useMapStore.getState().map.nodes[id]).toEqual(before.nodes[id]);
   });
 

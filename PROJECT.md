@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-05, v0.0.11 (Top-down / Left-right and Align, from Treekit)_
+_Last updated: 2026-10-05, v0.0.12 (arrow length presets for Tidy up)_
 
 ## What it is
 
@@ -27,11 +27,13 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
 ## What works now
 
 - Dark header (with the map switcher, "Add box", "Tidy up", undo /
-  redo, the Top-down / Left-right switch and "Align"), status line,
-  version badge. On a phone-sized window
-  (480px or less) "Add box" and "Tidy up" show only their icons, and
-  Top-down / Left-right show a down / right arrow, so the map's name has
-  room; their tooltips still say what they do
+  redo, the Top-down / Left-right switch, "Arrows" and "Align"), status
+  line, version badge. On a phone-sized window
+  (480px or less) "Add box" and "Tidy up" show only their icons,
+  Top-down / Left-right show a down / right arrow and "Arrows" shows an
+  arrow, so the map's name has room; their tooltips still say what they
+  do. (Even so, on a 375px phone the name shrinks to its first letter:
+  the header is full)
 - Keyboard extras for boxes: Tab moves through the boxes (and each box's
   toolbar buttons, which show while it has focus); Enter on a box selects
   it, as in the prototype. Tab skips the arrow lines; an arrow label's ×
@@ -110,6 +112,14 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   columns. Picking the other one tidies the map that way at once (the
   boxes glide); the direction is saved with each map, and switching is
   one undo step. "Tidy up" then keeps using that direction
+- Arrow length (the "Arrows" panel, next to Align): Short, Medium or Long,
+  how long Tidy up makes the arrows. Picking one tidies the map with it at
+  once (the boxes glide; picking the one already chosen just tidies
+  again). Saved with each map and one undo step, like the direction;
+  Medium is the old length, and older maps open as Medium. The length is
+  measured beside the widest label, so even Short never lets a label
+  cover a box: top-down the gaps are 56 / 88 / 144px, left-right (where
+  labels lie along the arrows) they grow with the longest label
 - Align (Treekit's panel): left / centre / right and top / middle /
   bottom for the whole map on the screen. The boxes glide there together,
   keeping their shape (one undo step); pressing the spot already chosen
@@ -121,7 +131,8 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   (boxes with a centre position and an optional colour, arrows with a
   label), the one place that decides which arrows are allowed, "needs /
   breaks" reach and the status-bar counts, a loop-safe Tidy-up layout (top-down, or the same turned on its side
-  for left-right),
+  for left-right; the gap between rows from the arrow length and the
+  labels),
   page sizing (the screen, or the boxes' reach; keeping boxes on the
   page; a free spot for a new box; placing a block of boxes at an
   alignment), arrow geometry (with side-by-side
@@ -149,6 +160,7 @@ The first build, in order:
    fresh example map and never wipes one)~~ (done)
 9. ~~Polish and a full check against the "done when" list~~ (done)
 10. ~~Treekit's view modes: Top-down / Left-right and Align~~ (done)
+11. ~~Arrow length presets (Short / Medium / Long) for Tidy up~~ (done)
 
 The first build is complete. Nothing further is planned yet: the owner
 picks what comes next. Small things noticed but left alone (see Open
@@ -229,3 +241,14 @@ problems): arrow labels can't be edited from the keyboard.
   top-down without counting as a repair); the alignment is a browser-wide
   view preference, as in Treekit. On a phone-sized window the header's
   gaps are tighter so the map's name keeps some room.
+- Step 11 (owner asked for "arrow length presets for the tidy up thing";
+  neither Treekit nor the prototype has one): three presets, Short /
+  Medium / Long, in an "Arrows" panel styled like Align's (a third header
+  switch would not fit on a phone). Choices made without asking, easy to
+  change: the length is saved per map and undoable (like the direction,
+  since it shapes the tidied map), not a browser-wide preference like
+  Align; picking one tidies at once; only the gap ALONG the arrows
+  changes, not the space between neighbouring boxes. Found while
+  building: left-right, the old fixed gap let wide labels ("checked by")
+  sit over the boxes. Now every preset is measured past the widest
+  label, so Medium left-right is a little longer than before.

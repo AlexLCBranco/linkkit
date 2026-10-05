@@ -12,6 +12,7 @@ import {
   moveNodes,
   renameMap,
   renameNode,
+  setArrowLength,
   setLinkLabel,
   setNodeColor,
   setDirection,
@@ -82,6 +83,13 @@ describe("map edits", () => {
     expect(map.direction).toBe("TB");
     expect(setDirection(map, "TB")).toBe(map);
     expect(setDirection(map, "LR").direction).toBe("LR");
+  });
+
+  it("sets the arrow length, medium by default", () => {
+    const map = build(["c"]);
+    expect(map.arrowLength).toBe("medium");
+    expect(setArrowLength(map, "medium")).toBe(map);
+    expect(setArrowLength(map, "short").arrowLength).toBe("short");
   });
 
   it("duplicates a map under a new id and name, sharing its content", () => {

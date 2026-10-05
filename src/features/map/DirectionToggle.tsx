@@ -29,7 +29,7 @@ export function DirectionToggle() {
           title={value === "TB" ? "Tidy up top-down: a box above what it needs" : "Tidy up left-right: a box left of what it needs"}
           className={styles.option}
           onClick={() => {
-            if (value !== direction) requestTidy(value);
+            if (value !== direction) requestTidy({ direction: value });
           }}
         >
           <Icon size={16} className={styles.icon} aria-hidden />
