@@ -59,6 +59,28 @@
   color: var(--text-inverted);
 }
 
+/* Any length in between: the browser's own slider in the accent colour,
+   with marks at the presets (where the browser draws them). */
+.slider {
+  width: 100%;
+  margin-top: var(--space-1);
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.ends {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
+.hint {
+  max-width: calc(var(--space-7) * 4);
+  color: var(--text-muted);
+  font-size: var(--font-size-xs);
+}
+
 /* A line with an arrowhead, in a fixed-width slot so the words line up. */
 .arrow {
   position: relative;

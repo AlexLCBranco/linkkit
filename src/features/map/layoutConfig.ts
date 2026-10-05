@@ -18,17 +18,22 @@ export const MAP_LAYOUT: LayoutOptions = {
   fallbackSize: { width: 120, height: 40 },
 };
 
-/** How much bare arrow each arrow length shows beside its label (see
-    `arrowGap`). Top-down, with the usual one-line labels, this makes gaps
-    of 56, 88 (Tidy up's length before there was a choice) and 144. */
-export const ARROW_LENGTH_EXTRA: Record<ArrowLength, number> = { short: 15, medium: 47, long: 103 };
-
-/** Tidy up's options for an arrow length, in a direction, around these
-    labels. */
+/** Tidy up's options for an arrow length (the bare arrow shown beside the
+    widest label, see `arrowGap`), in a direction, around these labels.
+    Top-down, with the usual one-line labels, the presets make gaps of 56,
+    88 (Tidy up's length before there was a choice) and 144. */
 export function layoutOptions(length: ArrowLength, direction: LayoutDirection, labels: Iterable<Size>): LayoutOptions {
   const ends = 2 * ARROW.gap + ARROW.headLength;
-  return { ...MAP_LAYOUT, rowGap: arrowGap(ARROW_LENGTH_EXTRA[length], labels, direction, ends) };
+  return { ...MAP_LAYOUT, rowGap: arrowGap(length, labels, direction, ends) };
 }
+
+/** One notch of the mouse wheel over the arrow length (deltaY 100 in most
+    browsers) changes it by this many pixels. Trackpads send smaller
+    deltas, so they change it smoothly. */
+export const ARROW_WHEEL_STEP = 8;
+
+/** Wheel turns this close together make one undo step. */
+export const ARROW_WHEEL_PAUSE_MS = 600;
 
 /** Clear space around a tidied map on the page (the prototype's numbers). */
 export const PAGE_MARGIN = { x: 54, y: 64 };

@@ -14,7 +14,7 @@ import type {
   Point,
   Size,
 } from "./types";
-import { DEFAULT_LINK_LABEL } from "./types";
+import { ARROW_LENGTH_PRESETS, ARROW_LENGTH_RANGE, DEFAULT_LINK_LABEL } from "./types";
 
 /**
  * Edits to a map. Every function is pure: it takes a map and returns a new
@@ -24,7 +24,7 @@ import { DEFAULT_LINK_LABEL } from "./types";
  */
 
 export function createMap(id: MapId, name: string, page: Size, kind: MapKind = "connections"): LinkMap {
-  return { id, name, kind, page, direction: "TB", arrowLength: "medium", nodes: {}, links: {} };
+  return { id, name, kind, page, direction: "TB", arrowLength: ARROW_LENGTH_PRESETS.medium, nodes: {}, links: {} };
 }
 
 /** Tidies a typed name: runs of whitespace become one space, ends trimmed. */
@@ -118,8 +118,14 @@ export function duplicateMap(map: LinkMap, id: MapId, name: string): LinkMap {
 export const setDirection = (map: LinkMap, direction: LayoutDirection): LinkMap =>
   direction === map.direction ? map : { ...map, direction };
 
-export const setArrowLength = (map: LinkMap, arrowLength: ArrowLength): LinkMap =>
-  arrowLength === map.arrowLength ? map : { ...map, arrowLength };
+/** An arrow length kept to whole pixels within the allowed range. */
+export const clampArrowLength = (length: number): ArrowLength =>
+  Math.min(ARROW_LENGTH_RANGE.max, Math.max(ARROW_LENGTH_RANGE.min, Math.round(length)));
+
+export function setArrowLength(map: LinkMap, length: ArrowLength): LinkMap {
+  const arrowLength = clampArrowLength(length);
+  return arrowLength === map.arrowLength ? map : { ...map, arrowLength };
+}
 
 export function setPage(map: LinkMap, page: Size): LinkMap {
   return page.width === map.page.width && page.height === map.page.height ? map : { ...map, page };

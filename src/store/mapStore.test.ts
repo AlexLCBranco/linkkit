@@ -44,12 +44,12 @@ describe("map store", () => {
     const useMapStore = await freshStore();
     const before = useMapStore.getState().map;
     useMapStore.getState().requestTidy();
-    expect(useMapStore.getState().tidyRequest).toEqual({ count: 1, direction: "TB", arrowLength: "medium" });
+    expect(useMapStore.getState().tidyRequest).toEqual({ count: 1, direction: "TB", arrowLength: 47, gesture: null });
     expect(useMapStore.getState().map).toBe(before);
     useMapStore.getState().requestTidy({ direction: "LR" });
-    expect(useMapStore.getState().tidyRequest).toEqual({ count: 2, direction: "LR", arrowLength: "medium" });
-    useMapStore.getState().requestTidy({ arrowLength: "long" });
-    expect(useMapStore.getState().tidyRequest).toEqual({ count: 3, direction: "TB", arrowLength: "long" });
+    expect(useMapStore.getState().tidyRequest).toEqual({ count: 2, direction: "LR", arrowLength: 47, gesture: null });
+    useMapStore.getState().requestTidy({ arrowLength: 103 });
+    expect(useMapStore.getState().tidyRequest).toEqual({ count: 3, direction: "TB", arrowLength: 103, gesture: null });
     expect(useMapStore.getState().map).toBe(before);
   });
 
@@ -58,14 +58,33 @@ describe("map store", () => {
     useMapStore.getState().placeAll(new Map(), { width: 1200, height: 700 });
     const before = useMapStore.getState().map;
     const id = Object.keys(before.nodes)[0] as NodeId;
-    useMapStore.getState().placeAll(new Map([[id, { x: 5, y: 6 }]]), undefined, { direction: "LR", arrowLength: "short" });
+    useMapStore.getState().placeAll(new Map([[id, { x: 5, y: 6 }]]), undefined, { direction: "LR", arrowLength: 15 });
     const after = useMapStore.getState().map;
-    expect(after).toMatchObject({ direction: "LR", arrowLength: "short" });
+    expect(after).toMatchObject({ direction: "LR", arrowLength: 15 });
     expect(after.nodes[id]).toMatchObject({ x: 5, y: 6 });
     expect(after.page).toBe(before.page);
     useMapStore.getState().undo();
-    expect(useMapStore.getState().map).toMatchObject({ direction: "TB", arrowLength: "medium" });
+    expect(useMapStore.getState().map).toMatchObject({ direction: "TB", arrowLength: 47 });
     expect(useMapStore.getState().map.nodes[id]).toEqual(before.nodes[id]);
+  });
+
+  it("makes one undo step of a dragged or scrolled arrow length", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().placeAll(new Map(), { width: 1200, height: 700 });
+    const settings = (arrowLength: number) => ({ direction: "TB" as const, arrowLength });
+    for (const length of [55, 63, 71]) useMapStore.getState().placeAll(new Map(), undefined, settings(length), "g1");
+    useMapStore.getState().placeAll(new Map(), undefined, settings(90), "g2");
+    expect(useMapStore.getState().map.arrowLength).toBe(90);
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.arrowLength).toBe(71);
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.arrowLength).toBe(47);
+  });
+
+  it("keeps a requested arrow length within range", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().requestTidy({ arrowLength: 5000 }, "g");
+    expect(useMapStore.getState().tidyRequest).toMatchObject({ arrowLength: 240, gesture: "g" });
   });
 
   it("adds a box ready for typing, and drops it if left without a name", async () => {

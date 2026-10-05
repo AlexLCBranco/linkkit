@@ -87,9 +87,13 @@ describe("map edits", () => {
 
   it("sets the arrow length, medium by default", () => {
     const map = build(["c"]);
-    expect(map.arrowLength).toBe("medium");
-    expect(setArrowLength(map, "medium")).toBe(map);
-    expect(setArrowLength(map, "short").arrowLength).toBe("short");
+    expect(map.arrowLength).toBe(47);
+    expect(setArrowLength(map, 47.2)).toBe(map);
+    expect(setArrowLength(map, 15).arrowLength).toBe(15);
+    // Whole pixels, within the range.
+    expect(setArrowLength(map, 60.6).arrowLength).toBe(61);
+    expect(setArrowLength(map, -20).arrowLength).toBe(0);
+    expect(setArrowLength(map, 999).arrowLength).toBe(240);
   });
 
   it("duplicates a map under a new id and name, sharing its content", () => {

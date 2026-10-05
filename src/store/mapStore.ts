@@ -6,6 +6,7 @@ import { createMapId } from "../domain/ids";
 import {
   addLink,
   addNode,
+  clampArrowLength,
   cleanName,
   createMap,
   deleteLink,
@@ -24,7 +25,7 @@ import {
 import { defaultPageSize } from "../domain/page";
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
-import type { LinkId, LinkMap, MapId, NodeId, PaletteColor, Point, Size } from "../domain/types";
+import { ARROW_LENGTH_PRESETS, type LinkId, type LinkMap, type MapId, type NodeId, type PaletteColor, type Point, type Size } from "../domain/types";
 import { deleteStoredMap, loadActiveMapId, loadMap, loadRegistry, saveActiveMapId, saveMap } from "./persistMap";
 import { cancelSave, flushSave } from "./saveQueue";
 
@@ -48,6 +49,10 @@ export type TidySettings = Pick<LinkMap, "direction" | "arrowLength">;
 export interface TidyRequest extends TidySettings {
   /** Counts presses: the canvas tidies when it changes. */
   readonly count: number;
+  /** Set while the arrow length is being dragged or scrolled: every tidy
+      of one gesture joins one undo step, and the boxes follow at once
+      instead of gliding (a glide would lag behind the hand). */
+  readonly gesture: string | null;
 }
 
 /**
@@ -88,14 +93,16 @@ export interface MapState {
   readonly histories: Readonly<Record<MapId, history.History>>;
 
   /** Puts every box where Tidy up (or Align) said, and records the page
-      size and settings Tidy up used, in one change. */
-  placeAll(positions: ReadonlyMap<NodeId, Point>, page?: Size, settings?: TidySettings): void;
+      size and settings Tidy up used, in one change. Changes with the same
+      `gesture` are one undo step. */
+  placeAll(positions: ReadonlyMap<NodeId, Point>, page?: Size, settings?: TidySettings, gesture?: string | null): void;
   /** Selects a box (`null` clears the selection). */
   select(id: NodeId | null): void;
   /** Asks the canvas to tidy the map up (see `tidyRequest`), in the
       map's own settings unless others are given: switching direction or
-      arrow length is a tidy with the new one, saved as one change with it. */
-  requestTidy(change?: Partial<TidySettings>): void;
+      arrow length is a tidy with the new one, saved as one change with it.
+      `gesture`: see `TidyRequest`. */
+  requestTidy(change?: Partial<TidySettings>, gesture?: string): void;
   undo(): void;
   redo(): void;
 
@@ -247,27 +254,28 @@ export const useMapStore = create<MapState>()((set, get) => ({
   selected: null,
   editing: null,
   connecting: null,
-  tidyRequest: { count: 0, direction: "TB", arrowLength: "medium" },
+  tidyRequest: { count: 0, direction: "TB", arrowLength: ARROW_LENGTH_PRESETS.medium, gesture: null },
   history: history.EMPTY_HISTORY,
   stepKey: null,
   histories: {},
 
   // The example's first tidy places boxes that were never shown anywhere
   // else: not something to undo back to.
-  placeAll: (positions, page, settings) =>
+  placeAll: (positions, page, settings, gesture = null) =>
     set((s) => {
       let next = moveNodes(s.map, positions);
       if (page) next = setPage(next, page);
       if (settings) next = setArrowLength(setDirection(next, settings.direction), settings.arrowLength);
-      return s.needsTidy ? { map: next, needsTidy: false } : commit(s, next);
+      return s.needsTidy ? { map: next, needsTidy: false } : commit(s, next, gesture && `arrows:${gesture}`);
     }),
   select: (id) => set({ selected: id }),
-  requestTidy: (change) =>
+  requestTidy: (change, gesture) =>
     set((s) => ({
       tidyRequest: {
         count: s.tidyRequest.count + 1,
         direction: change?.direction ?? s.map.direction,
-        arrowLength: change?.arrowLength ?? s.map.arrowLength,
+        arrowLength: clampArrowLength(change?.arrowLength ?? s.map.arrowLength),
+        gesture: gesture ?? null,
       },
     })),
 

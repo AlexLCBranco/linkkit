@@ -39,11 +39,14 @@ export type PaletteColor = (typeof PALETTE_COLORS)[number];
 export const LAYOUT_DIRECTIONS = ["TB", "LR"] as const;
 export type LayoutDirection = (typeof LAYOUT_DIRECTIONS)[number];
 
-/** How long Tidy up makes the arrows: the gap from one row of boxes to the
-    next (one column to the next, left-right). The pixel numbers sit with
-    the other layout numbers, in features/map/layoutConfig.ts. */
-export const ARROW_LENGTHS = ["short", "medium", "long"] as const;
-export type ArrowLength = (typeof ARROW_LENGTHS)[number];
+/** How long Tidy up makes the arrows: the pixels of bare arrow shown beside
+    the widest label (see `arrowGap` in layout.ts), any whole number from
+    `ARROW_LENGTH_RANGE.min` to `.max`. The presets are named points on that
+    range; Medium is the length Tidy up used before there was a choice. */
+export type ArrowLength = number;
+export const ARROW_LENGTH_PRESETS = { short: 15, medium: 47, long: 103 } as const;
+export type ArrowLengthPreset = keyof typeof ARROW_LENGTH_PRESETS;
+export const ARROW_LENGTH_RANGE = { min: 0, max: 240 } as const;
 
 /** The word an arrow shows when its label is left empty. */
 export const DEFAULT_LINK_LABEL = "needs";

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-05, v0.0.12 (arrow length presets for Tidy up)_
+_Last updated: 2026-10-05, v0.0.13 (any arrow length: wheel and slider)_
 
 ## What it is
 
@@ -119,7 +119,19 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   Medium is the old length, and older maps open as Medium. The length is
   measured beside the widest label, so even Short never lets a label
   cover a box: top-down the gaps are 56 / 88 / 144px, left-right (where
-  labels lie along the arrows) they grow with the longest label
+  labels lie along the arrows) they grow with the longest label.
+  Any length in between (or a little past Long), two ways, re-tidying as
+  it goes with the boxes following at once (no glide):
+  - Scroll the mouse wheel over the "Arrows" button, no need to open it:
+    wheel up stretches the arrows, wheel down shrinks them (8px a notch;
+    a trackpad changes it smoothly). The button's tooltip says so, and so
+    does a tip in the panel
+  - The slider in the panel ("Shorter" … "Longer"), with marks at the
+    presets; it snaps onto a preset when let go near one. Arrow keys on
+    it work too
+  A preset button lights up only when the length is exactly that preset.
+  One drag, or one burst of scrolling (turns less than 0.6s apart), is
+  one undo step
 - Align (Treekit's panel): left / centre / right and top / middle /
   bottom for the whole map on the screen. The boxes glide there together,
   keeping their shape (one undo step); pressing the spot already chosen
@@ -161,6 +173,7 @@ The first build, in order:
 9. ~~Polish and a full check against the "done when" list~~ (done)
 10. ~~Treekit's view modes: Top-down / Left-right and Align~~ (done)
 11. ~~Arrow length presets (Short / Medium / Long) for Tidy up~~ (done)
+12. ~~Any arrow length: mouse wheel over "Arrows", and a slider~~ (done)
 
 The first build is complete. Nothing further is planned yet: the owner
 picks what comes next. Small things noticed but left alone (see Open
@@ -252,3 +265,11 @@ problems): arrow labels can't be edited from the keyboard.
   building: left-right, the old fixed gap let wide labels ("checked by")
   sit over the boxes. Now every preset is measured past the widest
   label, so Medium left-right is a little longer than before.
+- Step 12 (owner asked for "a clever way to scroll the size of the preset
+  arrows"): the length is now a number of pixels (the bare arrow beside
+  the widest label, 0 to 240; Short 15, Medium 47, Long 103), not one of
+  three names. Saves from v0.0.12 that name a preset read as its number.
+  The clever part: the mouse wheel over the "Arrows" button stretches or
+  shrinks the arrows live without opening anything; the panel's slider is
+  the visible way for anyone who doesn't know about the wheel. Live
+  changes skip the glide (it would lag behind the hand).

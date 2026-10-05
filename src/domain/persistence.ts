@@ -12,7 +12,8 @@ import type {
   PaletteColor,
   Size,
 } from "./types";
-import { ARROW_LENGTHS, DEFAULT_LINK_LABEL, LAYOUT_DIRECTIONS, MAP_KINDS, PALETTE_COLORS } from "./types";
+import { clampArrowLength } from "./map";
+import { ARROW_LENGTH_PRESETS, DEFAULT_LINK_LABEL, LAYOUT_DIRECTIONS, MAP_KINDS, PALETTE_COLORS } from "./types";
 
 /**
  * The saved shape of a map, and how to read it back safely. Pure: where it
@@ -95,13 +96,19 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
         ? (raw.direction as LayoutDirection)
         : fix("TB");
 
-  // Likewise the arrow length: older saves were tidied at medium.
+  // Likewise the arrow length: older saves were tidied at medium. Saves
+  // from v0.0.12, when there were only the presets, name one ("long").
+  const rawLength = raw.arrowLength;
   const arrowLength: ArrowLength =
-    raw.arrowLength === undefined
-      ? "medium"
-      : ARROW_LENGTHS.includes(raw.arrowLength as ArrowLength)
-        ? (raw.arrowLength as ArrowLength)
-        : fix("medium");
+    rawLength === undefined
+      ? ARROW_LENGTH_PRESETS.medium
+      : typeof rawLength === "string" && Object.hasOwn(ARROW_LENGTH_PRESETS, rawLength)
+        ? ARROW_LENGTH_PRESETS[rawLength as keyof typeof ARROW_LENGTH_PRESETS]
+        : typeof rawLength === "number" && Number.isFinite(rawLength)
+          ? clampArrowLength(rawLength) === rawLength
+            ? rawLength
+            : fix(clampArrowLength(rawLength))
+          : fix(ARROW_LENGTH_PRESETS.medium);
 
   // Boxes.
   const rawNodes: Record<string, unknown> = isObject(raw.nodes) ? raw.nodes : fix({});

@@ -198,12 +198,13 @@ function MapCanvasInner() {
       if (s.tidyRequest === prev.tidyRequest || s.needsTidy) return;
       const screen = screenRef.current;
       if (!screen) return;
-      const { direction, arrowLength } = s.tidyRequest;
+      const { direction, arrowLength, gesture } = s.tidyRequest;
       const layout = layoutMap(s.map, sizesRef.current, tidyOptions(s.map, labelSizesRef.current, arrowLength, direction), direction);
       const placed = placeOnPage(layout, screen, PAGE_MARGIN, useViewStore.getState().alignment);
       const from = centres(s.map);
-      s.placeAll(placed.positions, placed.page, { direction, arrowLength });
-      glideFrom(from);
+      s.placeAll(placed.positions, placed.page, { direction, arrowLength }, gesture);
+      // Dragged or scrolled: the boxes follow the hand at once.
+      if (!gesture) glideFrom(from);
     });
     // Align: the whole map moves as one block, its shape untouched.
     const offAlign = useViewStore.subscribe((v, prev) => {

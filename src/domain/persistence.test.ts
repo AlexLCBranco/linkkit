@@ -38,14 +38,18 @@ describe("readMap", () => {
     expect(readMap(old, fallbackPage)).toMatchObject({ status: "repaired", map: { direction: "TB" }, fixes: 1 });
   });
 
-  it("keeps the arrow length, reads an older save (none) as medium, repairs a bad one", () => {
-    const map = { ...build(["a"]), arrowLength: "long" as const };
+  it("keeps the arrow length, reads older saves (none, or a preset's name), repairs a bad one", () => {
+    const map = { ...build(["a"]), arrowLength: 70 };
     expect(readMap(roundTrip(serializeMap(map)), fallbackPage)).toEqual({ status: "ok", map });
     const old = roundTrip(serializeMap(map));
     delete old.map.arrowLength;
-    expect(readMap(old, fallbackPage)).toMatchObject({ status: "ok", map: { arrowLength: "medium" } });
+    expect(readMap(old, fallbackPage)).toMatchObject({ status: "ok", map: { arrowLength: 47 } });
+    old.map.arrowLength = "long";
+    expect(readMap(old, fallbackPage)).toMatchObject({ status: "ok", map: { arrowLength: 103 } });
     old.map.arrowLength = "huge";
-    expect(readMap(old, fallbackPage)).toMatchObject({ status: "repaired", map: { arrowLength: "medium" }, fixes: 1 });
+    expect(readMap(old, fallbackPage)).toMatchObject({ status: "repaired", map: { arrowLength: 47 }, fixes: 1 });
+    old.map.arrowLength = 9000;
+    expect(readMap(old, fallbackPage)).toMatchObject({ status: "repaired", map: { arrowLength: 240 }, fixes: 1 });
   });
 
   it("repairs bad fields and drops arrows the rules would refuse", () => {
