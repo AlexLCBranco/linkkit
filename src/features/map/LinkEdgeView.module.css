@@ -1,7 +1,21 @@
+/* The arrow's line. React Flow's own `.react-flow__edge-path` rule has the
+   same weight as a plain class, so `path.line` makes these win whatever
+   order the stylesheets load in. */
+path.line {
+  stroke: var(--edge-stroke);
+  stroke-width: var(--edge-width);
+  transition:
+    stroke var(--duration-medium) var(--ease-standard),
+    opacity var(--duration-medium) var(--ease-standard);
+}
+
 /* The arrowhead: filled in the line's colour. */
 .head {
   fill: var(--edge-stroke);
   stroke: none;
+  transition:
+    fill var(--duration-medium) var(--ease-standard),
+    opacity var(--duration-medium) var(--ease-standard);
 }
 
 /* An arrow's label: a small pill in the page's colour, so the line appears
@@ -22,4 +36,42 @@
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: default;
+  transition:
+    color var(--duration-medium) var(--ease-standard),
+    opacity var(--duration-medium) var(--ease-standard);
+}
+
+/* ---- The needs / breaks highlight (a box is selected) ---- */
+path.line[data-highlight="need"] {
+  stroke: var(--need);
+  stroke-width: var(--edge-width-lit);
+}
+
+path.line[data-highlight="break"] {
+  stroke: var(--break);
+  stroke-width: var(--edge-width-lit);
+}
+
+.head[data-highlight="need"] {
+  fill: var(--need);
+}
+
+.head[data-highlight="break"] {
+  fill: var(--break);
+}
+
+.label[data-highlight="need"] {
+  color: var(--need);
+  font-weight: var(--weight-medium);
+}
+
+.label[data-highlight="break"] {
+  color: var(--break);
+  font-weight: var(--weight-medium);
+}
+
+path.line[data-highlight="faded"],
+.head[data-highlight="faded"],
+.label[data-highlight="faded"] {
+  opacity: var(--faded-opacity);
 }

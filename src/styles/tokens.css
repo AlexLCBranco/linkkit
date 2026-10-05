@@ -59,6 +59,10 @@
   --edge-width: 1.5px;
   /* Arrows inside the needs / breaks highlight are a bit thicker. */
   --edge-width-lit: 2.2px;
+  /* The colour squares beside the status line's counts. */
+  --status-swatch-size: 10px;
+  /* The ring round the selected box (as on a selected Treekit node). */
+  --select-ring-width: 2px;
   /* How much of a box or arrow outside the highlight still shows (0-1). */
   --faded-opacity: 0.25;
   /* The dashed preview arrow while connecting. */

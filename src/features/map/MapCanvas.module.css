@@ -41,11 +41,6 @@
   background: transparent;
 }
 
-.canvas :global(.react-flow__edge-path) {
-  stroke: var(--edge-stroke);
-  stroke-width: var(--edge-width);
-}
-
 .canvas :global(.react-flow__attribution) {
   background: transparent;
   color: var(--text-muted);

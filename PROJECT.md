@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-05, v0.0.2 (after step 3)_
+_Last updated: 2026-10-05, v0.0.3 (after step 4)_
 
 ## What it is
 
@@ -36,7 +36,13 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   (boxes measured out of sight, Tidy up runs once, then they show)
 - Saved automatically in the browser; a reload reopens the same map where
   it was. A damaged save is repaired and the original kept aside
-- Nothing is clickable yet (step 4 onward)
+- Click a box: what it needs lights up teal, what breaks without it
+  lights up orange (boxes fill, arrows on those paths turn colour and
+  thicken), everything else fades, and the status line shows the box's
+  name and both counts. A box both needed and broken (in a loop) shows
+  teal and counts only under "Needs". Box colours step aside while the
+  highlight shows. Click empty paper or press Escape to clear it. The
+  selection is not saved: a reload starts with nothing selected
 - The engine underneath, all in `src/domain/` with tests: the map model
   (boxes with a centre position and an optional colour, arrows with a
   label), the one place that decides which arrows are allowed, "needs /
@@ -51,9 +57,8 @@ The first build, in order:
 2. ~~Domain + tests~~ (done)
 3. ~~The page: boxes and arrows, the example map tidied on first load~~
    (done)
-4. Click a box: teal needs / orange breaks highlight and the status bar
-   (a box both needed and broken, in a loop, shows teal and counts only
-   under "Needs", as in the prototype)
+4. ~~Click a box: teal needs / orange breaks highlight and the status bar~~
+   (done)
 5. Editing with the mouse: add, rename, connect, move, delete, arrow labels
    ("Add box" puts the box in the middle of the visible part of the page,
    not the page top as in the prototype)
@@ -74,6 +79,9 @@ The first build, in order:
   (Treekit's look won, per CLAUDE.md): boxes wrap long names instead of
   growing forever; arrow labels have a thin border; the page is centred
   on the screen rather than left-aligned. Easy to change if unwanted.
+- Look choices made in step 4 (Treekit's look won): the selected box
+  keeps Treekit's selection style (accent border, thin ring) rather than
+  the prototype's thicker ring; highlights fade in over a moment.
 - Two arrows between the same two boxes in opposite directions (allowed)
   are drawn on top of each other, as in the prototype. Worth bending them
   apart once editing makes that easy to create (step 5).

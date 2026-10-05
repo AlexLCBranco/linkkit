@@ -1,4 +1,5 @@
 import { MapCanvas } from "../features/map/MapCanvas";
+import { ReachStatus } from "../features/map/ReachStatus";
 import { useMapStore } from "../store/mapStore";
 import styles from "./App.module.css";
 import { VersionBadge } from "./VersionBadge";
@@ -15,7 +16,9 @@ export function App() {
       <header className={styles.header}>
         <span className={styles.name}>{name}</span>
       </header>
-      <div className={styles.status}>Click any box to see what it needs and what breaks without it.</div>
+      <div className={styles.status} aria-live="polite">
+        <ReachStatus />
+      </div>
       <main className={styles.main}>
         <MapCanvas />
       </main>

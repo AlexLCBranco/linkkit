@@ -12,14 +12,21 @@ import { loadActiveMapId, loadMap } from "./persistMap";
  *
  * For now there is one map and no editing (steps 5 and 8 add those). Every
  * action goes through a pure function from `domain/map.ts`.
+ *
+ * `selected` lives here too, so any component can read it, but it is view
+ * state: it is never saved, and a reload starts with nothing selected.
  */
 export interface MapState {
   readonly map: LinkMap;
   /** The map's boxes have never been placed (the example, on a first visit):
       the canvas measures them, tidies once, then calls `placeAll`. */
   readonly needsTidy: boolean;
+  /** The box whose needs / breaks are highlighted, or `null`. */
+  readonly selected: NodeId | null;
   /** Puts every box where Tidy up said and sets the page size, in one change. */
   placeAll(positions: ReadonlyMap<NodeId, Point>, page: Size): void;
+  /** Selects a box (`null` clears the selection). */
+  select(id: NodeId | null): void;
 }
 
 /**
@@ -42,5 +49,7 @@ function initialState(): Pick<MapState, "map" | "needsTidy"> {
 
 export const useMapStore = create<MapState>()((set) => ({
   ...initialState(),
+  selected: null,
   placeAll: (positions, page) => set((s) => ({ map: setPage(moveNodes(s.map, positions), page), needsTidy: false })),
+  select: (id) => set({ selected: id }),
 }));

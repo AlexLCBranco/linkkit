@@ -4,6 +4,7 @@ import { memo, useCallback } from "react";
 import type { LinkGeometry } from "../../domain/geometry";
 import type { LinkId, Point, Size } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
+import { selectLinkHighlight } from "../../store/selectors";
 import styles from "./LinkEdgeView.module.css";
 
 export interface LinkEdgeData extends Record<string, unknown> {
@@ -30,11 +31,15 @@ export type LinkFlowEdge = Edge<LinkEdgeData, "link">;
  * box on the side facing the other, wherever that is, and the labels are
  * placed together so they don't pile up.
  *
- * Subscribes narrowly: only to its own label text.
+ * While a box is selected, an arrow on a "needs" path turns teal, one on a
+ * "breaks" path orange, and the rest fade.
+ *
+ * Subscribes narrowly: only to its own label text and its own highlight.
  */
 export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<LinkFlowEdge>) {
   const linkId = id as LinkId;
   const label = useMapStore((s) => s.map.links[linkId]?.label ?? "");
+  const highlight = useMapStore((s) => selectLinkHighlight(s, linkId)) ?? undefined;
 
   const onLabelSize = data?.onLabelSize;
   // Measures the pill with a ResizeObserver while it is on screen (as in
@@ -64,12 +69,22 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
 
   return (
     <>
-      <BaseEdge id={id} path={`M${g.start.x} ${g.start.y}L${g.end.x} ${g.end.y}`} />
-      <path className={styles.head} d={`M${tip.x} ${tip.y}L${left.x} ${left.y}L${right.x} ${right.y}Z`} />
+      <BaseEdge
+        id={id}
+        path={`M${g.start.x} ${g.start.y}L${g.end.x} ${g.end.y}`}
+        className={styles.line}
+        data-highlight={highlight}
+      />
+      <path
+        className={styles.head}
+        data-highlight={highlight}
+        d={`M${tip.x} ${tip.y}L${left.x} ${left.y}L${right.x} ${right.y}Z`}
+      />
       <EdgeLabelRenderer>
         <div
           ref={measure}
           className={styles.label}
+          data-highlight={highlight}
           style={{ transform: `translate(-50%, -50%) translate(${at.x}px, ${at.y}px)` }}
         >
           {label}

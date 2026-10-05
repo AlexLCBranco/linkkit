@@ -1,6 +1,6 @@
 import { ReactFlow, ReactFlowProvider, type NodeChange, type NodeOrigin } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
 
 import { linkGeometry, type Box, type LinkGeometry } from "../../domain/geometry";
 import { placeLabels } from "../../domain/labels";
@@ -40,6 +40,20 @@ function MapCanvasInner() {
   const map = useMapStore((s) => s.map);
   const needsTidy = useMapStore((s) => s.needsTidy);
   const placeAll = useMapStore((s) => s.placeAll);
+  const select = useMapStore((s) => s.select);
+
+  // Clicking a box selects it; clicking empty paper or pressing Escape
+  // clears it (as in the prototype). Selection is the store's, not React
+  // Flow's: React Flow's own selecting stays off.
+  const onNodeClick = useCallback((_: MouseEvent, node: BoxFlowNode) => select(node.id as NodeId), [select]);
+  const onPaneClick = useCallback(() => select(null), [select]);
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") select(null);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [select]);
 
   // Measured sizes are view state, not map data: they depend on fonts and
   // CSS, so they live here, never in the saved map.
@@ -165,8 +179,10 @@ function MapCanvasInner() {
             edgeTypes={edgeTypes}
             nodeOrigin={CENTER_ORIGIN}
             onNodesChange={onNodesChange}
-            // Moving, connecting and selecting come in later steps, through
-            // the store, never React Flow's own state.
+            onNodeClick={onNodeClick}
+            onPaneClick={onPaneClick}
+            // Moving and connecting come in later steps, through the store,
+            // never React Flow's own state.
             nodesDraggable={false}
             nodesConnectable={false}
             elementsSelectable={false}

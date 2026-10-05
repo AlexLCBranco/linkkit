@@ -20,10 +20,14 @@
   line-height: var(--line-tight);
   text-align: center;
   overflow-wrap: anywhere;
-  cursor: default;
+  /* A click selects the box. */
+  cursor: pointer;
+  /* Fill and fading ease in and out with the highlight. */
   transition:
     border-color var(--duration-fast) var(--ease-standard),
-    box-shadow var(--duration-fast) var(--ease-standard);
+    box-shadow var(--duration-fast) var(--ease-standard),
+    background-color var(--duration-medium) var(--ease-standard),
+    opacity var(--duration-medium) var(--ease-standard);
 }
 
 /* Hover, as on a Treekit node: a stronger shadow and an inner accent ring.
@@ -55,4 +59,32 @@
 .handle {
   opacity: 0;
   pointer-events: none;
+}
+
+/* ---- The needs / breaks highlight (a box is selected) ----
+   While it shows, box colours step aside: Treekit's teal and orange
+   swatches would otherwise read as "needed" and "breaks" (see PROJECT.md).
+   Highlighted boxes get a solid fill, not a tint, so they stay distinct. */
+.box[data-highlight="selected"] {
+  border-color: var(--accent);
+  background: var(--surface-raised);
+  box-shadow:
+    0 0 0 var(--select-ring-width) var(--focus-ring),
+    var(--shadow-md);
+}
+
+.box[data-highlight="need"] {
+  border-color: var(--need);
+  background: var(--need-bg);
+}
+
+.box[data-highlight="break"] {
+  border-color: var(--break);
+  background: var(--break-bg);
+}
+
+.box[data-highlight="faded"] {
+  border-color: var(--border-strong);
+  background: var(--surface-raised);
+  opacity: var(--faded-opacity);
 }
