@@ -9,7 +9,8 @@ import { useMapStore } from "../../store/mapStore";
 import { selectNodeHighlight } from "../../store/selectors";
 import styles from "./BoxView.module.css";
 import { SwatchRow } from "./SwatchRow";
-import { BOX_ID_ATTRIBUTE, useBoxGestures } from "./useBoxGestures";
+import { BOX_ID_ATTRIBUTE } from "./pageMarkers";
+import { useBoxGestures } from "./useBoxGestures";
 
 /** React Flow's node record for a box. The box's content is not copied in:
     the component reads it from the store by id, so React Flow's node array

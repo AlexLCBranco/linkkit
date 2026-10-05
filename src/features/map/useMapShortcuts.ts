@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { PALETTE_COLORS } from "../../domain/types";
 import type { NodeId } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
-import { BOX_ID_ATTRIBUTE } from "./useBoxGestures";
+import { BOX_ID_ATTRIBUTE } from "./pageMarkers";
 
 function isTyping(target: EventTarget | null): boolean {
   return (

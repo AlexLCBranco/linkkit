@@ -1,15 +1,12 @@
 import { useReactFlow } from "@xyflow/react";
 import { useCallback, useState, type PointerEvent as ReactPointerEvent } from "react";
 
-import { clampToPage } from "../../domain/page";
+import { clampToPage, pageSize } from "../../domain/page";
 import { canLink } from "../../domain/rules";
 import type { NodeId } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
-import { DRAG_THRESHOLD, PAGE_INSETS } from "./layoutConfig";
-
-/** The attribute every box carries, so a point on screen can be traced back
-    to the box under it. */
-export const BOX_ID_ATTRIBUTE = "data-box-id";
+import { DRAG_THRESHOLD, MAP_LAYOUT, PAGE_INSETS } from "./layoutConfig";
+import { BOX_ID_ATTRIBUTE, boxSizes, MAP_PAGE_ATTRIBUTE, MAP_VIEW_ATTRIBUTE, screenSize } from "./pageMarkers";
 
 /** Counts drags, to give each its own undo key. */
 let dragCount = 0;
@@ -18,7 +15,8 @@ let dragCount = 0;
  * The two mouse gestures that start on a box (as in the prototype):
  *
  * - Press on the box: a click selects it; past a few pixels it becomes a
- *   drag that moves the box, kept on the page.
+ *   drag that moves the box, kept on the screen (or on the bigger page
+ *   that other boxes already make).
  * - Press on the box's dot: drags out a dashed arrow; letting go over
  *   another box draws the arrow, if the rules allow it.
  *
@@ -52,6 +50,14 @@ export function useBoxGestures(id: NodeId) {
       // Every move of this one drag shares a key, so the whole drag is one
       // undo step.
       const gesture = `drag:${++dragCount}`;
+      // The room this box may use: the screen, or further where other boxes
+      // already reach. Worked out once: nothing else moves during a drag.
+      const page = el.closest(`[${MAP_PAGE_ATTRIBUTE}]`);
+      const view = el.closest(`[${MAP_VIEW_ATTRIBUTE}]`);
+      const room =
+        page && view
+          ? pageSize(useMapStore.getState().map, boxSizes(page), MAP_LAYOUT.fallbackSize, PAGE_INSETS, screenSize(view), id)
+          : null;
 
       const move = (ev: PointerEvent) => {
         if (!moved && Math.hypot(ev.clientX - startClient.x, ev.clientY - startClient.y) < DRAG_THRESHOLD) return;
@@ -59,9 +65,8 @@ export function useBoxGestures(id: NodeId) {
         moved = true;
         const at = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
         const size = { width: el.offsetWidth, height: el.offsetHeight };
-        const { map, moveBox } = useMapStore.getState();
         const to = { x: node.x + at.x - start.x, y: node.y + at.y - start.y };
-        moveBox(id, clampToPage(to, size, map.page, PAGE_INSETS), gesture);
+        useMapStore.getState().moveBox(id, room ? clampToPage(to, size, room, PAGE_INSETS) : to, gesture);
       };
       const end = (ev: PointerEvent) => {
         el.removeEventListener("pointermove", move);

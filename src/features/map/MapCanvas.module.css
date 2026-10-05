@@ -3,30 +3,21 @@
    because React Flow owns those class names, and scoped under `.canvas` so
    they cannot leak anywhere else. */
 
-/* The screen around the page: scrolls natively when the page is bigger. */
+/* The screen: the whole area under the header. Scrolls natively only
+   when the boxes need more room than it has. */
 .canvas {
   position: absolute;
   inset: 0;
   overflow: auto;
-  background: var(--surface-app);
+  background: var(--page-paper);
 }
 
-/* Centres the page, keeping clear space around it on every side (padding
-   on a fixed-width child, so the scrollable area includes it). */
-.sheet {
-  width: max-content;
-  min-width: 100%;
-  padding: var(--space-4);
-}
-
+/* Dotted paper, sized by MapCanvas: the screen, or bigger where the boxes
+   reach further. */
 .page {
   position: relative;
-  margin: 0 auto;
-  background-color: var(--page-paper);
   background-image: radial-gradient(var(--canvas-dots) 1px, transparent 1.2px);
   background-size: var(--page-dot-gap) var(--page-dot-gap);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--page-radius);
 }
 
 /* Until the first Tidy up, boxes and arrows are measured but not shown, so

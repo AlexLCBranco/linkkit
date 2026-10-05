@@ -71,7 +71,9 @@ export interface LinkMap {
   readonly id: MapId;
   readonly name: string;
   readonly kind: MapKind;
-  /** The page's size in pixels; boxes live inside it. */
+  /** The page size the map was last tidied onto, in pixels. A record only:
+      the canvas draws the page as the screen, or bigger where the boxes
+      reach further (see domain/page.ts). */
   readonly page: Size;
   readonly nodes: Readonly<Record<NodeId, MapNode>>;
   readonly links: Readonly<Record<LinkId, Link>>;

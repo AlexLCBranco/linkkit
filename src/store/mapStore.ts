@@ -75,14 +75,13 @@ export interface MapState {
       while another map is open. */
   readonly histories: Readonly<Record<MapId, history.History>>;
 
-  /** Puts every box where Tidy up said and sets the page size, in one change. */
+  /** Puts every box where Tidy up said and records the page size it used,
+      in one change. */
   placeAll(positions: ReadonlyMap<NodeId, Point>, page: Size): void;
   /** Selects a box (`null` clears the selection). */
   select(id: NodeId | null): void;
   /** Asks the canvas to tidy the map up (see `tidyRequest`). */
   requestTidy(): void;
-  /** Sets the page's size (the corner grip and the "More room" tab). */
-  resizePage(size: Size): void;
   undo(): void;
   redo(): void;
 
@@ -134,11 +133,9 @@ export interface MapState {
 }
 
 /**
- * A new map's page: as wide as the window allows (the prototype's numbers),
- * 560px tall. The canvas never shrinks it, only grows it to fit a layout.
- * The gutter is the space around the page (16px each side) plus room for a
- * vertical scrollbar (10px, rounded up), so a tall map on a narrow window
- * doesn't also scroll sideways.
+ * A new map's recorded page size (see `LinkMap.page`) until its first Tidy
+ * up: about the window's size (the prototype's numbers). The canvas draws
+ * the page from the screen, not from this.
  */
 const NEW_PAGE = { minWidth: 360, maxWidth: 980, viewportGutter: 48, height: 560 };
 
@@ -250,7 +247,6 @@ export const useMapStore = create<MapState>()((set, get) => ({
     }),
   select: (id) => set({ selected: id }),
   requestTidy: () => set((s) => ({ tidyRequest: s.tidyRequest + 1 })),
-  resizePage: (size) => set((s) => commit(s, setPage(s.map, size))),
 
   // Undo and redo apply a recorded patch directly; they never go through
   // `commit`, or undoing would record an "undo the undo" step. Typing is

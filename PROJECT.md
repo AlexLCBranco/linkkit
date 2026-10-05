@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-05, v0.0.8 (after step 9)_
+_Last updated: 2026-10-05, v0.0.9 (page is one screen; "More room" and the corner grip removed)_
 
 ## What it is
 
@@ -58,8 +58,10 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   box's hover toolbar for the same row of dots; with a box selected, keys
   1–8 pick a colour and 0 clears it. The box's colour now has a ring
   around its dot
-- The page: a sheet of dotted paper with the map's boxes and arrows on
-  it. Boxes look like Treekit's nodes (wrap past 220px, palette colours
+- The page: dotted paper filling the whole screen under the header, as in
+  Treekit (no card, no border, nothing to resize). It only grows past the
+  screen where the boxes need it (a big map after Tidy up, or a window
+  made smaller), and then the screen scrolls. Boxes look like Treekit's nodes (wrap past 220px, palette colours
   show as a tint); arrows are straight lines from box edge to box edge
   with an arrowhead, and their label in a small pill. Labels of crossing
   arrows slide along their arrow so they don't pile up
@@ -82,8 +84,10 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     name disappears
   - Rename: double-click a box, or the pencil in its hover toolbar.
     Emptying a name keeps the old one
-  - Move: drag a box; it stays on the page. A box that grows past the
-    page's edge (a longer name) moves back onto it
+  - Move: drag a box; it stays on the screen (or on the bigger page other
+    boxes already make). A box that grows past the edge (a longer name)
+    moves back onto it. Making the window smaller moves no box: the
+    screen scrolls instead
   - Connect: drag the dot on a box's right edge onto another box. A
     dashed arrow follows the pointer and snaps to a box it may connect
     to; letting go anywhere else does nothing
@@ -94,23 +98,16 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   - Two arrows between the same boxes in opposite directions are drawn
     side by side instead of on top of each other
 - Tidy up (header button): rearranges the boxes in rows, each box above
-  what it needs, centred on the page (which grows if the map needs more
-  room), and the boxes glide there with their arrows attached. Saved as
+  what it needs, centred on the screen (the page grows past it only if
+  the map needs more room), and the boxes glide there with their arrows attached. Saved as
   one change. With "reduce motion" switched on in the system, they jump
   there instead
-- Resizing the page:
-  - Drag the grip in the page's bottom-right corner: width and height.
-    The grip stays under the pointer even though the page is centred
-  - Drag the "More room" tab on the bottom edge: height only. A click on
-    it adds 200px of room and scrolls the tab back under the pointer
-  - The page can't shrink past a box (or below 320 × 240). While dragging,
-    "width × height" shows in the corner; the size is saved on letting go
 - The engine underneath, all in `src/domain/` with tests: the map model
   (boxes with a centre position and an optional colour, arrows with a
   label), the one place that decides which arrows are allowed, "needs /
   breaks" reach and the status-bar counts, a loop-safe Tidy-up layout,
-  page sizing (keeping boxes on the page, a free spot for a new box, the
-  resize maths for a centred page), arrow geometry (with side-by-side
+  page sizing (the screen, or the boxes' reach; keeping boxes on the
+  page; a free spot for a new box), arrow geometry (with side-by-side
   opposite arrows) and label placement, the glide's easing, the undo
   history (steps, joining a drag into one step), saving with a
   version number and repair of damaged saves, the list of saved maps
@@ -137,9 +134,7 @@ The first build, in order:
 
 The first build is complete. Nothing further is planned yet: the owner
 picks what comes next. Small things noticed but left alone (see Open
-problems): arrow labels can't be edited from the keyboard; dragging a
-page handle past the window's edge doesn't scroll by itself; on a phone
-the page is wider than the screen and scrolls sideways.
+problems): arrow labels can't be edited from the keyboard.
 
 ## Open problems
 
@@ -151,8 +146,8 @@ the page is wider than the screen and scrolls sideways.
   since otherwise picking a colour for it (keys, its menu) showed nothing.
 - Look choices made in step 3 where the prototype and Treekit differ
   (Treekit's look won, per CLAUDE.md): boxes wrap long names instead of
-  growing forever; arrow labels have a thin border; the page is centred
-  on the screen rather than left-aligned. Easy to change if unwanted.
+  growing forever; arrow labels have a thin border. Easy to change if
+  unwanted.
 - Look choices made in step 4 (Treekit's look won): the selected box
   keeps Treekit's selection style (accent border, thin ring) rather than
   the prototype's thicker ring; highlights fade in over a moment.
@@ -165,12 +160,17 @@ the page is wider than the screen and scrolls sideways.
   by side (straight, slightly apart) rather than bent; "Add box" steps a
   new box aside rather than stacking it on another.
 - Step 6 choices: Tidy up's glide uses Treekit's length (220ms, the
-  prototype took 450ms); the page's tab and grip use Treekit's colours
-  (accent on hover). Additions beyond the prototype: a click on "More
-  room" adds 200px (the prototype's tab only dragged); a glide cut short
-  by a paused browser tab still ends with the boxes in place. Not done:
-  dragging a handle past the window's edge doesn't scroll by itself
-  (scroll with the wheel mid-drag, or drag again).
+  prototype took 450ms); a glide cut short by a paused browser tab still
+  ends with the boxes in place.
+- Owner decision after step 9: the page is ONE SCREEN, like Treekit's
+  canvas. The prototype's "More room" tab and corner grip were dropped
+  (a page you size by hand isn't wanted), along with the paper card's
+  border and margin. The page grows past the screen only where boxes
+  need it. The owner had asked earlier for "a handle bar like Boardkit's
+  and Treekit's"; it was wrongly built as the page's resize handles.
+  What that handle bar should be is still to be confirmed with the owner.
+  `LinkMap.page` stays in the saved map (it records the size of the last
+  Tidy up) but no longer decides what is drawn.
 - Step 7 choices (the prototype has no undo or colours, so Treekit is the
   reference): Treekit's undo design (a step stores only the parts of the
   map it changed) and its header undo / redo buttons. Different from

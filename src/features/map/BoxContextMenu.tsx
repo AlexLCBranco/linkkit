@@ -13,7 +13,7 @@ import {
 import type { NodeId } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { SwatchRow } from "./SwatchRow";
-import { BOX_ID_ATTRIBUTE } from "./useBoxGestures";
+import { BOX_ID_ATTRIBUTE } from "./pageMarkers";
 
 /**
  * The right-click menu for boxes: rename, colour, delete.

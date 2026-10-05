@@ -1,12 +1,10 @@
 import { Plus } from "lucide-react";
 
-import { clampToPage, freeSpot, visibleCenter } from "../../domain/page";
-import type { NodeId, Size } from "../../domain/types";
+import { clampToPage, freeSpot, pageSize, visibleCenter } from "../../domain/page";
 import { useMapStore } from "../../store/mapStore";
 import styles from "./HeaderButton.module.css";
 import { ADD_SPOT, MAP_LAYOUT, PAGE_INSETS } from "./layoutConfig";
-import { MAP_PAGE_ATTRIBUTE, MAP_VIEW_ATTRIBUTE } from "./pageMarkers";
-import { BOX_ID_ATTRIBUTE } from "./useBoxGestures";
+import { boxSizes, MAP_PAGE_ATTRIBUTE, MAP_VIEW_ATTRIBUTE, screenSize } from "./pageMarkers";
 
 /**
  * "Add box": puts a new box in the middle of the part of the page that is
@@ -28,15 +26,13 @@ export function AddBoxButton() {
     const view = document.querySelector(`[${MAP_VIEW_ATTRIBUTE}]`);
     if (!page || !view) return;
     const { map } = useMapStore.getState();
-    const sizes = new Map<NodeId, Size>();
-    for (const el of page.querySelectorAll<HTMLElement>(`[${BOX_ID_ATTRIBUTE}]`)) {
-      sizes.set(el.getAttribute(BOX_ID_ATTRIBUTE) as NodeId, { width: el.offsetWidth, height: el.offsetHeight });
-    }
+    const sizes = boxSizes(page);
     // The new box is not measured yet: a typical box's size stands in.
     const size = MAP_LAYOUT.fallbackSize;
     const middle = visibleCenter(page.getBoundingClientRect(), view.getBoundingClientRect());
     const spot = freeSpot(map, sizes, middle, size, { ...ADD_SPOT, fallbackSize: size });
-    addBox(clampToPage(spot, size, map.page, PAGE_INSETS));
+    const room = pageSize(map, sizes, MAP_LAYOUT.fallbackSize, PAGE_INSETS, screenSize(view));
+    addBox(clampToPage(spot, size, room, PAGE_INSETS));
   };
 
   return (

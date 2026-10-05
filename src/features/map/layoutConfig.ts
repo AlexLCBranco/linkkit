@@ -29,10 +29,9 @@ export const LABELS: LabelOptions = { spots: [0.5, 0.35, 0.65, 0.22, 0.78], padd
 /** A label's size before it has been measured ("needs"). */
 export const LABEL_FALLBACK_SIZE = { width: 48, height: 22 };
 
-/** Clear space kept between any box and the page's edges, with a little
-    more at the bottom (the prototype's numbers; room for the "More room"
-    tab). */
-export const PAGE_INSETS: PageInsets = { edge: 14, bottomExtra: 10 };
+/** Clear space kept between any box and the page's edges (the prototype's
+    number). */
+export const PAGE_INSETS: PageInsets = { edge: 14 };
 
 /** How far apart (each side of the middle) two arrows between the same
     boxes in opposite directions are drawn. */
@@ -45,13 +44,6 @@ export const DRAG_THRESHOLD = 4;
 /** "Add box" steps a new box this far aside (down-right) at a time while
     it would overlap another, and keeps this much clear space round it. */
 export const ADD_SPOT = { step: 24, clearance: 8 };
-
-/** The page can be dragged no smaller than this (the prototype's numbers),
-    nor past any box. */
-export const PAGE_FLOOR = { width: 320, height: 240 };
-
-/** How much taller a click on "More room" makes the page. */
-export const MORE_ROOM_STEP = 200;
 
 /** How long Tidy up's glide takes (Treekit's glide length). */
 export const TIDY_GLIDE_MS = 220;

@@ -2,20 +2,19 @@ import type { Bounds, MapLayout } from "./layout";
 import type { LinkMap, NodeId, Point, Size } from "./types";
 
 /**
- * The page: a fixed-size sheet the boxes live on. The camera never moves;
- * a bigger page just makes the browser scroll. Boxes always stay fully
- * inside it, which these functions enforce.
+ * The page: the sheet the boxes live on. It is the screen (the area the
+ * map is shown in), made bigger only where the boxes need more room -- a
+ * big tidied map, or a window made smaller -- and then the browser
+ * scrolls. The camera never moves. Boxes always stay fully inside the page,
+ * which these functions enforce.
  *
  * All the numbers (gutters, minimums) come in as options, so the visual
  * constants live with the UI, not here.
  */
 
 export interface PageInsets {
-  /** Space kept clear between any box and the page's left, top and right
-      edges. */
+  /** Space kept clear between any box and the page's edges. */
   readonly edge: number;
-  /** Extra space kept clear at the bottom (room for the "More room" tab). */
-  readonly bottomExtra: number;
 }
 
 export interface DefaultPageOptions {
@@ -39,48 +38,51 @@ export function clampToPage(center: Point, size: Size, page: Size, insets: PageI
   const clamp = (v: number, lo: number, hi: number) => (hi < lo ? lo : Math.min(Math.max(v, lo), hi));
   return {
     x: clamp(center.x, hw + insets.edge, page.width - hw - insets.edge),
-    y: clamp(center.y, hh + insets.edge, page.height - hh - insets.edge - insets.bottomExtra),
+    y: clamp(center.y, hh + insets.edge, page.height - hh - insets.edge),
   };
 }
 
 /**
- * The smallest the page may be dragged to: it can shrink up to the boxes
- * but never cut one off, and never below `floor`.
+ * The page's size: the screen, or bigger where the boxes reach further.
+ * `except` leaves one box out: the room that box may use is what the
+ * screen and the other boxes make, so a lone box can't push the page past
+ * the screen by itself.
  */
-export function minPageSize(
+export function pageSize(
   map: LinkMap,
   sizes: ReadonlyMap<NodeId, Size>,
   fallbackSize: Size,
   insets: PageInsets,
-  floor: Size,
+  screen: Size,
+  except?: NodeId,
 ): Size {
-  let width = floor.width;
-  let height = floor.height;
+  let width = screen.width;
+  let height = screen.height;
   for (const node of Object.values(map.nodes)) {
+    if (node.id === except) continue;
     const size = sizes.get(node.id) ?? fallbackSize;
     width = Math.max(width, node.x + size.width / 2 + insets.edge);
-    height = Math.max(height, node.y + size.height / 2 + insets.edge + insets.bottomExtra);
+    height = Math.max(height, node.y + size.height / 2 + insets.edge);
   }
   return { width: Math.ceil(width), height: Math.ceil(height) };
 }
 
 /**
- * Puts a finished layout on the page: grows the page if the layout needs
- * more room (never shrinks it -- the owner sized it on purpose), then
- * centres the layout on it. `margin` is the clear space wanted around the
+ * Puts a finished layout on the screen: centred on it, or on a bigger page
+ * if the layout needs more room than the screen has. `margin` is the clear space wanted around the
  * whole layout on each side.
  */
 export function placeOnPage(
   layout: MapLayout,
-  page: Size,
+  screen: Size,
   margin: { readonly x: number; readonly y: number },
 ): { positions: Map<NodeId, Point>; page: Size } {
   const b: Bounds = layout.bounds;
   const needW = b.right - b.left + 2 * margin.x;
   const needH = b.bottom - b.top + 2 * margin.y;
   const next: Size = {
-    width: Math.max(page.width, Math.ceil(needW)),
-    height: Math.max(page.height, Math.ceil(needH)),
+    width: Math.max(screen.width, Math.ceil(needW)),
+    height: Math.max(screen.height, Math.ceil(needH)),
   };
   const dx = next.width / 2 - (b.left + b.right) / 2;
   const dy = next.height / 2 - (b.top + b.bottom) / 2;
@@ -90,16 +92,28 @@ export function placeOnPage(
 }
 
 /**
- * Boxes that stick out past the page (a rename made one wider, say) and
- * where to move each so it fits again. Boxes not measured yet are left
- * alone; an empty result means every box already fits.
+ * Of the boxes in `ids` (those that just changed size: renamed, or new),
+ * the ones that now stick out past the page, and where to move each so it
+ * fits again. Each gets the room the screen and the other boxes make (see
+ * `pageSize`). Only boxes that changed: a smaller window leaves every box
+ * where it is and the page scrolls, instead of piling boxes up on the
+ * screen's edge. Boxes not measured yet are left alone.
  */
-export function keepOnPage(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, insets: PageInsets): Map<NodeId, Point> {
+export function keepOnPage(
+  map: LinkMap,
+  sizes: ReadonlyMap<NodeId, Size>,
+  fallbackSize: Size,
+  insets: PageInsets,
+  screen: Size,
+  ids: Iterable<NodeId>,
+): Map<NodeId, Point> {
   const moves = new Map<NodeId, Point>();
-  for (const node of Object.values(map.nodes)) {
-    const size = sizes.get(node.id);
-    if (!size) continue;
-    const at = clampToPage(node, size, map.page, insets);
+  for (const id of ids) {
+    const node = map.nodes[id];
+    const size = sizes.get(id);
+    if (!node || !size) continue;
+    const room = pageSize(map, sizes, fallbackSize, insets, screen, node.id);
+    const at = clampToPage(node, size, room, insets);
     if (at.x !== node.x || at.y !== node.y) moves.set(node.id, at);
   }
   return moves;
@@ -146,23 +160,4 @@ export function freeSpot(
     if (!overlaps(spot)) return spot;
   }
   return at;
-}
-
-/**
- * Where the page's right edge sits, counted from the left of the area it
- * is centred in (`available` wide). A page narrower than that area sits in
- * its middle; a wider one starts at its left and the area scrolls.
- */
-export function pageRightEdge(width: number, available: number): number {
-  return width <= available ? (available + width) / 2 : width;
-}
-
-/**
- * The page width that puts its right edge at `edge` (the inverse of
- * `pageRightEdge`). Dragging the corner grip uses it so the grip stays
- * under the pointer: while the page is centred, it grows on both sides, so
- * the width changes twice as fast as the pointer moves.
- */
-export function pageWidthForRightEdge(edge: number, available: number): number {
-  return edge <= available ? 2 * edge - available : edge;
 }

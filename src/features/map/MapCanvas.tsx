@@ -1,11 +1,11 @@
 import { ReactFlow, ReactFlowProvider, useReactFlow, type NodeChange, type NodeOrigin } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 
 import { linkGeometry, type Box, type LinkGeometry } from "../../domain/geometry";
 import { placeLabels } from "../../domain/labels";
 import { layoutMap } from "../../domain/layout";
-import { clampToPage, keepOnPage, minPageSize, placeOnPage } from "../../domain/page";
+import { clampToPage, keepOnPage, pageSize, placeOnPage } from "../../domain/page";
 import type { LinkId, NodeId, Point, Size } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { BoxContextMenu } from "./BoxContextMenu";
@@ -16,7 +16,6 @@ import {
   LABEL_FALLBACK_SIZE,
   LABELS,
   MAP_LAYOUT,
-  PAGE_FLOOR,
   PAGE_INSETS,
   PAGE_MARGIN,
   TIDY_GLIDE_MS,
@@ -24,8 +23,7 @@ import {
 } from "./layoutConfig";
 import { LinkEdgeView, type LinkFlowEdge } from "./LinkEdgeView";
 import styles from "./MapCanvas.module.css";
-import { PageHandles } from "./PageHandles";
-import { MAP_PAGE_ATTRIBUTE, MAP_VIEW_ATTRIBUTE } from "./pageMarkers";
+import { MAP_PAGE_ATTRIBUTE, MAP_VIEW_ATTRIBUTE, screenSize } from "./pageMarkers";
 import { useGlide } from "./useGlide";
 import { useMapShortcuts } from "./useMapShortcuts";
 
@@ -36,11 +34,14 @@ const edgeTypes = { link: LinkEdgeView };
 /** A node's position is its centre, matching how the map stores boxes. */
 const CENTER_ORIGIN: NodeOrigin = [0.5, 0.5];
 const NO_DATA = {};
+/** The page before the screen is first measured. */
+const FILL = { width: "100%", height: "100%" };
 
 /**
- * The map on its page: a fixed-size sheet of dotted paper. The camera never
- * moves (no pan, no zoom); when the page is bigger than the screen, the
- * browser scrolls it natively.
+ * The map on its page: dotted paper filling the screen (the area under the
+ * header), as in Treekit. The camera never moves (no pan, no zoom). The
+ * page grows past the screen only where the boxes need it (a big tidied
+ * map, or a window made smaller), and then the browser scrolls natively.
  *
  * Data flow, one direction only:
  *   store map (+ measured sizes) -> arrow geometry and label spots
@@ -54,13 +55,12 @@ const NO_DATA = {};
  *
  * Editing: double-click empty paper adds a box there; Delete removes the
  * selected box. Everything else starts on a box or a label (BoxView,
- * LinkEdgeView). A box that grows past the page's edge (a longer name) is
- * moved back onto it.
+ * LinkEdgeView). A box that grows past the screen's edge (a longer name, a
+ * smaller window) is moved back onto it.
  *
  * Tidy up (asked for by the header button) runs here, because only the
- * canvas knows each box's size; the boxes glide to their new places. The
- * page's resize handles (PageHandles) draw a size while being dragged and
- * save it when let go.
+ * canvas knows each box's size; the boxes glide to their new places,
+ * centred on the screen.
  */
 function MapCanvasInner() {
   const map = useMapStore((s) => s.map);
@@ -71,25 +71,32 @@ function MapCanvasInner() {
   const nudgeBoxes = useMapStore((s) => s.nudgeBoxes);
   const { screenToFlowPosition } = useReactFlow();
 
+  // The screen's size, kept up to date as the window (or a scrollbar)
+  // changes it. Null until first measured: nothing is placed before then.
+  const viewRef = useRef<HTMLDivElement>(null);
+  const [screen, setScreen] = useState<Size | null>(null);
+  useLayoutEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const measure = () =>
+      setScreen((old) => {
+        const next = screenSize(view);
+        // Not laid out (a hidden tab): keep what was known.
+        if (next.width === 0 || next.height === 0) return old;
+        return old && old.width === next.width && old.height === next.height ? old : next;
+      });
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(view);
+    return () => observer.disconnect();
+  }, []);
+
   // Clicking a box selects it (BoxView); clicking empty paper or pressing
   // Escape clears it (as in the prototype). Selection is the store's, not
   // React Flow's: React Flow's own selecting stays off. The keys (Escape,
   // Delete, undo, colours) are in useMapShortcuts.
   const onPaneClick = useCallback(() => select(null), [select]);
   useMapShortcuts();
-
-  // Double-clicking empty paper adds a box there, ready for its name. React
-  // Flow has no "pane double-click", so the page listens and checks that
-  // the click landed on the bare pane (not a box, arrow or label).
-  const onPageDoubleClick = useCallback(
-    (e: MouseEvent) => {
-      if (!(e.target as Element).classList.contains("react-flow__pane")) return;
-      const at = screenToFlowPosition({ x: e.clientX, y: e.clientY });
-      // Not measured yet: a typical box's size keeps it on the page for now.
-      addBox(clampToPage(at, MAP_LAYOUT.fallbackSize, useMapStore.getState().map.page, PAGE_INSETS));
-    },
-    [addBox, screenToFlowPosition],
-  );
 
   // Measured sizes are view state, not map data: they depend on fonts and
   // CSS, so they live here, never in the saved map.
@@ -98,26 +105,64 @@ function MapCanvasInner() {
   const allMeasured = nodeIds.every((id) => sizes.has(id));
 
   useEffect(() => {
-    if (!needsTidy || !allMeasured) return;
-    const placed = placeOnPage(layoutMap(map, sizes, MAP_LAYOUT), map.page, PAGE_MARGIN);
+    if (!needsTidy || !allMeasured || !screen) return;
+    const placed = placeOnPage(layoutMap(map, sizes, MAP_LAYOUT), screen, PAGE_MARGIN);
     placeAll(placed.positions, placed.page);
-  }, [needsTidy, allMeasured, map, sizes, placeAll]);
+  }, [needsTidy, allMeasured, screen, map, sizes, placeAll]);
 
-  // A box that grew past the page's edge (renamed, or newly named) moves
-  // back onto it. Not while waiting for the first tidy: those boxes are
+  // A box that grew past the screen's edge (renamed, or newly named) moves
+  // back onto it, unless other boxes already make the page bigger there.
+  // Only boxes whose size changed: a smaller window moves nothing (the page
+  // scrolls instead). Not while waiting for the first tidy: those boxes are
   // still stacked on one spot, about to be placed anyway.
+  const checkedSizes = useRef<ReadonlyMap<NodeId, Size>>(new Map());
   useEffect(() => {
+    if (!screen) return;
+    const before = checkedSizes.current;
+    checkedSizes.current = sizes;
     if (needsTidy) return;
-    const moves = keepOnPage(map, sizes, PAGE_INSETS);
+    const changed = [...sizes].filter(([id, s]) => {
+      const old = before.get(id);
+      return !old || old.width !== s.width || old.height !== s.height;
+    });
+    if (changed.length === 0) return;
+    const { map } = useMapStore.getState();
+    const ids = changed.map(([id]) => id);
+    const moves = keepOnPage(map, sizes, MAP_LAYOUT.fallbackSize, PAGE_INSETS, screen, ids);
     if (moves.size > 0) nudgeBoxes(moves);
-  }, [needsTidy, map, sizes, nudgeBoxes]);
+  }, [needsTidy, screen, sizes, nudgeBoxes]);
 
-  // Read by handlers outside rendering (Tidy up, the resize handles), which
-  // need the sizes at that moment without re-subscribing on every change.
+  // The page: the screen, or bigger where the boxes reach further.
+  const page = useMemo(
+    () => (screen ? pageSize(map, sizes, MAP_LAYOUT.fallbackSize, PAGE_INSETS, screen) : null),
+    [map, sizes, screen],
+  );
+
+  // Read by handlers outside rendering (Tidy up, double-click), which need
+  // the sizes and the page at that moment without re-subscribing on every
+  // change.
   const sizesRef = useRef(sizes);
+  const screenRef = useRef(screen);
+  const pageRef = useRef(page);
   useEffect(() => {
     sizesRef.current = sizes;
-  }, [sizes]);
+    screenRef.current = screen;
+    pageRef.current = page;
+  }, [sizes, screen, page]);
+
+  // Double-clicking empty paper adds a box there, ready for its name. React
+  // Flow has no "pane double-click", so the page listens and checks that
+  // the click landed on the bare pane (not a box, arrow or label).
+  const onPageDoubleClick = useCallback(
+    (e: MouseEvent) => {
+      const page = pageRef.current;
+      if (!page || !(e.target as Element).classList.contains("react-flow__pane")) return;
+      const at = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      // Not measured yet: a typical box's size keeps it on the page for now.
+      addBox(clampToPage(at, MAP_LAYOUT.fallbackSize, page, PAGE_INSETS));
+    },
+    [addBox, screenToFlowPosition],
+  );
 
   // Tidy up (the header button): the new places go into the store at once,
   // as one change; `useGlide` then draws the boxes on their way there.
@@ -128,7 +173,9 @@ function MapCanvasInner() {
       useMapStore.subscribe((s, prev) => {
         if (s.tidyRequest === prev.tidyRequest || s.needsTidy) return;
         const before = s.map;
-        const placed = placeOnPage(layoutMap(before, sizesRef.current, MAP_LAYOUT), before.page, PAGE_MARGIN);
+        const screen = screenRef.current;
+        if (!screen) return;
+        const placed = placeOnPage(layoutMap(before, sizesRef.current, MAP_LAYOUT), screen, PAGE_MARGIN);
         const from = new Map<NodeId, Point>(Object.values(before.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
         s.placeAll(placed.positions, placed.page);
         startGlide(from, useMapStore.getState().map.nodes);
@@ -136,15 +183,6 @@ function MapCanvasInner() {
     [startGlide],
   );
   const at = useCallback((id: NodeId): Point => glide.shown?.get(id) ?? map.nodes[id], [glide.shown, map.nodes]);
-
-  // The page's size while the corner grip or "More room" tab is dragged:
-  // drawn, but only saved when let go.
-  const [draftPage, setDraftPage] = useState<Size | null>(null);
-  const page = draftPage ?? map.page;
-  const minSize = useCallback(
-    () => minPageSize(useMapStore.getState().map, sizesRef.current, MAP_LAYOUT.fallbackSize, PAGE_INSETS, PAGE_FLOOR),
-    [],
-  );
 
   const nodes = useMemo<BoxFlowNode[]>(
     () =>
@@ -255,50 +293,52 @@ function MapCanvasInner() {
 
   return (
     <BoxContextMenu>
-      <div className={styles.canvas} data-ready={needsTidy ? undefined : true} {...{ [MAP_VIEW_ATTRIBUTE]: true }}>
-        <div className={styles.sheet}>
-          <div
-            className={styles.page}
-            style={{ width: page.width, height: page.height }}
-            onDoubleClick={onPageDoubleClick}
-            {...{ [MAP_PAGE_ATTRIBUTE]: true }}
-          >
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              nodeTypes={nodeTypes}
-              edgeTypes={edgeTypes}
-              nodeOrigin={CENTER_ORIGIN}
-              onNodesChange={onNodesChange}
-              onPaneClick={onPaneClick}
-              // Moving and connecting are hand-written (useBoxGestures), so
-              // they go through the store, never React Flow's own state.
-              nodesDraggable={false}
-              nodesConnectable={false}
-              elementsSelectable={false}
-              // Tab visits boxes (Enter selects one) and arrow labels, not
-              // the arrow lines, which have nothing to do with focus.
-              edgesFocusable={false}
-              // The camera is locked; the wheel scrolls the page natively.
-              panOnDrag={false}
-              panOnScroll={false}
-              zoomOnScroll={false}
-              zoomOnPinch={false}
-              zoomOnDoubleClick={false}
-              preventScrolling={false}
-              minZoom={1}
-              maxZoom={1}
-              panActivationKeyCode={null}
-              selectionKeyCode={null}
-              multiSelectionKeyCode={null}
-              deleteKeyCode={null}
-              disableKeyboardA11y
-              // Bottom-right belongs to the version badge.
-              attributionPosition="top-right"
-            />
-            <ConnectPreview boxes={boxes} />
-            <PageHandles minSize={minSize} onDraft={setDraftPage} />
-          </div>
+      <div
+        ref={viewRef}
+        className={styles.canvas}
+        data-ready={needsTidy ? undefined : true}
+        {...{ [MAP_VIEW_ATTRIBUTE]: true }}
+      >
+        <div
+          className={styles.page}
+          style={page ? { width: page.width, height: page.height } : FILL}
+          onDoubleClick={onPageDoubleClick}
+          {...{ [MAP_PAGE_ATTRIBUTE]: true }}
+        >
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            nodeOrigin={CENTER_ORIGIN}
+            onNodesChange={onNodesChange}
+            onPaneClick={onPaneClick}
+            // Moving and connecting are hand-written (useBoxGestures), so
+            // they go through the store, never React Flow's own state.
+            nodesDraggable={false}
+            nodesConnectable={false}
+            elementsSelectable={false}
+            // Tab visits boxes (Enter selects one) and arrow labels, not
+            // the arrow lines, which have nothing to do with focus.
+            edgesFocusable={false}
+            // The camera is locked; the wheel scrolls the page natively.
+            panOnDrag={false}
+            panOnScroll={false}
+            zoomOnScroll={false}
+            zoomOnPinch={false}
+            zoomOnDoubleClick={false}
+            preventScrolling={false}
+            minZoom={1}
+            maxZoom={1}
+            panActivationKeyCode={null}
+            selectionKeyCode={null}
+            multiSelectionKeyCode={null}
+            deleteKeyCode={null}
+            disableKeyboardA11y
+            // Bottom-right belongs to the version badge.
+            attributionPosition="top-right"
+          />
+          <ConnectPreview boxes={boxes} />
         </div>
       </div>
     </BoxContextMenu>

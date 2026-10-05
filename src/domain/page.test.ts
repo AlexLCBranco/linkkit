@@ -8,16 +8,15 @@ import {
   defaultPageSize,
   freeSpot,
   keepOnPage,
-  minPageSize,
-  pageRightEdge,
-  pageWidthForRightEdge,
+  pageSize,
   placeOnPage,
   visibleCenter,
 } from "./page";
 import { build } from "./testMaps";
 import type { NodeId, Size } from "./types";
 
-const insets = { edge: 14, bottomExtra: 10 };
+const insets = { edge: 14 };
+const screen = { width: 800, height: 600 };
 const box = { width: 100, height: 36 };
 const noSizes = new Map<NodeId, Size>();
 
@@ -32,27 +31,37 @@ describe("page", () => {
   it("keeps a whole box on the page", () => {
     const page = { width: 400, height: 300 };
     expect(clampToPage({ x: -50, y: -50 }, box, page, insets)).toEqual({ x: 64, y: 32 });
-    expect(clampToPage({ x: 999, y: 999 }, box, page, insets)).toEqual({ x: 336, y: 258 });
+    expect(clampToPage({ x: 999, y: 999 }, box, page, insets)).toEqual({ x: 336, y: 268 });
     expect(clampToPage({ x: 200, y: 150 }, box, page, insets)).toEqual({ x: 200, y: 150 });
   });
 
-  it("never lets the page shrink past a box or below the floor", () => {
+  it("is the screen, or bigger where the boxes reach further", () => {
     const map = moveNode(build(["a"]), asNodeId("a"), { x: 500, y: 400 });
-    expect(minPageSize(map, noSizes, box, insets, { width: 320, height: 240 })).toEqual({ width: 564, height: 442 });
-    expect(minPageSize(build([]), noSizes, box, insets, { width: 320, height: 240 })).toEqual({ width: 320, height: 240 });
+    expect(pageSize(map, noSizes, box, insets, screen)).toEqual(screen);
+    expect(pageSize(map, noSizes, box, insets, { width: 320, height: 240 })).toEqual({ width: 564, height: 432 });
+    // Leaving the box out: only the screen is left.
+    expect(pageSize(map, noSizes, box, insets, { width: 320, height: 240 }, asNodeId("a"))).toEqual({
+      width: 320,
+      height: 240,
+    });
   });
 
-  it("moves back only the measured boxes that stick out past the page", () => {
+  it("moves a changed box back onto the screen unless other boxes make room past it", () => {
     let map = build(["in", "out", "unmeasured"]);
     map = moveNode(map, asNodeId("in"), { x: 200, y: 200 });
     map = moveNode(map, asNodeId("out"), { x: 790, y: 200 });
-    map = moveNode(map, asNodeId("unmeasured"), { x: 5000, y: 5000 });
+    map = moveNode(map, asNodeId("unmeasured"), { x: 300, y: 300 });
     const sizes = new Map<NodeId, Size>([
       [asNodeId("in"), box],
       [asNodeId("out"), box],
     ]);
-    // build() makes an 800 x 600 page.
-    expect(keepOnPage(map, sizes, insets)).toEqual(new Map([[asNodeId("out"), { x: 736, y: 200 }]]));
+    const all = [asNodeId("in"), asNodeId("out"), asNodeId("unmeasured")];
+    expect(keepOnPage(map, sizes, box, insets, screen, all)).toEqual(new Map([[asNodeId("out"), { x: 736, y: 200 }]]));
+    // Only the boxes asked about (the ones that changed size) are checked.
+    expect(keepOnPage(map, sizes, box, insets, screen, [asNodeId("in")])).toEqual(new Map());
+    // Another box further right (the page already scrolls): "out" stays.
+    map = moveNode(map, asNodeId("unmeasured"), { x: 1000, y: 300 });
+    expect(keepOnPage(map, sizes, box, insets, screen, all)).toEqual(new Map());
   });
 
   it("steps a new box aside until it overlaps no box", () => {
@@ -76,7 +85,7 @@ describe("page", () => {
     expect(visibleCenter(page, { left: 2000, top: 0, right: 2400, bottom: 400 })).toEqual({ x: 500, y: 500 });
   });
 
-  it("centres a layout on the page, growing the page only when needed", () => {
+  it("centres a layout on the screen, on a bigger page only when needed", () => {
     const map = build(["a", "b", "c"], [["a", "b"], ["a", "c"]]);
     const layout = layoutMap(map, noSizes, { columnGap: 30, rowGap: 70, fallbackSize: box });
     const roomy = placeOnPage(layout, { width: 800, height: 600 }, { x: 50, y: 60 });
@@ -85,21 +94,5 @@ describe("page", () => {
 
     const tight = placeOnPage(layout, { width: 200, height: 100 }, { x: 50, y: 60 });
     expect(tight.page).toEqual({ width: 330, height: 262 });
-  });
-});
-
-describe("page right edge (dragging the corner grip)", () => {
-  it("a centred page grows on both sides; a wide one only to the right", () => {
-    expect(pageRightEdge(600, 1000)).toBe(800);
-    expect(pageRightEdge(1000, 1000)).toBe(1000);
-    expect(pageRightEdge(1400, 1000)).toBe(1400);
-  });
-
-  it("finds the width for an edge, exactly undoing pageRightEdge", () => {
-    for (const width of [320, 600, 999, 1000, 1001, 1600]) {
-      expect(pageWidthForRightEdge(pageRightEdge(width, 1000), 1000)).toBeCloseTo(width);
-    }
-    // Moving the edge 10px right widens a centred page by 20px.
-    expect(pageWidthForRightEdge(810, 1000) - pageWidthForRightEdge(800, 1000)).toBe(20);
   });
 });
