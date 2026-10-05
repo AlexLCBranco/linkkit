@@ -25,6 +25,9 @@
   --radius-lg: 12px;
   --radius-full: 999px;
 
+  /* ---- Scrollbar ---- */
+  --scrollbar-size: 14px;
+
   /* ---- Typography ---- */
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
@@ -136,6 +139,12 @@
   --canvas-dots: rgba(255, 255, 255, 0.07);
   --page-paper: var(--surface-app);
 
+  /* The scrollbar (when a map is bigger than the screen): bright enough
+     to spot at a glance on the dark page. */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.3);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.5);
+  --scrollbar-track: rgba(255, 255, 255, 0.04);
+
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.45);
   --shadow-lifted: 0 12px 28px rgba(0, 0, 0, 0.6);
@@ -171,6 +180,10 @@
   --edge-stroke: rgba(0, 0, 0, 0.3);
   --canvas-dots: rgba(0, 0, 0, 0.09);
   --page-paper: var(--surface-app);
+
+  --scrollbar-thumb: rgba(0, 0, 0, 0.3);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.5);
+  --scrollbar-track: rgba(0, 0, 0, 0.04);
 
   --shadow-sm: 0 1px 2px rgba(20, 30, 50, 0.14);
   --shadow-md: 0 2px 6px rgba(20, 30, 50, 0.18);

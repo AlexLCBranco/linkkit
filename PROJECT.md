@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-05, v0.0.13 (any arrow length: wheel and slider)_
+_Last updated: 2026-10-05, v0.0.14 (a scrollbar you can see)_
 
 ## What it is
 
@@ -66,7 +66,8 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   Treekit's darker tone and dots (app background, 1.5px dots every 24px), as in
   Treekit (no card, no border, nothing to resize). It only grows past the
   screen where the boxes need it (a big map after Tidy up, or a window
-  made smaller), and then the screen scrolls. Boxes look like Treekit's nodes (wrap past 220px, palette colours
+  made smaller), and then the screen scrolls, with a clear 14px scrollbar
+  (a light grab handle on a faint track) to drag up and down. Boxes look like Treekit's nodes (wrap past 220px, palette colours
   show as a tint); arrows are straight lines from box edge to box edge
   with an arrowhead, and their label in a small pill. Labels of crossing
   arrows slide along their arrow so they don't pile up
@@ -174,6 +175,8 @@ The first build, in order:
 10. ~~Treekit's view modes: Top-down / Left-right and Align~~ (done)
 11. ~~Arrow length presets (Short / Medium / Long) for Tidy up~~ (done)
 12. ~~Any arrow length: mouse wheel over "Arrows", and a slider~~ (done)
+13. ~~A scrollbar you can see when the map is taller than the screen~~
+    (done)
 
 The first build is complete. Nothing further is planned yet: the owner
 picks what comes next. Small things noticed but left alone (see Open
@@ -273,3 +276,12 @@ problems): arrow labels can't be edited from the keyboard.
   shrinks the arrows live without opening anything; the panel's slider is
   the visible way for anyone who doesn't know about the wheel. Live
   changes skip the glide (it would lag behind the hand).
+- Step 13 (owner asked for "an up/down handle bar" when a map doesn't fit
+  on screen): the page already scrolled and had a scrollbar, but it was
+  nearly invisible (thin, 16% white on the dark page): Chrome and Edge
+  ignore the custom scrollbar styling whenever the standard
+  `scrollbar-width` / `scrollbar-color` are set, so they drew their own
+  thin bar. Now Chrome / Edge get a 14px bar with a clearly visible
+  rounded handle (brighter on hover) on a faint track; Firefox gets the
+  same colours through the standard properties. Tokens:
+  `--scrollbar-size`, `--scrollbar-thumb(-hover)`, `--scrollbar-track`.

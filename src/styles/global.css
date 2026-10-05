@@ -98,30 +98,35 @@ body {
 }
 
 /* Native scrollbars (the page scrolls when a map is bigger than the
-   screen) default to the OS light theme, which clashes with the dark
-   surfaces. Styled from the tokens, as in Boardkit. */
-* {
-  scrollbar-color: var(--border-strong) transparent;
-  scrollbar-width: thin;
+   screen), styled from the tokens: a clear grab handle on a faint track,
+   easy to spot and to drag with the mouse. Chrome and Edge only use the
+   ::-webkit-scrollbar rules below while `scrollbar-color` and
+   `scrollbar-width` are NOT set (setting them swaps in the thin standard
+   bar, which was nearly invisible), so those are for Firefox only. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  }
 }
 
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: var(--scrollbar-size);
+  height: var(--scrollbar-size);
 }
 
-*::-webkit-scrollbar-track {
-  background: transparent;
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-corner {
+  background: var(--scrollbar-track);
 }
 
 *::-webkit-scrollbar-thumb {
-  background-color: var(--border-strong);
+  background-color: var(--scrollbar-thumb);
   border-radius: var(--radius-full);
-  border: 2px solid transparent;
+  border: 3px solid transparent;
   background-clip: padding-box;
 }
 
-*::-webkit-scrollbar-thumb:hover {
-  background-color: var(--text-muted);
-  background-clip: padding-box;
+*::-webkit-scrollbar-thumb:hover,
+*::-webkit-scrollbar-thumb:active {
+  background-color: var(--scrollbar-thumb-hover);
 }
