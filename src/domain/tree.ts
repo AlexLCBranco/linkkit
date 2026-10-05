@@ -1,5 +1,5 @@
 import { createLinkId, createNodeId } from "./ids";
-import { addNode, createMap } from "./map";
+import { addNode, createMap, deleteNodes } from "./map";
 import { arrowsInto, canDeleteBox } from "./rules";
 import { walk } from "./reach";
 import type { Link, LinkId, LinkMap, MapId, NodeId, Point, Size } from "./types";
@@ -64,34 +64,38 @@ export function addNextStep(
  * that another parent still leads to stays (and so does everything it
  * leads to). Empty when the box can't be deleted (the start).
  */
-export function branchOf(map: LinkMap, id: NodeId): Set<NodeId> {
-  if (!canDeleteBox(map, id)) return new Set();
-  const after = walk(map, id, "forward");
-  // What is still reachable from the start(s) once `id` is gone.
-  const links = Object.values(map.links).filter((l) => l.from !== id && l.to !== id);
+export const branchOf = (map: LinkMap, id: NodeId): Set<NodeId> => branchesOf(map, [id]);
+
+/**
+ * The same for several boxes deleted together (a marquee selection): the
+ * ones that may go (never the start), and every box after them that no box
+ * staying behind still leads to. Worked out for the group as a whole: a box
+ * whose two parents are both deleted goes too, though either parent on its
+ * own would leave it.
+ */
+export function branchesOf(map: LinkMap, ids: Iterable<NodeId>): Set<NodeId> {
+  const gone = new Set([...ids].filter((id) => canDeleteBox(map, id)));
+  if (gone.size === 0) return gone;
+  // What is still reachable from the start(s) once those boxes are gone.
+  const links = Object.values(map.links).filter((l) => !gone.has(l.from) && !gone.has(l.to));
   const without: LinkMap = { ...map, links: Object.fromEntries(links.map((l) => [l.id, l])) as LinkMap["links"] };
   const kept = new Set<NodeId>();
   for (const start of Object.keys(map.nodes) as NodeId[]) {
-    if (start === id || arrowsInto(map, start) > 0) continue;
+    if (gone.has(start) || arrowsInto(map, start) > 0) continue;
     kept.add(start);
     for (const n of walk(without, start, "forward")) kept.add(n);
   }
-  const branch = new Set<NodeId>([id]);
-  for (const n of after) if (!kept.has(n)) branch.add(n);
+  const branch = new Set(gone);
+  for (const id of gone) for (const n of walk(map, id, "forward")) if (!kept.has(n)) branch.add(n);
   return branch;
 }
 
-/** Deletes a box and its branch (see `branchOf`), with every arrow touching
-    them. The same map when the box can't be deleted. */
-export function deleteBranch(map: LinkMap, id: NodeId): LinkMap {
-  const branch = branchOf(map, id);
-  if (branch.size === 0) return map;
-  const nodes = { ...map.nodes };
-  for (const n of branch) delete nodes[n];
-  const links: Record<LinkId, Link> = {};
-  for (const link of Object.values(map.links)) {
-    if (!branch.has(link.from) && !branch.has(link.to)) links[link.id] = link;
-  }
-  return { ...map, nodes, links };
+/** Deletes boxes and their branches (see `branchesOf`), with every arrow
+    touching them. The same map when none of them can be deleted. */
+export function deleteBranches(map: LinkMap, ids: Iterable<NodeId>): LinkMap {
+  const branch = branchesOf(map, ids);
+  return branch.size === 0 ? map : deleteNodes(map, branch);
 }
 
+/** Deletes a box and its branch (see `branchOf`). */
+export const deleteBranch = (map: LinkMap, id: NodeId): LinkMap => deleteBranches(map, [id]);

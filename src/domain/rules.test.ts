@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { asLinkId, asNodeId } from "./ids";
-import { canDeleteBox, canDeleteLink, canLink } from "./rules";
+import { canDeleteBox, canDeleteLink, canLink, canPaste } from "./rules";
 import { build } from "./testMaps";
 
 const a = asNodeId("a");
@@ -32,5 +32,13 @@ describe("deleting (connections)", () => {
     const map = build(["a", "b"], [["a", "b"]]);
     expect(canDeleteBox(map, a)).toBe(true);
     expect(canDeleteLink(map, asLinkId("a>b"))).toBe(true);
+  });
+});
+
+describe("canPaste", () => {
+  it("lets copied boxes into a connections map, never into a tree", () => {
+    const map = build(["a"]);
+    expect(canPaste(map)).toBe(true);
+    expect(canPaste({ ...map, kind: "tree" })).toBe(false);
   });
 });

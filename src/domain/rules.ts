@@ -9,6 +9,9 @@ import type { LinkId, LinkMap, MapKind, NodeId } from "./types";
  *  - `canDeleteBox` / `canDeleteLink`: may this box or arrow go? The UI
  *    asks to show or hide its bin and ×; the store asks again before
  *    deleting.
+ *  - `canPaste`: may copied boxes (with the arrows between them) be pasted
+ *    or duplicated in? The UI asks to offer Copy, Paste and Duplicate; the
+ *    store asks again before pasting.
  *
  * A new kind is one more entry in `RULES`, not edits spread through the UI.
  */
@@ -32,6 +35,7 @@ interface KindRules {
   readonly canLink: (map: LinkMap, from: NodeId, to: NodeId) => LinkVerdict;
   readonly canDeleteBox: (map: LinkMap, id: NodeId) => boolean;
   readonly canDeleteLink: (map: LinkMap, id: LinkId) => boolean;
+  readonly canPaste: (map: LinkMap) => boolean;
 }
 
 const OK: LinkVerdict = { ok: true };
@@ -91,6 +95,7 @@ const connections: KindRules = {
   canLink: basicLinkCheck,
   canDeleteBox: (map, id) => !!map.nodes[id],
   canDeleteLink: (map, id) => !!map.links[id],
+  canPaste: () => true,
 };
 
 /**
@@ -113,6 +118,8 @@ const tree: KindRules = {
     const link = map.links[id];
     return !!link && arrowsInto(map, link.to) > 1;
   },
+  // A pasted box would arrive with no way into it: a loose box.
+  canPaste: () => false,
 };
 
 const RULES: Record<MapKind, KindRules> = { connections, tree };
@@ -124,3 +131,5 @@ export function canLink(map: LinkMap, from: NodeId, to: NodeId): LinkVerdict {
 export const canDeleteBox = (map: LinkMap, id: NodeId): boolean => RULES[map.kind].canDeleteBox(map, id);
 
 export const canDeleteLink = (map: LinkMap, id: LinkId): boolean => RULES[map.kind].canDeleteLink(map, id);
+
+export const canPaste = (map: LinkMap): boolean => RULES[map.kind].canPaste(map);

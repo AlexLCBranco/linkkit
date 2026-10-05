@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { asLinkId, asMapId, asNodeId } from "./ids";
 import { canDeleteBox, canDeleteLink, canLink, isStart } from "./rules";
-import { addNextStep, branchOf, createTree, deleteBranch, startOf } from "./tree";
+import { addNextStep, branchesOf, branchOf, createTree, deleteBranch, deleteBranches, startOf } from "./tree";
 import { buildTree, ids } from "./testMaps";
 
 const id = asNodeId;
@@ -82,6 +82,14 @@ describe("deleting in a tree", () => {
   it("removes every arrow touching the branch", () => {
     const map = deleteBranch(job(), id("yes"));
     expect(Object.keys(map.links)).toEqual([asLinkId("job>no")]);
+  });
+
+  it("deletes several boxes together, with a box both parents led to", () => {
+    // "near" has two parents, rent and buy: alone, each leaves it.
+    expect(branchesOf(job(), ids("rent", "buy"))).toEqual(new Set(ids("rent", "buy", "near", "walk", "loan")));
+    expect(branchesOf(job(), ids("job", "walk"))).toEqual(new Set(ids("walk"))); // never the start
+    const map = job();
+    expect(deleteBranches(map, ids("job"))).toBe(map);
   });
 });
 

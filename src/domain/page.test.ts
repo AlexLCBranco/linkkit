@@ -5,6 +5,7 @@ import { layoutMap } from "./layout";
 import { moveNode } from "./map";
 import {
   boxBounds,
+  clampGroupMove,
   clampToPage,
   defaultPageSize,
   freeSpot,
@@ -117,5 +118,25 @@ describe("page", () => {
     const sizes = new Map<NodeId, Size>([[asNodeId("b"), { width: 40, height: 20 }]]);
     expect(boxBounds(map, sizes, box)).toEqual({ left: 50, top: 32, right: 320, bottom: 210 });
     expect(boxBounds(build([]), sizes, box)).toEqual({ left: 0, top: 0, right: 0, bottom: 0 });
+  });
+});
+
+describe("clampGroupMove", () => {
+  const size = { width: 40, height: 20 };
+  const page = { width: 300, height: 200 };
+  const insets = { edge: 10 };
+  const group = [
+    { center: { x: 50, y: 50 }, size },
+    { center: { x: 150, y: 100 }, size },
+  ];
+
+  it("lets the group move freely inside the page", () => {
+    expect(clampGroupMove(group, { x: 20, y: -10 }, page, insets)).toEqual({ x: 20, y: -10 });
+  });
+
+  it("stops the whole group where its first box meets an edge", () => {
+    // Right: the second box's right side may reach 290 (moves 120 at most).
+    // Up: the first box's top may reach 10 (moves -30 at most).
+    expect(clampGroupMove(group, { x: 500, y: -500 }, page, insets)).toEqual({ x: 120, y: -30 });
   });
 });

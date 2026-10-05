@@ -1,4 +1,5 @@
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { useReactFlow } from "@xyflow/react";
+import { ClipboardPaste, Copy, CopyPlus, Pencil, Plus, Scissors, Trash2 } from "lucide-react";
 import { useRef, useState, type MouseEvent, type ReactElement } from "react";
 
 import {
@@ -10,46 +11,67 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "../../components/ui/context-menu";
-import { canDeleteBox } from "../../domain/rules";
-import type { NodeId } from "../../domain/types";
+import { canDeleteBox, canPaste } from "../../domain/rules";
+import type { NodeId, Point } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
+import { selectGroupColor } from "../../store/selectors";
 import { SwatchRow } from "./SwatchRow";
 import { BOX_ID_ATTRIBUTE } from "./pageMarkers";
 
+/** What the menu is about: one box, the picked group, or empty paper (where
+    it only offers to paste, at the spot clicked). */
+type Target =
+  | { readonly kind: "box"; readonly id: NodeId }
+  | { readonly kind: "group" }
+  | { readonly kind: "paper"; readonly at: Point };
+
 /**
- * The right-click menu for boxes: rename, colour, delete (in a tree, also
- * "Add next step"; the start has no delete).
+ * The right-click menu. On a box: rename, copy, duplicate, colour, delete
+ * (in a tree, also "Add next step"; the start has no delete, and nothing is
+ * copied). On a box that is one of several picked: the same for the whole
+ * group. On empty paper: "Paste here", once something has been copied.
  *
  * One menu wraps the whole canvas rather than one per box (as in Treekit):
  * on right-click it looks up which box is under the pointer, so there is a
- * single menu however big the map grows. Right-clicking empty paper opens
- * nothing. While a name or label is being typed the menu stands aside, so
- * the browser's own menu (paste, spelling) still works in the field.
+ * single menu however big the map grows. Right-clicking empty paper with
+ * nothing to paste opens nothing. While a name or label is being typed the
+ * menu stands aside, so the browser's own menu (paste, spelling) still
+ * works in the field.
  *
  * `children` must be a single element: it becomes the trigger (`asChild`).
  */
 export function BoxContextMenu({ children }: { readonly children: ReactElement }) {
-  const [targetId, setTargetId] = useState<NodeId | null>(null);
+  const [target, setTarget] = useState<Target | null>(null);
   const isTyping = useMapStore((s) => s.editing !== null);
+  const { screenToFlowPosition } = useReactFlow();
   // "Rename" puts focus in the name field, so it waits until the menu has
   // fully closed: while it animates out, the menu still holds focus and
   // would pull it straight back out of the field.
   const afterClose = useRef<(() => void) | null>(null);
 
   function onContextMenu(event: MouseEvent) {
+    const store = useMapStore.getState();
     const box = (event.target as HTMLElement).closest(`[${BOX_ID_ATTRIBUTE}]`);
     const id = box?.getAttribute(BOX_ID_ATTRIBUTE) as NodeId | null | undefined;
-    if (!id) {
+    if (id && store.group.includes(id)) {
+      setTarget({ kind: "group" });
+    } else if (id) {
+      // Selected too, so it is obvious which box the menu is about.
+      store.select(id);
+      setTarget({ kind: "box", id });
+    } else if (store.clipboard && canPaste(store.map)) {
+      setTarget({ kind: "paper", at: screenToFlowPosition({ x: event.clientX, y: event.clientY }) });
+    } else {
       // Stops Radix opening the menu (it skips handlers after a
       // `preventDefault`); the browser's menu is suppressed too, as on
       // most canvas apps.
       event.preventDefault();
-      return;
     }
-    // Selected too, so it is obvious which box the menu is about.
-    useMapStore.getState().select(id);
-    setTargetId(id);
   }
+
+  const runAfterClose = (action: () => void) => {
+    afterClose.current = action;
+  };
 
   return (
     <ContextMenu>
@@ -67,9 +89,40 @@ export function BoxContextMenu({ children }: { readonly children: ReactElement }
           action?.();
         }}
       >
-        {targetId && <BoxMenuItems nodeId={targetId} runAfterClose={(action) => (afterClose.current = action)} />}
+        {target?.kind === "box" && <BoxMenuItems nodeId={target.id} runAfterClose={runAfterClose} />}
+        {target?.kind === "group" && <GroupMenuItems />}
+        {target?.kind === "paper" && <PaperMenuItems at={target.at} />}
       </ContextMenuContent>
     </ContextMenu>
+  );
+}
+
+/** Duplicate, Copy (and Cut), where the map's rules allow pasting: not in
+    a tree. `ids` is read when picked, so it is the selection as it is then. */
+function CopyItems({ ids, cut = false }: { readonly ids: () => readonly NodeId[]; readonly cut?: boolean }) {
+  const pastable = useMapStore((s) => canPaste(s.map));
+  if (!pastable) return null;
+  const { copyBoxes, cutBoxes, duplicateBoxes } = useMapStore.getState();
+  return (
+    <>
+      <ContextMenuItem onSelect={() => duplicateBoxes(ids())}>
+        <CopyPlus aria-hidden />
+        Duplicate
+        <ContextMenuShortcut>Ctrl+D</ContextMenuShortcut>
+      </ContextMenuItem>
+      <ContextMenuItem onSelect={() => copyBoxes(ids())}>
+        <Copy aria-hidden />
+        Copy
+        <ContextMenuShortcut>Ctrl+C</ContextMenuShortcut>
+      </ContextMenuItem>
+      {cut && (
+        <ContextMenuItem onSelect={() => cutBoxes(ids())}>
+          <Scissors aria-hidden />
+          Cut
+          <ContextMenuShortcut>Ctrl+X</ContextMenuShortcut>
+        </ContextMenuItem>
+      )}
+    </>
   );
 }
 
@@ -102,6 +155,7 @@ function BoxMenuItems({
         <Pencil aria-hidden />
         Rename
       </ContextMenuItem>
+      <CopyItems ids={() => [nodeId]} />
       <ContextMenuSeparator />
       <ContextMenuLabel>Colour</ContextMenuLabel>
       <SwatchRow value={color} onPick={(c) => setBoxColor(nodeId, c)} Item={ContextMenuItem} />
@@ -116,5 +170,45 @@ function BoxMenuItems({
         </>
       )}
     </>
+  );
+}
+
+function GroupMenuItems() {
+  const count = useMapStore((s) => s.group.length);
+  const color = useMapStore(selectGroupColor);
+  const deletable = useMapStore((s) => s.group.some((id) => canDeleteBox(s.map, id)));
+  const { setBoxesColor, deleteBoxes } = useMapStore.getState();
+  // Read at click time, so an action always gets the group as it is now.
+  const group = () => useMapStore.getState().group;
+
+  return (
+    <>
+      <ContextMenuLabel>{count} boxes</ContextMenuLabel>
+      <CopyItems ids={group} cut />
+      <ContextMenuSeparator />
+      <ContextMenuLabel>Colour</ContextMenuLabel>
+      <SwatchRow value={color} onPick={(c) => setBoxesColor(group(), c)} Item={ContextMenuItem} />
+      {deletable && (
+        <>
+          <ContextMenuSeparator />
+          <ContextMenuItem variant="destructive" onSelect={() => deleteBoxes(group())}>
+            <Trash2 aria-hidden />
+            Delete {count} boxes
+            <ContextMenuShortcut>Del</ContextMenuShortcut>
+          </ContextMenuItem>
+        </>
+      )}
+    </>
+  );
+}
+
+function PaperMenuItems({ at }: { readonly at: Point }) {
+  const count = useMapStore((s) => s.clipboard?.fragment.nodes.length ?? 0);
+  return (
+    <ContextMenuItem onSelect={() => useMapStore.getState().paste(at)}>
+      <ClipboardPaste aria-hidden />
+      {count === 1 ? "Paste box here" : `Paste ${count} boxes here`}
+      <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
+    </ContextMenuItem>
   );
 }

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-05, v0.0.15 (tree mode, step 14a)_
+_Last updated: 2026-10-05, v0.0.16 (selecting several boxes, step 15)_
 
 ## What it is
 
@@ -106,6 +106,35 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     select it and press Delete
   - Two arrows between the same boxes in opposite directions are drawn
     side by side instead of on top of each other
+- Selecting several boxes (the marquee), in both kinds of map:
+  - Drag across empty paper: a tinted box follows the pointer and every
+    box it holds completely is picked as it goes (brushing a box's edge
+    doesn't pick it). Shift+drag adds to what is already picked.
+    Shift+click a box adds it or takes it out; Ctrl+A picks every box;
+    clicking a box (or the paper, or Escape) goes back to one / none.
+    Picked boxes get the selection ring; the teal / orange highlight
+    is off while several are picked, and the status line says how many
+  - Drag any picked box and they all move together as one block (it
+    stops at the page's edge as a whole, so the shape never squashes).
+    One undo step
+  - A bar floats at the bottom of the map while several are picked:
+    "N selected", a colour dot (a split dot when they differ), Duplicate,
+    Copy, Delete and × (let go). Right-clicking a picked box opens the
+    same for the whole group, plus Cut. Keys: 1–8 / 0 colour them all,
+    Delete removes them all, Ctrl+D / C / X duplicate, copy, cut. Each is
+    one undo step
+  - Copy takes the boxes and the arrows between them (an arrow to a box
+    left behind isn't copied). Paste: Ctrl+V lands a step down-right of
+    the originals (a step further each time), or right-click empty paper
+    for "Paste here", centred on that spot. The pasted boxes come
+    selected, ready to drag. The clipboard lasts until a reload and works
+    across maps. A single box's right-click menu has Duplicate and Copy
+    too
+  - In a tree: picking, moving, colouring and deleting work; Copy,
+    Paste, Duplicate and Cut don't show (a pasted box would have no way
+    into it). Deleting several asks first, as for one box, when more
+    would go than were picked; boxes that only the picked boxes lead to
+    go too, even one with two parents when both were picked
 - Tidy up (header button): rearranges the boxes in rows, each box above
   what it needs, centred on the screen (the page grows past it only if
   the map needs more room), and the boxes glide there with their arrows attached. Saved as
@@ -190,20 +219,29 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     default label is per kind ("needs", or none in a tree)
   - `rules.ts`: the one place that says what's allowed, per kind, in a
     `RULES` table: `canLink(map, from, to)` (may this arrow be drawn?),
-    `canDeleteBox` and `canDeleteLink`. "connections" refuses only a
+    `canDeleteBox`, `canDeleteLink` and `canPaste` (may copied boxes go
+    in?). "connections" refuses only a
     missing box, a box needing itself, or an exact repeat (loops and
-    reverse arrows are allowed), and lets anything be deleted. "tree"
+    reverse arrows are allowed), lets anything be deleted and anything be
+    pasted. "tree"
     also refuses any arrow into the start and any arrow that would make
     a loop; it never deletes the start, nor an arrow that is a box's only
-    way in. The drag (to show valid drop targets), the hover toolbar's
-    bin, an arrow's × and the store all ask it
+    way in, and never takes a paste. The drag (to show valid drop
+    targets), the hover toolbar's bin, an arrow's ×, the menus and the
+    store all ask it
   - `tree.ts`: edits only a tree needs, each keeping "one start, no loose
     boxes" true in one step: a new tree (just its start box), adding a
     next step (the box and its arrow together), which boxes a delete
-    takes along (`branchOf`), and deleting them
+    takes along (`branchOf`, or `branchesOf` for several picked
+    together), and deleting them
   - `map.ts`: every edit as a function that returns a new map (add /
     rename / move / colour / delete a box, add / relabel / delete an
-    arrow, rename / duplicate the map, direction, arrow length, page)
+    arrow, rename / duplicate the map, direction, arrow length, page),
+    and the same for several boxes at once (delete, colour) plus copy /
+    paste: `copyFragment` (boxes and the arrows between them) and
+    `pasteFragment` (new ids, moved by an offset)
+  - `marquee.ts`: which boxes the marquee holds, and the selection it
+    makes (replace, or add with Shift)
   - `reach.ts`: the teal and orange groups (walking the arrows forward or
     backward), each box's and arrow's highlight, and the status-line
     counts. `REACH_MEANINGS` is the one place that says, per kind, which
@@ -225,7 +263,8 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     (or a library, if the owner agrees) is a swap of this one function
   - `page.ts`: page sizing (the screen, or the boxes' reach), keeping a
     box on the page, a free spot for a new box, placing a block of boxes
-    at an alignment
+    at an alignment, how far a dragged group may move and stay on the
+    page (`clampGroupMove`)
   - `geometry.ts` and `labels.ts`: where an arrow starts and ends on a
     box's edge (opposite arrows side by side), and sliding labels apart
   - `glide.ts`: the easing of Tidy up's glide
@@ -292,6 +331,10 @@ turning a connections map into a tree.
       a loose box: becomes a next step of the start; a loop: drop the
       arrow that closes it (as Tidy up already picks one). The original
       is kept aside, as now
+
+15. ~~Selecting several boxes: the marquee, moving them together, copy /
+    paste / duplicate / delete / colour~~ (done; asked for by the owner
+    ahead of 14b, so 14b is still next)
 
 ## Open problems
 
@@ -412,6 +455,18 @@ turning a connections map into a tree.
   under its parent ("Walk to work" in the example). A tree-friendly
   placement (each step under its parents) is a change to `layout.ts`
   only, if wanted.
+- Step 15 (owner asked for "the marquee thing ... selects everything
+  inside of it and lets me move around the selections and or copy and or
+  delete"; it had been listed as not in this build, the owner's request
+  overrides that). Treekit's marquee and selection bar are the reference.
+  Choices made without asking, easy to change: a box is picked only when
+  the marquee holds all of it (Treekit's rule); the highlight is off while
+  several are picked; the clipboard is Linkkit's own (not the system
+  clipboard, so it can't paste into other apps) and lasts until a reload;
+  a paste lands 24px down-right (another 24px each time); trees get no
+  copy / paste (`canPaste` in rules.ts) because a pasted box would be
+  loose. Not done: the page doesn't scroll by itself when the marquee
+  reaches the screen's edge.
 - `.claude/launch.json` has a second dev server, `linkkit-2` on port
   5182, for when another chat already runs `linkkit` on 5181 (each port
   has its own localStorage, so test maps never mix).

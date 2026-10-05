@@ -10,21 +10,27 @@ import {
   cleanName,
   createMap,
   deleteLink,
+  copyFragment,
   deleteNode,
+  deleteNodes,
   duplicateMap,
+  fragmentCenter,
   moveNode,
   moveNodes,
+  pasteFragment,
   renameMap,
   renameNode,
   setArrowLength,
   setLinkLabel,
   setDirection,
   setNodeColor,
+  setNodesColor,
+  type MapFragment,
   setPage,
 } from "../domain/map";
 import { defaultPageSize } from "../domain/page";
-import { canDeleteBox, canDeleteLink } from "../domain/rules";
-import { addNextStep, branchOf, createTree, deleteBranch } from "../domain/tree";
+import { canDeleteLink, canPaste } from "../domain/rules";
+import { addNextStep, branchesOf, createTree, deleteBranches } from "../domain/tree";
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
 import { ARROW_LENGTH_PRESETS, type LinkId, type LinkMap, type MapId, type NodeId, type PaletteColor, type Point, type Size } from "../domain/types";
@@ -76,8 +82,17 @@ export interface MapState {
   /** The map's boxes have never been placed (the example, on a first visit):
       the canvas measures them, tidies once, then calls `placeAll`. */
   readonly needsTidy: boolean;
-  /** The box whose needs / breaks are highlighted, or `null`. */
+  /** The box whose needs / breaks are highlighted, or `null`. Always `null`
+      while a group is picked (several highlights at once would be noise). */
   readonly selected: NodeId | null;
+  /** Two or more boxes picked together (the marquee, Shift+click, Ctrl+A,
+      a paste), or empty. A group of one is just `selected`. See
+      `selectionOf`. */
+  readonly group: readonly NodeId[];
+  /** What Copy (or Cut) took, and how many times it has been pasted since,
+      so each paste lands a step further along. Lasts the session and works
+      across maps; never saved. */
+  readonly clipboard: { readonly fragment: MapFragment; readonly pastes: number } | null;
   readonly editing: Editing | null;
   readonly connecting: Connecting | null;
   /** Bumped by the "Tidy up" button. The canvas, which knows every box's
@@ -93,9 +108,9 @@ export interface MapState {
       measured, and the boxes glide to make room. That tidy joins the latest
       undo step, so adding a step and making room for it undo together. */
   readonly settleRequest: number;
-  /** A tree box whose delete takes other boxes with it, waiting for the
+  /** Tree boxes whose delete takes other boxes with them, waiting for the
       user to confirm (`count` boxes in all). */
-  readonly confirmingDelete: { readonly id: NodeId; readonly count: number } | null;
+  readonly confirmingDelete: { readonly ids: readonly NodeId[]; readonly count: number } | null;
   /** A box whose name opens for typing once the first tidy has shown the
       map (a new tree's start: a hidden field could not take focus). */
   readonly editAfterTidy: NodeId | null;
@@ -109,8 +124,13 @@ export interface MapState {
       size and settings Tidy up used, in one change. Changes with the same
       `gesture` are one undo step. */
   placeAll(positions: ReadonlyMap<NodeId, Point>, page?: Size, settings?: TidySettings, gesture?: string | null): void;
-  /** Selects a box (`null` clears the selection). */
+  /** Selects a box (`null` clears the selection), ending any group. */
   select(id: NodeId | null): void;
+  /** Selects several boxes (one is a plain `select`, none clears). */
+  selectGroup(ids: readonly NodeId[]): void;
+  /** Shift+click: adds a box to the selection, or takes it out. */
+  toggleSelected(id: NodeId): void;
+  selectAll(): void;
   /** Asks the canvas to tidy the map up (see `tidyRequest`), in the
       map's own settings unless others are given: switching direction or
       arrow length is a tidy with the new one, saved as one change with it.
@@ -137,6 +157,24 @@ export interface MapState {
       only reachable through it (asking first, through `confirmingDelete`,
       when that is more than the box itself); the start is never deleted. */
   deleteBox(id: NodeId): void;
+  /** Several boxes at once, as one undo step (a tree asks first in the
+      same way when more than these would go). */
+  deleteBoxes(ids: readonly NodeId[]): void;
+  /** Moves several boxes; moves with the same `gesture` are one step. */
+  moveBoxes(positions: ReadonlyMap<NodeId, Point>, gesture?: string): void;
+  setBoxesColor(ids: readonly NodeId[], color: PaletteColor | null): void;
+  /** Copies boxes and the arrows between them to the clipboard. Only where
+      the rules allow pasting (`canPaste`): not in a tree. */
+  copyBoxes(ids: readonly NodeId[]): void;
+  /** Copies, then deletes. */
+  cutBoxes(ids: readonly NodeId[]): void;
+  /** Pastes the clipboard: centred on `at`, or a step down-right of where
+      it was copied from (further with each paste). The pasted boxes end up
+      selected, ready to drag. */
+  paste(at?: Point): void;
+  /** Copies boxes straight in again, a step down-right, without touching
+      the clipboard; the copies end up selected. */
+  duplicateBoxes(ids: readonly NodeId[]): void;
   confirmDelete(): void;
   cancelDelete(): void;
   /** Tree: adds a next step after `from` (at `at`, or just after it),
@@ -234,6 +272,7 @@ function open(s: MapState, map: LinkMap, maps: Registry, needsTidy = false): Par
     histories: maps.some((m) => m.id === s.map.id) ? { ...others, [s.map.id]: s.history } : others,
     stepKey: null,
     selected: null,
+    group: [],
     editing: null,
     connecting: null,
     confirmingDelete: null,
@@ -251,14 +290,24 @@ const blankMap = (): LinkMap => createMap(createMapId(), UNTITLED_MAP, newPageSi
 
 const UNTITLED_TREE = "Untitled tree";
 
+/** The selection as `selected` and `group`: two or more boxes are a
+    group, one is just selected. */
+function selecting(ids: readonly NodeId[]): Pick<MapState, "selected" | "group"> {
+  return ids.length > 1 ? { selected: null, group: ids } : { selected: ids[0] ?? null, group: [] };
+}
+
+/** Every selected box: the group, else the one selected box, else none. */
+export function selectionOf(s: Pick<MapState, "selected" | "group">): readonly NodeId[] {
+  return s.group.length > 0 ? s.group : s.selected ? [s.selected] : [];
+}
+
 /** Drops view state that points at something no longer on the map. */
-function forget(s: MapState, map: LinkMap): Pick<MapState, "map" | "selected" | "editing"> {
+function forget(s: MapState, map: LinkMap): Pick<MapState, "map" | "selected" | "group" | "editing"> {
   const gone = (e: Editing | null) => e !== null && !(e.kind === "box" ? map.nodes[e.id] : map.links[e.id]);
-  return {
-    map,
-    selected: s.selected && map.nodes[s.selected] ? s.selected : null,
-    editing: gone(s.editing) ? null : s.editing,
-  };
+  const kept = selectionOf(s).filter((id) => map.nodes[id]);
+  // A group that lost boxes stays a group only while two are left.
+  const selection = kept.length === selectionOf(s).length ? { selected: s.selected, group: s.group } : selecting(kept);
+  return { map, ...selection, editing: gone(s.editing) ? null : s.editing };
 }
 
 /**
@@ -279,6 +328,17 @@ function commit(s: MapState, next: LinkMap, key: string | null = null): Partial<
 /** The undo step a new box and its first name share. */
 const newBoxKey = (id: NodeId) => `new:${id}`;
 
+/** How far down-right each paste or duplicate lands from the boxes it
+    copies, so a copy never hides exactly behind them. */
+const PASTE_STEP = 24;
+
+/** Pastes a fragment as one undo step, the copies selected. */
+function pasteInto(s: MapState, fragment: MapFragment, offset: Point): Partial<MapState> {
+  if (!canPaste(s.map) || fragment.nodes.length === 0) return {};
+  const pasted = pasteFragment(s.map, fragment, offset);
+  return { ...commit(s, pasted.map), ...selecting(pasted.nodeIds), editing: null };
+}
+
 /** Where a new step goes before the tree re-tidies (it glides from here):
     just after its parent, in the tree's direction. */
 const NEXT_STEP_OFFSET = { TB: { x: 0, y: 96 }, LR: { x: 200, y: 0 } };
@@ -286,6 +346,8 @@ const NEXT_STEP_OFFSET = { TB: { x: 0, y: 96 }, LR: { x: 200, y: 0 } };
 export const useMapStore = create<MapState>()((set, get) => ({
   ...initialState(),
   selected: null,
+  group: [],
+  clipboard: null,
   editing: null,
   connecting: null,
   tidyRequest: { count: 0, direction: "TB", arrowLength: ARROW_LENGTH_PRESETS.medium, gesture: null },
@@ -309,7 +371,14 @@ export const useMapStore = create<MapState>()((set, get) => ({
       }
       return commit(s, next, gesture && `arrows:${gesture}`);
     }),
-  select: (id) => set({ selected: id }),
+  select: (id) => set({ selected: id, group: [] }),
+  selectGroup: (ids) => set((s) => selecting(ids.filter((id) => s.map.nodes[id]))),
+  toggleSelected: (id) =>
+    set((s) => {
+      const now = selectionOf(s);
+      return selecting(now.includes(id) ? now.filter((n) => n !== id) : [...now, id]);
+    }),
+  selectAll: () => set((s) => selecting(Object.keys(s.map.nodes) as NodeId[])),
   requestTidy: (change, gesture) =>
     set((s) => ({
       tidyRequest: {
@@ -363,15 +432,44 @@ export const useMapStore = create<MapState>()((set, get) => ({
       return next === s.map ? {} : { map: next, history: history.amendLast(s.history, s.map, next) };
     }),
   setBoxColor: (id, color) => set((s) => commit(s, setNodeColor(s.map, id, color))),
-  deleteBox: (id) =>
+  deleteBox: (id) => get().deleteBoxes([id]),
+  deleteBoxes: (ids) =>
     set((s) => {
-      if (!canDeleteBox(s.map, id)) return {};
-      if (s.map.kind !== "tree") return commit(s, deleteNode(s.map, id));
-      const count = branchOf(s.map, id).size;
-      return count > 1 ? { confirmingDelete: { id, count } } : commit(s, deleteBranch(s.map, id));
+      if (s.map.kind !== "tree") return commit(s, deleteNodes(s.map, ids));
+      // A tree asks first when the delete takes boxes after these along.
+      const branch = branchesOf(s.map, ids);
+      const picked = ids.filter((id) => branch.has(id));
+      if (picked.length === 0) return {};
+      return branch.size > picked.length
+        ? { confirmingDelete: { ids: picked, count: branch.size } }
+        : commit(s, deleteBranches(s.map, picked));
     }),
+  moveBoxes: (positions, gesture) => set((s) => commit(s, moveNodes(s.map, positions), gesture ?? null)),
+  setBoxesColor: (ids, color) => set((s) => commit(s, setNodesColor(s.map, ids, color))),
+  copyBoxes: (ids) =>
+    set((s) => {
+      const fragment = copyFragment(s.map, ids);
+      return canPaste(s.map) && fragment.nodes.length > 0 ? { clipboard: { fragment, pastes: 0 } } : {};
+    }),
+  cutBoxes: (ids) => {
+    if (!canPaste(get().map)) return;
+    get().copyBoxes(ids);
+    get().deleteBoxes(ids);
+  },
+  paste: (at) =>
+    set((s) => {
+      if (!s.clipboard || !canPaste(s.map)) return {};
+      const { fragment, pastes } = s.clipboard;
+      const center = fragmentCenter(fragment);
+      const step = PASTE_STEP * (pastes + 1);
+      const offset = at ? { x: at.x - center.x, y: at.y - center.y } : { x: step, y: step };
+      return { ...pasteInto(s, fragment, offset), clipboard: { fragment, pastes: pastes + 1 } };
+    }),
+  duplicateBoxes: (ids) => set((s) => pasteInto(s, copyFragment(s.map, ids), { x: PASTE_STEP, y: PASTE_STEP })),
   confirmDelete: () =>
-    set((s) => (s.confirmingDelete ? { ...commit(s, deleteBranch(s.map, s.confirmingDelete.id)), confirmingDelete: null } : {})),
+    set((s) =>
+      s.confirmingDelete ? { ...commit(s, deleteBranches(s.map, s.confirmingDelete.ids)), confirmingDelete: null } : {},
+    ),
   cancelDelete: () => set({ confirmingDelete: null }),
   addNextStep: (from, at) => {
     get().stopEditing();

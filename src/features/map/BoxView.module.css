@@ -98,6 +98,15 @@
   opacity: var(--faded-opacity);
 }
 
+/* One of several boxes picked together: the selected box's ring, keeping
+   its own colour (no highlight shows while a group is picked). */
+.box[data-picked] {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 var(--select-ring-width) var(--focus-ring),
+    var(--shadow-md);
+}
+
 /* ---- Editing with the mouse ---- */
 
 /* The connect dot, on the right edge (as in the prototype): drag it onto

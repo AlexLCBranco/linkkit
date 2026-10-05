@@ -1,5 +1,5 @@
 import { linkHighlight, nodeHighlight, reachOf, type LinkHighlight, type NodeHighlight, type Reach } from "../domain/reach";
-import type { LinkId, NodeId } from "../domain/types";
+import type { LinkId, NodeId, PaletteColor } from "../domain/types";
 import type { MapState } from "./mapStore";
 
 /**
@@ -33,4 +33,11 @@ export function selectLinkHighlight(s: Pick<MapState, "map" | "selected">, id: L
   const reach = selectReach(s);
   const link = s.map.links[id];
   return reach && link ? linkHighlight(reach, link) : null;
+}
+
+/** The picked group's colour if every box in it shares one (`null`: none),
+    else `undefined` (mixed). */
+export function selectGroupColor(s: Pick<MapState, "map" | "group">): PaletteColor | null | undefined {
+  const colors = new Set(s.group.map((id) => s.map.nodes[id]?.color ?? null));
+  return colors.size === 1 ? [...colors][0] : undefined;
 }

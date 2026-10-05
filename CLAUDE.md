@@ -13,7 +13,7 @@ where they differ in look, prefer Treekit's and tell the owner.
 ## Scope
 
 Not in this build: tree mode, flowchart mode, collapsing groups, import,
-export, notes, trash, marquee multi-select, shared board, accounts,
+export, notes, trash, shared board, accounts,
 backend, numbers/charts.
 
 Long-term this becomes one nodes-and-links engine where a tree is just a

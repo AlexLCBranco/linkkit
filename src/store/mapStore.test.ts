@@ -395,7 +395,7 @@ describe("map store (tree)", () => {
     const before = useMapStore.getState().map;
     const yes = named(useMapStore, "Yes, take it");
     useMapStore.getState().deleteBox(yes);
-    expect(useMapStore.getState().confirmingDelete).toEqual({ id: yes, count: 6 });
+    expect(useMapStore.getState().confirmingDelete).toEqual({ ids: [yes], count: 6 });
     expect(useMapStore.getState().map).toBe(before);
     useMapStore.getState().confirmDelete();
     expect(Object.keys(useMapStore.getState().map.nodes)).toHaveLength(3);
@@ -412,5 +412,115 @@ describe("map store (tree)", () => {
     useMapStore.getState().deleteBox(named(useMapStore, "Take the new job?"));
     expect(useMapStore.getState().map).toBe(before);
     expect(useMapStore.getState().confirmingDelete).toBeNull();
+  });
+});
+
+describe("map store (several boxes)", () => {
+  async function exampleStore() {
+    const useMapStore = await freshStore();
+    useMapStore.getState().placeAll(new Map(), PAGE);
+    return useMapStore;
+  }
+  const first = (useMapStore: Awaited<ReturnType<typeof freshStore>>, n: number) =>
+    (Object.keys(useMapStore.getState().map.nodes) as NodeId[]).slice(0, n);
+
+  it("keeps one box as a plain selection and two or more as a group", async () => {
+    const useMapStore = await exampleStore();
+    const [a, b] = first(useMapStore, 2);
+    useMapStore.getState().selectGroup([a]);
+    expect(useMapStore.getState()).toMatchObject({ selected: a, group: [] });
+    useMapStore.getState().toggleSelected(b);
+    expect(useMapStore.getState()).toMatchObject({ selected: null, group: [a, b] });
+    useMapStore.getState().toggleSelected(a);
+    expect(useMapStore.getState()).toMatchObject({ selected: b, group: [] });
+    useMapStore.getState().selectAll();
+    expect(useMapStore.getState().group).toHaveLength(12);
+    useMapStore.getState().select(null);
+    expect(useMapStore.getState()).toMatchObject({ selected: null, group: [] });
+  });
+
+  it("moves, colours and deletes a group, each as one undo step", async () => {
+    const useMapStore = await exampleStore();
+    const [a, b, c] = first(useMapStore, 3);
+    const before = useMapStore.getState().map;
+    useMapStore.getState().selectGroup([a, b, c]);
+
+    useMapStore.getState().moveBoxes(new Map([[a, { x: 1, y: 1 }], [b, { x: 2, y: 2 }]]), "drag:x");
+    useMapStore.getState().moveBoxes(new Map([[a, { x: 5, y: 5 }], [b, { x: 6, y: 6 }]]), "drag:x");
+    useMapStore.getState().setBoxesColor([a, b, c], "green");
+    useMapStore.getState().deleteBoxes([a, b, c]);
+    expect(Object.keys(useMapStore.getState().map.nodes)).toHaveLength(9);
+    expect(useMapStore.getState().group).toEqual([]); // deleted boxes let go
+
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.nodes[a]).toMatchObject({ x: 5, color: "green" });
+    useMapStore.getState().undo();
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map).toEqual(before);
+  });
+
+  it("copies with the arrows between the boxes, pastes a step further each time, and selects the copies", async () => {
+    const useMapStore = await exampleStore();
+    const { map } = useMapStore.getState();
+    const link = Object.values(map.links)[0];
+    useMapStore.getState().copyBoxes([link.from, link.to]);
+
+    useMapStore.getState().paste();
+    const once = useMapStore.getState();
+    expect(Object.keys(once.map.nodes)).toHaveLength(14);
+    expect(Object.keys(once.map.links)).toHaveLength(Object.keys(map.links).length + 1);
+    const [copy] = once.group;
+    expect(once.map.nodes[copy]).toMatchObject({ name: map.nodes[link.from].name, x: map.nodes[link.from].x + 24 });
+
+    useMapStore.getState().paste();
+    const twice = useMapStore.getState();
+    expect(twice.map.nodes[twice.group[0]].x).toBe(map.nodes[link.from].x + 48);
+
+    useMapStore.getState().undo();
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.nodes).toEqual(map.nodes);
+  });
+
+  it("pastes at a spot, centred on it", async () => {
+    const useMapStore = await exampleStore();
+    const [a] = first(useMapStore, 1);
+    useMapStore.getState().copyBoxes([a]);
+    useMapStore.getState().paste({ x: 300, y: 200 });
+    const s = useMapStore.getState();
+    expect(s.map.nodes[s.selected!]).toMatchObject({ x: 300, y: 200 });
+  });
+
+  it("duplicates without touching the clipboard, and cuts", async () => {
+    const useMapStore = await exampleStore();
+    const [a, b] = first(useMapStore, 2);
+    useMapStore.getState().duplicateBoxes([a, b]);
+    expect(useMapStore.getState().clipboard).toBeNull();
+    expect(useMapStore.getState().group).toHaveLength(2);
+    useMapStore.getState().cutBoxes([a]);
+    expect(useMapStore.getState().map.nodes[a]).toBeUndefined();
+    expect(useMapStore.getState().clipboard?.fragment.nodes.map((n) => n.id)).toEqual([a]);
+  });
+
+  it("never copies or pastes in a tree, and asks before a group delete takes more", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().addExampleTree();
+    useMapStore.getState().placeAll(new Map(), PAGE);
+    const named = (name: string) =>
+      Object.values(useMapStore.getState().map.nodes).find((n) => n.name === name)!.id;
+    const [rent, buy] = [named("Rent a flat"), named("Buy a flat")];
+
+    useMapStore.getState().copyBoxes([rent]);
+    expect(useMapStore.getState().clipboard).toBeNull();
+    const before = useMapStore.getState().map;
+    useMapStore.getState().duplicateBoxes([rent]);
+    expect(useMapStore.getState().map).toBe(before);
+
+    // Rent and Buy together take "Live near the office" (both its ways in)
+    // and everything after them.
+    useMapStore.getState().deleteBoxes([rent, buy]);
+    expect(useMapStore.getState().confirmingDelete).toEqual({ ids: [rent, buy], count: 5 });
+    useMapStore.getState().confirmDelete();
+    expect(useMapStore.getState().map.nodes[named("Yes, take it")]).toBeDefined();
+    expect(Object.keys(useMapStore.getState().map.nodes)).toHaveLength(Object.keys(before.nodes).length - 5);
   });
 });

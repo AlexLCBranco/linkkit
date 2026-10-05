@@ -131,3 +131,77 @@ export function setArrowLength(map: LinkMap, length: ArrowLength): LinkMap {
 export function setPage(map: LinkMap, page: Size): LinkMap {
   return page.width === map.page.width && page.height === map.page.height ? map : { ...map, page };
 }
+
+/* ---- Several boxes at once (a marquee selection) ---- */
+
+/** Deletes boxes and every arrow touching any of them. */
+export function deleteNodes(map: LinkMap, ids: Iterable<NodeId>): LinkMap {
+  const gone = new Set([...ids].filter((id) => map.nodes[id]));
+  if (gone.size === 0) return map;
+  const nodes = { ...map.nodes };
+  for (const id of gone) delete nodes[id];
+  const links: Record<LinkId, Link> = {};
+  for (const link of Object.values(map.links)) {
+    if (!gone.has(link.from) && !gone.has(link.to)) links[link.id] = link;
+  }
+  return { ...map, nodes, links };
+}
+
+export function setNodesColor(map: LinkMap, ids: Iterable<NodeId>, color: PaletteColor | null): LinkMap {
+  let next = map;
+  for (const id of ids) next = setNodeColor(next, id, color);
+  return next;
+}
+
+/** Copied boxes, with the arrows that run between them (an arrow to a box
+    left behind isn't copied: it would have nowhere to point). */
+export interface MapFragment {
+  readonly nodes: readonly MapNode[];
+  readonly links: readonly Link[];
+}
+
+export function copyFragment(map: LinkMap, ids: Iterable<NodeId>): MapFragment {
+  const picked = new Set([...ids].filter((id) => map.nodes[id]));
+  return {
+    nodes: [...picked].map((id) => map.nodes[id]),
+    links: Object.values(map.links).filter((l) => picked.has(l.from) && picked.has(l.to)),
+  };
+}
+
+/** Where a fragment's boxes sit, as one point: the middle of their centres. */
+export function fragmentCenter(fragment: MapFragment): Point {
+  const xs = fragment.nodes.map((n) => n.x);
+  const ys = fragment.nodes.map((n) => n.y);
+  return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
+}
+
+/**
+ * Pastes a fragment, moved by `offset`, with new ids so it never clashes
+ * with what is there (pasting twice makes two copies). Returns the new
+ * boxes' ids in the fragment's order. Callers check `canPaste` first: the
+ * arrows are copied as they are, not re-checked one by one.
+ */
+export function pasteFragment(
+  map: LinkMap,
+  fragment: MapFragment,
+  offset: Point,
+  newNodeId: () => NodeId = createNodeId,
+  newLinkId: () => LinkId = createLinkId,
+): { map: LinkMap; nodeIds: NodeId[] } {
+  const idOf = new Map<NodeId, NodeId>();
+  const nodes = { ...map.nodes };
+  for (const node of fragment.nodes) {
+    const id = newNodeId();
+    idOf.set(node.id, id);
+    nodes[id] = { ...node, id, x: node.x + offset.x, y: node.y + offset.y };
+  }
+  const links = { ...map.links };
+  for (const link of fragment.links) {
+    const from = idOf.get(link.from);
+    const to = idOf.get(link.to);
+    if (!from || !to) continue;
+    const id = newLinkId();
+    links[id] = { ...link, id, from, to };
+  }
+  return { map: { ...map, nodes, links }, nodeIds: [...idOf.values()] };
+}

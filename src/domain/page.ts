@@ -43,10 +43,33 @@ export function clampToPage(center: Point, size: Size, page: Size, insets: PageI
 }
 
 /**
+ * How far a group of boxes may move by `delta` with every one of them
+ * staying on the page: the group moves as one block and stops at the edge
+ * as a whole, so its shape never gets squashed against it.
+ */
+export function clampGroupMove(
+  boxes: Iterable<{ readonly center: Point; readonly size: Size }>,
+  delta: Point,
+  page: Size,
+  insets: PageInsets,
+): Point {
+  let [minX, maxX, minY, maxY] = [-Infinity, Infinity, -Infinity, Infinity];
+  for (const { center, size } of boxes) {
+    minX = Math.max(minX, size.width / 2 + insets.edge - center.x);
+    maxX = Math.min(maxX, page.width - size.width / 2 - insets.edge - center.x);
+    minY = Math.max(minY, size.height / 2 + insets.edge - center.y);
+    maxY = Math.min(maxY, page.height - size.height / 2 - insets.edge - center.y);
+  }
+  // As in `clampToPage`: a group too big for the page keeps to its top left.
+  const clamp = (v: number, lo: number, hi: number) => (hi < lo ? lo : Math.min(Math.max(v, lo), hi));
+  return { x: clamp(delta.x, minX, maxX), y: clamp(delta.y, minY, maxY) };
+}
+
+/**
  * The page's size: the screen, or bigger where the boxes reach further.
- * `except` leaves one box out: the room that box may use is what the
- * screen and the other boxes make, so a lone box can't push the page past
- * the screen by itself.
+ * `except` leaves boxes out: the room a box (or a group being dragged)
+ * may use is what the screen and the other boxes make, so a box can't push
+ * the page past the screen by itself.
  */
 export function pageSize(
   map: LinkMap,
@@ -54,12 +77,12 @@ export function pageSize(
   fallbackSize: Size,
   insets: PageInsets,
   screen: Size,
-  except?: NodeId,
+  except?: NodeId | ReadonlySet<NodeId>,
 ): Size {
   let width = screen.width;
   let height = screen.height;
   for (const node of Object.values(map.nodes)) {
-    if (node.id === except) continue;
+    if (node.id === except || (typeof except === "object" && except.has(node.id))) continue;
     const size = sizes.get(node.id) ?? fallbackSize;
     width = Math.max(width, node.x + size.width / 2 + insets.edge);
     height = Math.max(height, node.y + size.height / 2 + insets.edge);

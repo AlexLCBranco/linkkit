@@ -6,6 +6,7 @@ import { DirectionToggle } from "../features/map/DirectionToggle";
 import { HistoryButtons } from "../features/map/HistoryButtons";
 import { MapCanvas } from "../features/map/MapCanvas";
 import { ReachStatus } from "../features/map/ReachStatus";
+import { SelectionBar } from "../features/map/SelectionBar";
 import { TidyButton } from "../features/map/TidyButton";
 import { MapSwitcher } from "../features/maps/MapSwitcher";
 import { useMapStore } from "../store/mapStore";
@@ -37,6 +38,7 @@ export function App() {
         {/* Keyed by the map: another map gets a fresh canvas (its own box
             measurements, glide and scroll) instead of inheriting this one's. */}
         <MapCanvas key={mapId} />
+        <SelectionBar />
       </main>
       <DeleteBranchDialog />
       <VersionBadge />

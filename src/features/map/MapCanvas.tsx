@@ -1,19 +1,30 @@
 import { ReactFlow, ReactFlowProvider, useReactFlow, type NodeChange, type NodeOrigin } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 
 import { linkGeometry, type Box, type LinkGeometry } from "../../domain/geometry";
 import { placeLabels } from "../../domain/labels";
 import { layoutMap } from "../../domain/layout";
+import { boxesIn, marqueeSelection, rectBetween, type Rect } from "../../domain/marquee";
 import { boxBounds, clampToPage, keepOnPage, pageSize, placeOnPage } from "../../domain/page";
 import type { ArrowLength, LayoutDirection, LinkId, LinkMap, NodeId, Point, Size } from "../../domain/types";
-import { useMapStore } from "../../store/mapStore";
+import { selectionOf, useMapStore } from "../../store/mapStore";
 import { useViewStore } from "../../store/viewStore";
 import { BoxContextMenu } from "./BoxContextMenu";
 import { BoxView, type BoxFlowNode } from "./BoxView";
 import { ConnectPreview } from "./ConnectPreview";
 import {
   ARROW,
+  DRAG_THRESHOLD,
   LABEL_FALLBACK_SIZE,
   LABELS,
   layoutOptions,
@@ -69,8 +80,9 @@ function tidyOptions(map: LinkMap, labelSizes: ReadonlyMap<LinkId, Size>, arrowL
  * First visit: the example's boxes all start on one spot. They are drawn
  * hidden, measured, tidied once, and only then shown.
  *
- * Editing: double-click empty paper adds a box there; Delete removes the
- * selected box. Everything else starts on a box or a label (BoxView,
+ * Editing: double-click empty paper adds a box there; dragging on empty
+ * paper draws a marquee that picks every box it holds (Shift adds to what
+ * is picked); Delete removes the selected box(es). Everything else starts on a box or a label (BoxView,
  * LinkEdgeView). A box that grows past the screen's edge (a longer name, a
  * smaller window) is moved back onto it.
  *
@@ -113,7 +125,13 @@ function MapCanvasInner() {
   // Escape clears it (as in the prototype). Selection is the store's, not
   // React Flow's: React Flow's own selecting stays off. The keys (Escape,
   // Delete, undo, colours) are in useMapShortcuts.
-  const onPaneClick = useCallback(() => select(null), [select]);
+  // A marquee that ends over the paper also counts as a click there, which
+  // must not clear the boxes it just picked.
+  const marqueeEnded = useRef(false);
+  const onPaneClick = useCallback(() => {
+    if (marqueeEnded.current) marqueeEnded.current = false;
+    else select(null);
+  }, [select]);
   useMapShortcuts();
 
   // Measured sizes are view state, not map data: they depend on fonts and
@@ -294,6 +312,49 @@ function MapCanvasInner() {
     return out;
   }, [nodeIds, at, sizes]);
 
+  const boxesRef = useRef(boxes);
+  useEffect(() => {
+    boxesRef.current = boxes;
+  }, [boxes]);
+
+  // The marquee: pressing on empty paper and dragging draws a box, and
+  // every box it holds is picked as it goes (live, as in Treekit). A press
+  // that doesn't travel is a plain click (clears the selection), and a
+  // double-click still adds a box. Hand-written like a box's drag, because
+  // React Flow's own marquee works on its own selection, not the store's.
+  const [marquee, setMarquee] = useState<Rect | null>(null);
+  const onPagePointerDown = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      marqueeEnded.current = false;
+      if (e.button !== 0 || !(e.target as Element).classList.contains("react-flow__pane")) return;
+      const startClient = { x: e.clientX, y: e.clientY };
+      const start = screenToFlowPosition(startClient);
+      const before = selectionOf(useMapStore.getState());
+      const adding = e.shiftKey;
+      let moved = false;
+      // On the window, not captured by the page: a capture would retarget
+      // the click, and double-clicking the paper would stop adding boxes.
+      const move = (ev: PointerEvent) => {
+        if (!moved && Math.hypot(ev.clientX - startClient.x, ev.clientY - startClient.y) < DRAG_THRESHOLD) return;
+        moved = true;
+        const rect = rectBetween(start, screenToFlowPosition({ x: ev.clientX, y: ev.clientY }));
+        setMarquee(rect);
+        useMapStore.getState().selectGroup(marqueeSelection(before, boxesIn(rect, boxesRef.current), adding));
+      };
+      const end = () => {
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", end);
+        window.removeEventListener("pointercancel", end);
+        setMarquee(null);
+        marqueeEnded.current = moved;
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", end);
+      window.addEventListener("pointercancel", end);
+    },
+    [screenToFlowPosition],
+  );
+
   const geometries = useMemo(() => {
     const out = new Map<LinkId, LinkGeometry>();
     const links = Object.values(map.links);
@@ -370,6 +431,8 @@ function MapCanvasInner() {
           className={styles.page}
           style={page ? { width: page.width, height: page.height } : FILL}
           onDoubleClick={onPageDoubleClick}
+          onPointerDown={onPagePointerDown}
+          data-marquee={marquee ? true : undefined}
           {...{ [MAP_PAGE_ATTRIBUTE]: true }}
         >
           <ReactFlow
@@ -406,6 +469,13 @@ function MapCanvasInner() {
             attributionPosition="top-right"
           />
           <ConnectPreview boxes={boxes} />
+          {marquee && (
+            <div
+              className={styles.marquee}
+              style={{ left: marquee.x, top: marquee.y, width: marquee.width, height: marquee.height }}
+              aria-hidden
+            />
+          )}
         </div>
       </div>
     </BoxContextMenu>

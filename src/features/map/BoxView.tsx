@@ -34,14 +34,18 @@ const keepToButton = (e: PointerEvent | MouseEvent) => e.stopPropagation();
  * choices (BoxContextMenu). In a tree the toolbar also has "+" (add a
  * next step), and the start has no bin (it can't be deleted).
  *
+ * One of several boxes picked together (the marquee) shows the selection
+ * ring, without the toolbar: dragging any of them moves them all.
+ *
  * Subscribes narrowly: only to its own node record, its own highlight (a
- * short string) and whether it is being typed in or connected to, so a
- * change to one box re-renders that box alone.
+ * short string) and whether it is picked, being typed in or connected to,
+ * so a change to one box re-renders that box alone.
  */
 export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   const nodeId = id as NodeId;
   const node = useMapStore((s) => s.map.nodes[nodeId]);
   const highlight = useMapStore((s) => selectNodeHighlight(s, nodeId));
+  const isPicked = useMapStore((s) => s.group.includes(nodeId));
   const isEditing = useMapStore((s) => s.editing?.kind === "box" && s.editing.id === nodeId);
   const isTarget = useMapStore((s) => s.connecting?.target === nodeId);
   const isSource = useMapStore((s) => s.connecting?.from === nodeId);
@@ -65,6 +69,7 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
       className={styles.box}
       data-colored={node.color ? true : undefined}
       data-highlight={highlight ?? undefined}
+      data-picked={isPicked || undefined}
       data-editing={isEditing || undefined}
       data-dragging={dragging || undefined}
       data-connect-target={isTarget || undefined}

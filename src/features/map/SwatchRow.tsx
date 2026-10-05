@@ -30,7 +30,8 @@ export function SwatchRow({
   onPick,
   Item,
 }: {
-  readonly value: PaletteColor | null;
+  /** Undefined: several boxes with different colours (none ringed). */
+  readonly value: PaletteColor | null | undefined;
   readonly onPick: (color: PaletteColor | null) => void;
   readonly Item: ItemComponent;
 }) {

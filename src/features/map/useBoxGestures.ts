@@ -1,9 +1,9 @@
 import { useReactFlow } from "@xyflow/react";
 import { useCallback, useState, type PointerEvent as ReactPointerEvent } from "react";
 
-import { clampToPage, pageSize } from "../../domain/page";
+import { clampGroupMove, pageSize } from "../../domain/page";
 import { canLink } from "../../domain/rules";
-import type { NodeId } from "../../domain/types";
+import type { NodeId, Point } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { DRAG_THRESHOLD, MAP_LAYOUT, PAGE_INSETS } from "./layoutConfig";
 import { BOX_ID_ATTRIBUTE, boxSizes, MAP_PAGE_ATTRIBUTE, MAP_VIEW_ATTRIBUTE, screenSize } from "./pageMarkers";
@@ -14,8 +14,10 @@ let dragCount = 0;
 /**
  * The two mouse gestures that start on a box (as in the prototype):
  *
- * - Press on the box: a click selects it; past a few pixels it becomes a
- *   drag that moves the box, kept on the screen (or on the bigger page
+ * - Press on the box: a click selects it (Shift+click adds it to the
+ *   selection or takes it out); past a few pixels it becomes a drag that
+ *   moves the box -- or, if the box is one of several picked, all of them
+ *   together, as one block -- kept on the screen (or on the bigger page
  *   that other boxes already make).
  * - Press on the box's dot: drags out a dashed arrow; letting go over
  *   another box draws the arrow, if the rules allow it. In a tree, letting
@@ -40,8 +42,11 @@ export function useBoxGestures(id: NodeId) {
       // Primary button only, and never while typing in the box's name.
       if (e.button !== 0 || (e.target as Element).closest("textarea")) return;
       const el = e.currentTarget;
-      const node = useMapStore.getState().map.nodes[id];
-      if (!node) return;
+      const { map, group } = useMapStore.getState();
+      if (!map.nodes[id]) return;
+      // The boxes this drag moves, and where each started.
+      const moving = new Set(group.includes(id) ? group : [id]);
+      const from = new Map<NodeId, Point>([...moving].map((n) => [n, { x: map.nodes[n].x, y: map.nodes[n].y }]));
       e.stopPropagation();
       el.setPointerCapture(e.pointerId);
 
@@ -51,30 +56,34 @@ export function useBoxGestures(id: NodeId) {
       // Every move of this one drag shares a key, so the whole drag is one
       // undo step.
       const gesture = `drag:${++dragCount}`;
-      // The room this box may use: the screen, or further where other boxes
-      // already reach. Worked out once: nothing else moves during a drag.
+      // The room these boxes may use: the screen, or further where other
+      // boxes already reach. Worked out once: nothing else moves during a
+      // drag.
       const page = el.closest(`[${MAP_PAGE_ATTRIBUTE}]`);
       const view = el.closest(`[${MAP_VIEW_ATTRIBUTE}]`);
-      const room =
-        page && view
-          ? pageSize(useMapStore.getState().map, boxSizes(page), MAP_LAYOUT.fallbackSize, PAGE_INSETS, screenSize(view), id)
-          : null;
+      const sizes = page ? boxSizes(page) : new Map();
+      const room = view ? pageSize(map, sizes, MAP_LAYOUT.fallbackSize, PAGE_INSETS, screenSize(view), moving) : null;
+      const boxes = [...from].map(([n, center]) => ({ center, size: sizes.get(n) ?? MAP_LAYOUT.fallbackSize }));
 
       const move = (ev: PointerEvent) => {
         if (!moved && Math.hypot(ev.clientX - startClient.x, ev.clientY - startClient.y) < DRAG_THRESHOLD) return;
         if (!moved) setDragging(true);
         moved = true;
         const at = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
-        const size = { width: el.offsetWidth, height: el.offsetHeight };
-        const to = { x: node.x + at.x - start.x, y: node.y + at.y - start.y };
-        useMapStore.getState().moveBox(id, room ? clampToPage(to, size, room, PAGE_INSETS) : to, gesture);
+        const wanted = { x: at.x - start.x, y: at.y - start.y };
+        const d = room ? clampGroupMove(boxes, wanted, room, PAGE_INSETS) : wanted;
+        const to = new Map<NodeId, Point>([...from].map(([n, p]) => [n, { x: p.x + d.x, y: p.y + d.y }]));
+        useMapStore.getState().moveBoxes(to, gesture);
       };
       const end = (ev: PointerEvent) => {
         el.removeEventListener("pointermove", move);
         el.removeEventListener("pointerup", end);
         el.removeEventListener("pointercancel", end);
         setDragging(false);
-        if (!moved && ev.type === "pointerup") useMapStore.getState().select(id);
+        if (moved || ev.type !== "pointerup") return;
+        const store = useMapStore.getState();
+        if (ev.shiftKey) store.toggleSelected(id);
+        else store.select(id);
       };
       el.addEventListener("pointermove", move);
       el.addEventListener("pointerup", end);
