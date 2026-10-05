@@ -18,7 +18,8 @@ let dragCount = 0;
  *   drag that moves the box, kept on the screen (or on the bigger page
  *   that other boxes already make).
  * - Press on the box's dot: drags out a dashed arrow; letting go over
- *   another box draws the arrow, if the rules allow it.
+ *   another box draws the arrow, if the rules allow it. In a tree, letting
+ *   go on empty paper adds a next step there.
  *
  * Both are hand-written with pointer events instead of React Flow's own
  * dragging and connecting, because those keep their own copy of positions
@@ -96,6 +97,10 @@ export function useBoxGestures(id: NodeId) {
         const to = hit?.getAttribute(BOX_ID_ATTRIBUTE) as NodeId | undefined;
         return to && canLink(useMapStore.getState().map, id, to).ok ? to : null;
       };
+      /** Over the bare paper of a tree (not a box, arrow or label). */
+      const onPaper = (x: number, y: number) =>
+        useMapStore.getState().map.kind === "tree" &&
+        !!document.elementFromPoint(x, y)?.classList.contains("react-flow__pane");
       const update = (ev: PointerEvent | ReactPointerEvent) =>
         useMapStore.getState().setConnecting({
           from: id,
@@ -111,6 +116,9 @@ export function useBoxGestures(id: NodeId) {
         const to = ev.type === "pointerup" ? targetAt(ev.clientX, ev.clientY) : null;
         setConnecting(null);
         if (to) connect(id, to);
+        else if (ev.type === "pointerup" && onPaper(ev.clientX, ev.clientY)) {
+          useMapStore.getState().addNextStep(id, screenToFlowPosition({ x: ev.clientX, y: ev.clientY }));
+        }
       };
       update(e);
       el.addEventListener("pointermove", update);

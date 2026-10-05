@@ -19,3 +19,17 @@ export function build(names: string[], arrows: [string, string, string?][] = [])
 }
 
 export const ids = (...names: string[]): NodeId[] => names.map(asNodeId);
+
+/**
+ * Test helper: a tree from short names. `start` is the start box; arrows
+ * are added straight into the map (not through `canLink`), so a test can
+ * also build a damaged tree. Arrow ids are "from>to".
+ */
+export function buildTree(start: string, names: string[], arrows: [string, string, string?][] = []): LinkMap {
+  let map: LinkMap = { ...build([start, ...names]), kind: "tree" };
+  for (const [from, to, label] of arrows) {
+    const id = asLinkId(`${from}>${to}`);
+    map = { ...map, links: { ...map.links, [id]: { id, from: asNodeId(from), to: asNodeId(to), label: label ?? "" } } };
+  }
+  return map;
+}

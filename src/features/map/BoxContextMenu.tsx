@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useRef, useState, type MouseEvent, type ReactElement } from "react";
 
 import {
@@ -10,13 +10,15 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "../../components/ui/context-menu";
+import { canDeleteBox } from "../../domain/rules";
 import type { NodeId } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { SwatchRow } from "./SwatchRow";
 import { BOX_ID_ATTRIBUTE } from "./pageMarkers";
 
 /**
- * The right-click menu for boxes: rename, colour, delete.
+ * The right-click menu for boxes: rename, colour, delete (in a tree, also
+ * "Add next step"; the start has no delete).
  *
  * One menu wraps the whole canvas rather than one per box (as in Treekit):
  * on right-click it looks up which box is under the pointer, so there is a
@@ -82,9 +84,20 @@ function BoxMenuItems({
   const startEditing = useMapStore((s) => s.startEditing);
   const setBoxColor = useMapStore((s) => s.setBoxColor);
   const deleteBox = useMapStore((s) => s.deleteBox);
+  const addNextStep = useMapStore((s) => s.addNextStep);
+  const isTree = useMapStore((s) => s.map.kind === "tree");
+  const deletable = useMapStore((s) => canDeleteBox(s.map, nodeId));
 
   return (
     <>
+      {isTree && (
+        // Waits for the menu to close, like Rename: the new box's name
+        // field needs the focus.
+        <ContextMenuItem onSelect={() => runAfterClose(() => addNextStep(nodeId))}>
+          <Plus aria-hidden />
+          Add next step
+        </ContextMenuItem>
+      )}
       <ContextMenuItem onSelect={() => runAfterClose(() => startEditing({ kind: "box", id: nodeId }))}>
         <Pencil aria-hidden />
         Rename
@@ -92,12 +105,16 @@ function BoxMenuItems({
       <ContextMenuSeparator />
       <ContextMenuLabel>Colour</ContextMenuLabel>
       <SwatchRow value={color} onPick={(c) => setBoxColor(nodeId, c)} Item={ContextMenuItem} />
-      <ContextMenuSeparator />
-      <ContextMenuItem variant="destructive" onSelect={() => deleteBox(nodeId)}>
-        <Trash2 aria-hidden />
-        Delete box
-        <ContextMenuShortcut>Del</ContextMenuShortcut>
-      </ContextMenuItem>
+      {deletable && (
+        <>
+          <ContextMenuSeparator />
+          <ContextMenuItem variant="destructive" onSelect={() => deleteBox(nodeId)}>
+            <Trash2 aria-hidden />
+            Delete box
+            <ContextMenuShortcut>Del</ContextMenuShortcut>
+          </ContextMenuItem>
+        </>
+      )}
     </>
   );
 }

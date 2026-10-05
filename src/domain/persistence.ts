@@ -1,4 +1,4 @@
-import { canLink } from "./rules";
+import { basicLinkCheck } from "./rules";
 import type {
   ArrowLength,
   LayoutDirection,
@@ -13,7 +13,7 @@ import type {
   Size,
 } from "./types";
 import { clampArrowLength } from "./map";
-import { ARROW_LENGTH_PRESETS, DEFAULT_LINK_LABEL, LAYOUT_DIRECTIONS, MAP_KINDS, PALETTE_COLORS } from "./types";
+import { ARROW_LENGTH_PRESETS, DEFAULT_LINK_LABELS, LAYOUT_DIRECTIONS, MAP_KINDS, PALETTE_COLORS } from "./types";
 
 /**
  * The saved shape of a map, and how to read it back safely. Pure: where it
@@ -60,9 +60,11 @@ const isSize = (value: number) => Number.isFinite(value) && value > 0;
  *
  * Repairs: fields with the wrong type get defaults (a box with no usable
  * position goes to the page's top-left corner; a bad page size becomes
- * `fallbackPage`); arrows the map's rules would refuse (a missing end, a
- * box needing itself, an exact repeat) are dropped; an empty arrow label
- * becomes "needs". `unreadable` is kept for data with nothing to salvage,
+ * `fallbackPage`); arrows every kind refuses (a missing end, a box linking
+ * to itself, an exact repeat: `basicLinkCheck`) are dropped; an empty arrow
+ * label becomes "needs" in a connections map (a tree's arrows have none).
+ * A tree's own shape (one start, no loose boxes, no loops) is not repaired
+ * yet: a damaged tree opens as it was saved. `unreadable` is kept for data with nothing to salvage,
  * or with an unknown version or kind (possibly from a newer Linkkit --
  * "repairing" it would destroy what that version wrote).
  */
@@ -130,8 +132,10 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
     nodes[id] = { id, name: nodeName, x, y, color };
   }
 
-  // Arrows: each one is checked against the rules, with the arrows kept so
-  // far, so an exact repeat is caught the same way the UI would catch it.
+  // Arrows: each one is checked with the arrows kept so far, so an exact
+  // repeat is caught the same way the UI would catch it. Only the checks
+  // every kind shares: a tree's "nothing into the start" can't be judged
+  // one arrow at a time (every box looks like a start before its arrow).
   const rawLinks: Record<string, unknown> = isObject(raw.links) ? raw.links : fix({});
   const links: Record<LinkId, Link> = {};
   const map: LinkMap = { id: raw.id as MapId, name, kind, page, direction, arrowLength, nodes, links };
@@ -142,13 +146,15 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
     }
     const from = link.from as NodeId;
     const to = link.to as NodeId;
-    if (!canLink(map, from, to).ok) {
+    if (!basicLinkCheck(map, from, to).ok) {
       fix(null);
       continue;
     }
     if (link.id !== key) fix(null);
     const id = key as LinkId;
-    const label = typeof link.label === "string" && link.label.trim() ? link.label : fix(DEFAULT_LINK_LABEL);
+    const fallback = DEFAULT_LINK_LABELS[kind];
+    const label =
+      typeof link.label === "string" && (link.label.trim() || link.label === fallback) ? link.label : fix(fallback);
     links[id] = { id, from, to, label };
   }
 

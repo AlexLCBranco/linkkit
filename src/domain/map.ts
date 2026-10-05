@@ -14,7 +14,7 @@ import type {
   Point,
   Size,
 } from "./types";
-import { ARROW_LENGTH_PRESETS, ARROW_LENGTH_RANGE, DEFAULT_LINK_LABEL } from "./types";
+import { ARROW_LENGTH_PRESETS, ARROW_LENGTH_RANGE, DEFAULT_LINK_LABELS } from "./types";
 
 /**
  * Edits to a map. Every function is pure: it takes a map and returns a new
@@ -80,19 +80,20 @@ export function addLink(
   map: LinkMap,
   from: NodeId,
   to: NodeId,
-  label = DEFAULT_LINK_LABEL,
+  label = DEFAULT_LINK_LABELS[map.kind],
   id: LinkId = createLinkId(),
 ): { map: LinkMap; linkId: LinkId } | { map: LinkMap; linkId: null; verdict: LinkVerdict } {
   const verdict = canLink(map, from, to);
   if (!verdict.ok) return { map, linkId: null, verdict };
-  const link: Link = { id, from, to, label: cleanName(label) || DEFAULT_LINK_LABEL };
+  const link: Link = { id, from, to, label: cleanName(label) || DEFAULT_LINK_LABELS[map.kind] };
   return { map: { ...map, links: { ...map.links, [id]: link } }, linkId: id };
 }
 
-/** An emptied label goes back to "needs", as in the prototype. */
+/** An emptied label goes back to the kind's default: "needs" (as in the
+    prototype), or no label in a tree. */
 export function setLinkLabel(map: LinkMap, id: LinkId, label: string): LinkMap {
   const link = map.links[id];
-  const next = cleanName(label) || DEFAULT_LINK_LABEL;
+  const next = cleanName(label) || DEFAULT_LINK_LABELS[map.kind];
   if (!link || link.label === next) return map;
   return { ...map, links: { ...map.links, [id]: { ...link, label: next } } };
 }

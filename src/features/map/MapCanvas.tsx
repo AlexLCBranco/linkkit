@@ -39,10 +39,17 @@ const NO_DATA = {};
 /** The page before the screen is first measured. */
 const FILL = { width: "100%", height: "100%" };
 
+/** A label's size: measured, or a typical one's if not yet. An arrow with
+    no label (a tree's) takes no room until something on it is measured. */
+const NO_LABEL: Size = { width: 0, height: 0 };
+function labelSize(map: LinkMap, labelSizes: ReadonlyMap<LinkId, Size>, id: LinkId): Size {
+  return labelSizes.get(id) ?? (map.links[id]?.label ? LABEL_FALLBACK_SIZE : NO_LABEL);
+}
+
 /** Tidy up's options: the arrow length and direction asked for, with room
-    for every arrow's label (measured, or a typical one's size if not yet). */
+    for every arrow's label. */
 function tidyOptions(map: LinkMap, labelSizes: ReadonlyMap<LinkId, Size>, arrowLength: ArrowLength, direction: LayoutDirection) {
-  const labels = (Object.keys(map.links) as LinkId[]).map((id) => labelSizes.get(id) ?? LABEL_FALLBACK_SIZE);
+  const labels = (Object.keys(map.links) as LinkId[]).map((id) => labelSize(map, labelSizes, id));
   return layoutOptions(arrowLength, direction, labels);
 }
 
@@ -178,6 +185,9 @@ function MapCanvasInner() {
     (e: MouseEvent) => {
       const page = pageRef.current;
       if (!page || !(e.target as Element).classList.contains("react-flow__pane")) return;
+      // A tree grows only from its boxes ("+", or a box's dot): a box
+      // added on its own would be loose.
+      if (useMapStore.getState().map.kind === "tree") return;
       const at = screenToFlowPosition({ x: e.clientX, y: e.clientY });
       // Not measured yet: a typical box's size keeps it on the page for now.
       addBox(clampToPage(at, MAP_LAYOUT.fallbackSize, page, PAGE_INSETS));
@@ -222,6 +232,25 @@ function MapCanvasInner() {
       offAlign();
     };
   }, [startGlide]);
+
+  // A tree that grew (a next step, a second parent, a new step's name)
+  // re-tidies itself once every box is measured, and the boxes glide to
+  // make room. The tidy joins the change's own undo step (`nudgeBoxes`), so
+  // undo takes back the step and the room made for it together.
+  const settleRequest = useMapStore((s) => s.settleRequest);
+  const settled = useRef(settleRequest);
+  useEffect(() => {
+    if (settleRequest === settled.current || !allMeasured || !screen || needsTidy) return;
+    settled.current = settleRequest;
+    const s = useMapStore.getState();
+    const options = tidyOptions(s.map, labelSizesRef.current, s.map.arrowLength, s.map.direction);
+    const layout = layoutMap(s.map, sizes, options, s.map.direction);
+    const placed = placeOnPage(layout, screen, PAGE_MARGIN, useViewStore.getState().alignment);
+    const from = new Map<NodeId, Point>(Object.values(s.map.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
+    s.nudgeBoxes(placed.positions);
+    startGlide(from, useMapStore.getState().map.nodes);
+  }, [settleRequest, allMeasured, screen, needsTidy, sizes, startGlide]);
+
   const at = useCallback((id: NodeId): Point => glide.shown?.get(id) ?? map.nodes[id], [glide.shown, map.nodes]);
 
   const nodes = useMemo<BoxFlowNode[]>(
@@ -289,12 +318,12 @@ function MapCanvasInner() {
           id,
           start: g.start,
           tip: g.head[0],
-          size: labelSizes.get(id) ?? LABEL_FALLBACK_SIZE,
+          size: labelSize(map, labelSizes, id),
         })),
         [...boxes.values()],
         LABELS,
       ),
-    [geometries, boxes, labelSizes],
+    [geometries, boxes, labelSizes, map],
   );
 
   const edges = useMemo<LinkFlowEdge[]>(

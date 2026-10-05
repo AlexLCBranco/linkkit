@@ -82,12 +82,12 @@
   background: color-mix(in srgb, var(--box-accent) 22%, var(--surface-raised));
 }
 
-.box[data-highlight="need"] {
+.box[data-highlight="teal"] {
   border-color: var(--need);
   background: var(--need-bg);
 }
 
-.box[data-highlight="break"] {
+.box[data-highlight="orange"] {
   border-color: var(--break);
   background: var(--break-bg);
 }

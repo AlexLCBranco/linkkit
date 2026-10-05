@@ -24,10 +24,10 @@
   border-radius: var(--radius-sm);
 }
 
-.swatch[data-kind="need"] {
+.swatch[data-kind="teal"] {
   background: var(--need);
 }
 
-.swatch[data-kind="break"] {
+.swatch[data-kind="orange"] {
   background: var(--break);
 }

@@ -343,3 +343,74 @@ describe("several maps", () => {
     expect(useMapStore.getState().maps.map((m) => m.id)).toEqual(["first"]);
   });
 });
+
+describe("map store (tree)", () => {
+  /** A fresh store with the example tree open and tidied. */
+  async function treeStore() {
+    const useMapStore = await freshStore();
+    useMapStore.getState().addExampleTree();
+    useMapStore.getState().placeAll(new Map(), PAGE);
+    return useMapStore;
+  }
+  const named = (useMapStore: Awaited<ReturnType<typeof freshStore>>, name: string) =>
+    Object.values(useMapStore.getState().map.nodes).find((n) => n.name === name)!.id;
+
+  it("starts a new tree with its start box's name open once it is shown", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().newTree();
+    const { map, needsTidy, editing } = useMapStore.getState();
+    expect(map.kind).toBe("tree");
+    expect(Object.values(map.nodes).map((n) => n.name)).toEqual(["Start"]);
+    expect(needsTidy).toBe(true);
+    expect(editing).toBeNull();
+    useMapStore.getState().placeAll(new Map(), PAGE);
+    expect(useMapStore.getState().editing).toEqual({ kind: "box", id: Object.keys(map.nodes)[0] });
+  });
+
+  it("adds a next step with its arrow, named, as one undo step, and asks for room", async () => {
+    const useMapStore = await treeStore();
+    const before = useMapStore.getState().map;
+    const settle = useMapStore.getState().settleRequest;
+    const no = named(useMapStore, "No, stay");
+    const id = useMapStore.getState().addNextStep(no)!;
+    useMapStore.getState().renameBox(id, "Stay put");
+    useMapStore.getState().stopEditing();
+    const { map, settleRequest } = useMapStore.getState();
+    expect(Object.values(map.links).some((l) => l.from === no && l.to === id)).toBe(true);
+    expect(settleRequest).toBe(settle + 2);
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map).toEqual(before);
+  });
+
+  it("drops a next step left without a name, arrow and all", async () => {
+    const useMapStore = await treeStore();
+    const before = useMapStore.getState().map;
+    useMapStore.getState().addNextStep(named(useMapStore, "No, stay"));
+    useMapStore.getState().stopEditing();
+    expect(useMapStore.getState().map).toEqual(before);
+  });
+
+  it("asks before deleting a branch, then deletes it as one undo step", async () => {
+    const useMapStore = await treeStore();
+    const before = useMapStore.getState().map;
+    const yes = named(useMapStore, "Yes, take it");
+    useMapStore.getState().deleteBox(yes);
+    expect(useMapStore.getState().confirmingDelete).toEqual({ id: yes, count: 6 });
+    expect(useMapStore.getState().map).toBe(before);
+    useMapStore.getState().confirmDelete();
+    expect(Object.keys(useMapStore.getState().map.nodes)).toHaveLength(3);
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map).toEqual(before);
+  });
+
+  it("deletes a lone box at once, and never the start", async () => {
+    const useMapStore = await treeStore();
+    useMapStore.getState().deleteBox(named(useMapStore, "Walk to work"));
+    expect(useMapStore.getState().confirmingDelete).toBeNull();
+    expect(Object.keys(useMapStore.getState().map.nodes)).toHaveLength(8);
+    const before = useMapStore.getState().map;
+    useMapStore.getState().deleteBox(named(useMapStore, "Take the new job?"));
+    expect(useMapStore.getState().map).toBe(before);
+    expect(useMapStore.getState().confirmingDelete).toBeNull();
+  });
+});

@@ -19,12 +19,12 @@ describe("highlight selectors", () => {
   it("gives each box and arrow its own highlight", () => {
     const s = { map, selected: id("b") };
     expect(selectNodeHighlight(s, id("b"))).toBe("selected");
-    expect(selectNodeHighlight(s, id("c"))).toBe("need");
-    expect(selectNodeHighlight(s, id("a"))).toBe("break");
-    expect(selectNodeHighlight(s, id("d"))).toBe("break");
+    expect(selectNodeHighlight(s, id("c"))).toBe("teal");
+    expect(selectNodeHighlight(s, id("a"))).toBe("orange");
+    expect(selectNodeHighlight(s, id("d"))).toBe("orange");
     expect(selectNodeHighlight(s, id("e"))).toBe("faded");
-    expect(selectLinkHighlight(s, asLinkId("b>c"))).toBe("need");
-    expect(selectLinkHighlight(s, asLinkId("d>a"))).toBe("break");
+    expect(selectLinkHighlight(s, asLinkId("b>c"))).toBe("teal");
+    expect(selectLinkHighlight(s, asLinkId("d>a"))).toBe("orange");
   });
 
   it("works the reach out once per map and selection", () => {

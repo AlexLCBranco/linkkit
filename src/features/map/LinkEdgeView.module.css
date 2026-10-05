@@ -90,37 +90,67 @@ path.line {
   color: var(--ink-light);
 }
 
-/* ---- The needs / breaks highlight (a box is selected) ---- */
-path.line[data-highlight="need"] {
+/* ---- A tree's arrow, which has no label ---- */
+
+/* The invisible, wider line the pointer finds the arrow by. React Flow
+   turns the mouse off on edges it doesn't handle; this path takes it back. */
+path.hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: var(--edge-hit-width);
+  pointer-events: stroke;
+}
+
+/* Just the ×, in the arrow's middle, shown while the pointer is on the
+   arrow or on the × itself. */
+.bare {
+  position: absolute;
+  width: var(--delete-button-size);
+  height: var(--delete-button-size);
+  pointer-events: all;
+}
+
+.bare .delete {
+  inset: 0;
+}
+
+.bare[data-hot] .delete,
+.bare:hover .delete {
+  opacity: 1;
+}
+
+/* ---- The teal / orange highlight (a box is selected) ---- */
+path.line[data-highlight="teal"] {
   stroke: var(--need);
   stroke-width: var(--edge-width-lit);
 }
 
-path.line[data-highlight="break"] {
+path.line[data-highlight="orange"] {
   stroke: var(--break);
   stroke-width: var(--edge-width-lit);
 }
 
-.head[data-highlight="need"] {
+.head[data-highlight="teal"] {
   fill: var(--need);
 }
 
-.head[data-highlight="break"] {
+.head[data-highlight="orange"] {
   fill: var(--break);
 }
 
-.label[data-highlight="need"] {
+.label[data-highlight="teal"] {
   color: var(--need);
   font-weight: var(--weight-medium);
 }
 
-.label[data-highlight="break"] {
+.label[data-highlight="orange"] {
   color: var(--break);
   font-weight: var(--weight-medium);
 }
 
 path.line[data-highlight="faded"],
 .head[data-highlight="faded"],
+.bare[data-highlight="faded"],
 .label[data-highlight="faded"] {
   opacity: var(--faded-opacity);
 }

@@ -1,9 +1,10 @@
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { Palette, Pencil, Trash2 } from "lucide-react";
+import { Palette, Pencil, Plus, Trash2 } from "lucide-react";
 import { memo, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
 
 import { InlineEditable } from "../../components/InlineEditable";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
+import { canDeleteBox } from "../../domain/rules";
 import type { NodeId } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { selectNodeHighlight } from "../../store/selectors";
@@ -30,7 +31,8 @@ const keepToButton = (e: PointerEvent | MouseEvent) => e.stopPropagation();
  * while selected) it shows a dot on its right edge to drag an arrow from,
  * and a toolbar above it to rename, colour or delete it (Treekit's hover
  * toolbar; the prototype had a corner ×). Right-click opens the same
- * choices (BoxContextMenu).
+ * choices (BoxContextMenu). In a tree the toolbar also has "+" (add a
+ * next step), and the start has no bin (it can't be deleted).
  *
  * Subscribes narrowly: only to its own node record, its own highlight (a
  * short string) and whether it is being typed in or connected to, so a
@@ -48,6 +50,9 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   const renameBox = useMapStore((s) => s.renameBox);
   const deleteBox = useMapStore((s) => s.deleteBox);
   const setBoxColor = useMapStore((s) => s.setBoxColor);
+  const addNextStep = useMapStore((s) => s.addNextStep);
+  const isTree = useMapStore((s) => s.map.kind === "tree");
+  const deletable = useMapStore((s) => canDeleteBox(s.map, nodeId));
   const { dragging, onBoxPointerDown, onDotPointerDown } = useBoxGestures(nodeId);
   if (!node) return null;
 
@@ -92,6 +97,17 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
       />
 
       <div className={styles.toolbar} onPointerDown={keepToButton} onDoubleClick={keepToButton}>
+        {isTree && (
+          <button
+            type="button"
+            className={styles.toolbarButton}
+            onClick={() => addNextStep(nodeId)}
+            aria-label="Add a next step"
+            title="Add a next step"
+          >
+            <Plus size={14} />
+          </button>
+        )}
         <button type="button" className={styles.toolbarButton} onClick={rename} aria-label="Rename" title="Rename">
           <Pencil size={14} />
         </button>
@@ -105,15 +121,17 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
             <SwatchRow value={node.color} onPick={(c) => setBoxColor(nodeId, c)} Item={DropdownMenuItem} />
           </DropdownMenuContent>
         </DropdownMenu>
-        <button
-          type="button"
-          className={`${styles.toolbarButton} ${styles.delete}`}
-          onClick={() => deleteBox(nodeId)}
-          aria-label="Delete box"
-          title="Delete box (Del)"
-        >
-          <Trash2 size={14} />
-        </button>
+        {deletable && (
+          <button
+            type="button"
+            className={`${styles.toolbarButton} ${styles.delete}`}
+            onClick={() => deleteBox(nodeId)}
+            aria-label="Delete box"
+            title="Delete box (Del)"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
       </div>
     </div>
   );

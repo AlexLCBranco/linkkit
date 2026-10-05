@@ -1,13 +1,16 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-05, v0.0.14 (engine files described)_
+_Last updated: 2026-10-05, v0.0.15 (tree mode, step 14a)_
 
 ## What it is
 
 A browser widget for "what does this depend on?" maps: boxes connected by
 arrows, where A → B means "A needs B". Click a box and everything it needs
 lights up teal, everything that breaks without it lights up orange. For
-concept maps, dependency maps and relationship maps. Mouse-first, for
+concept maps, dependency maps and relationship maps. It also makes
+decision trees ("What should I choose?"), where an arrow means "leads
+to" and clicking a box shows the way to it and what comes after; trees
+will slowly take over Treekit's job. Mouse-first, for
 normal users. Sibling of Boardkit, Treekit and Vennkit, whose stack and
 look it mirrors; built and used on its own. Repo:
 github.com/AlexLCBranco/linkkit; every push to main deploys on Vercel
@@ -140,26 +143,72 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   direction switch) place the map at the chosen spot too. The choice is
   remembered by the browser for every map (`linkkit:align`), not saved
   with a map. Centred until something else is chosen
+- Trees (a second kind of map, for decisions). An arrow reads "leads
+  to": the earlier step above (or left of) the next one. One start box,
+  which can be renamed and coloured but not deleted; every other box has
+  at least one arrow leading into it, so there are no loose boxes. Two
+  ways into one box are allowed ("Rent" and "Buy" both lead to "Live near
+  the office"); loops and arrows into the start are not.
+  Connections maps work exactly as before.
+  - The map menu has "+ New tree" (a blank tree: just its start box,
+    centred, its name "Start" open for typing over; left empty it stays
+    "Start"; the tree is called "Untitled tree" until renamed in the
+    header) and "Add example tree" ("Take the new job?", with one merge)
+  - Add a next step: the "+" in a box's hover toolbar, "Add next step" in
+    its right-click menu, "Add box" in the header (adds to the selected
+    box; greyed out with nothing selected, and its tooltip says why), or
+    drag a box's dot onto empty paper. The new box opens its name for
+    typing; left empty, it goes away again with its arrow. Drag a box's
+    dot onto another box to give that box a second way in (the dashed
+    arrow only snaps to boxes the rules allow). Double-clicking the paper
+    does nothing in a tree
+  - The tree tidies itself whenever it grows (a next step, once more when
+    its name is typed, a second way in): the boxes glide to make room.
+    Adding a step and the room made for it are one undo step
+  - Delete a box: it goes with every box that can only be reached
+    through it; boxes another step also leads to stay. If more than the
+    box itself would go, a dialog asks first and says how many. One undo
+    step
+  - Arrows have no label (no "needs" pill). Pointing at an arrow shows a
+    small × in its middle to delete it, except on a box's only way in
+    (that would leave a loose box), which shows none
+  - Click a box: teal is every way back to the start (through both
+    parents where there are two), orange is everything that comes after
+    it, the rest fades. The status line says e.g. "Live near the office ·
+    Comes from 4 · Leads to 1"
+  - Top-down / Left-right, Arrows, Align, colours, undo, Tidy up and
+    saving work as in a connections map. A damaged saved tree opens as it
+    was (its shape isn't repaired yet)
 - The engine underneath: pure TypeScript in `src/domain/` (no React, no
   store), each file with a Vitest test beside it:
   - `types.ts`: the model. A map is `{ id, name, kind, page, direction,
     arrowLength, nodes, links }`; `nodes` and `links` are flat
     `Record<id, …>` maps. A box is `{ id, name, x, y, color }` (x, y is
     its centre); an arrow is `{ id, from, to, label }`, read "from needs
-    to". `kind` names the map's rule set; only `"connections"` exists
-  - `rules.ts`: the one place that says whether an arrow may be drawn,
-    `canLink(map, from, to)`. It looks up a rule by `map.kind` in a
-    `RULES` table; "connections" refuses only a missing box, a box
-    needing itself, or an exact repeat (loops and reverse arrows are
-    allowed). The drag (to show valid drop targets), adding an arrow and
-    repairing a save all ask it, so a new kind (say, a tree: one parent,
-    no loops) is one more entry in the table
+    to" in a connections map and "from leads to to" in a tree. `kind`
+    names the map's rule set: `"connections"` or `"tree"`. An arrow's
+    default label is per kind ("needs", or none in a tree)
+  - `rules.ts`: the one place that says what's allowed, per kind, in a
+    `RULES` table: `canLink(map, from, to)` (may this arrow be drawn?),
+    `canDeleteBox` and `canDeleteLink`. "connections" refuses only a
+    missing box, a box needing itself, or an exact repeat (loops and
+    reverse arrows are allowed), and lets anything be deleted. "tree"
+    also refuses any arrow into the start and any arrow that would make
+    a loop; it never deletes the start, nor an arrow that is a box's only
+    way in. The drag (to show valid drop targets), the hover toolbar's
+    bin, an arrow's × and the store all ask it
+  - `tree.ts`: edits only a tree needs, each keeping "one start, no loose
+    boxes" true in one step: a new tree (just its start box), adding a
+    next step (the box and its arrow together), which boxes a delete
+    takes along (`branchOf`), and deleting them
   - `map.ts`: every edit as a function that returns a new map (add /
     rename / move / colour / delete a box, add / relabel / delete an
     arrow, rename / duplicate the map, direction, arrow length, page)
-  - `reach.ts`: "needs / breaks" (walking the arrows forward or
+  - `reach.ts`: the teal and orange groups (walking the arrows forward or
     backward), each box's and arrow's highlight, and the status-line
-    counts
+    counts. `REACH_MEANINGS` is the one place that says, per kind, which
+    way teal walks and the status line's words: connections teal = needs
+    (forward), tree teal = the way back to the start (backward)
   - `layout.ts`: Tidy up, `layoutMap(map, sizes, options, direction)`.
     In: the map, each box's measured size, the gaps. Out: a centre for
     every box, the block's outer edges, and which arrows were set aside
@@ -184,10 +233,12 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     joined into one step)
   - `persistence.ts` and `registry.ts`: saving a map with a version
     number and repairing a damaged save (an unknown `kind` can't be
-    read; arrows the rules refuse are dropped), and the list of saved
-    maps (with "(copy)" names)
-  - `example.ts`, `ids.ts`, `testMaps.ts`: the example map, ids, test
-    fixtures
+    read; arrows every kind refuses are dropped: a missing end, a box
+    linking to itself, an exact repeat), and the list of saved maps (with
+    "(copy)" names). A tree's own shape (several starts, loose boxes,
+    loops) is not repaired yet: see What's next
+  - `example.ts`, `ids.ts`, `testMaps.ts`: the example map and example
+    tree, ids, test fixtures
 
 ## What's next
 
@@ -213,9 +264,34 @@ The first build, in order:
 13. ~~A scrollbar you can see when the map is taller than the screen~~
     (done)
 
-The first build is complete. Nothing further is planned yet: the owner
-picks what comes next. Small things noticed but left alone (see Open
-problems): arrow labels can't be edited from the keyboard.
+The first build is complete. Small things noticed but left alone (see
+Open problems): arrow labels can't be edited from the keyboard.
+
+Tree mode (a new map kind for decisions, "What should I choose?"; it
+will slowly take over Treekit's job; Treekit itself is left alone).
+Not in this version: notes, fork a branch, Mermaid import / export,
+turning a connections map into a tree.
+
+14. Tree mode:
+    - a. ~~Tree rules, "+ New tree" and "Add example tree", adding next
+      steps, a second parent, deleting a branch, the highlight~~ (done)
+    - b. Arrow labels in trees. Proposed, waiting for the owner's OK:
+      hovering an arrow shows a small chip in its middle with the ×
+      (where allowed) and "+ label"; clicking "+ label" opens a field to
+      type ("if yes"); emptying it takes the label away again
+    - c. Keep / maybe / cut, copied from Treekit (`../treekit/src/domain/
+      tree.ts`: hover toolbar and right-click menu, cut branches faded,
+      a way to hide cut branches; a box with two parents is cut only if
+      every way into it is cut; one undo step each, saved)
+    - d. Collapse, copied from Treekit (a toggle on a box with next steps;
+      Treekit saves `collapsed` on the box, so it is saved and undoable
+      here too; a box with another parent still showing stays; Tidy up
+      lays out only what shows)
+    - e. Repairing a damaged tree. Proposed, waiting for the owner's OK:
+      several starts: keep the oldest, the others become its next steps;
+      a loose box: becomes a next step of the start; a loop: drop the
+      arrow that closes it (as Tidy up already picks one). The original
+      is kept aside, as now
 
 ## Open problems
 
@@ -320,3 +396,22 @@ problems): arrow labels can't be edited from the keyboard.
   rounded handle (brighter on hover) on a faint track; Firefox gets the
   same colours through the standard properties. Tokens:
   `--scrollbar-size`, `--scrollbar-thumb(-hover)`, `--scrollbar-track`.
+- Step 14a (tree mode, first part). Owner decisions: "+ New tree" opens
+  the START BOX's name for typing (it is the question); the tree itself
+  is "Untitled tree" until renamed. A tree RE-TIDIES ITSELF when it grows
+  (like Treekit), so boxes dragged by hand move then. Choices made
+  without asking, easy to change: the tree also re-tidies when a second
+  way in is drawn, but not after a delete (nothing jumps when boxes go);
+  "Add next step" is in the right-click menu too; a tree arrow's × sits
+  in the arrow's middle and shows while the pointer is on the arrow
+  (there is no pill to carry it); the start box looks like any other
+  box. Under the hood the highlight's names are now neutral (teal /
+  orange instead of needs / breaks), with one table per kind saying what
+  each means. Noticed, left alone: Tidy up centres each row on its own,
+  so a lone next step sits under the middle of the tree rather than
+  under its parent ("Walk to work" in the example). A tree-friendly
+  placement (each step under its parents) is a change to `layout.ts`
+  only, if wanted.
+- `.claude/launch.json` has a second dev server, `linkkit-2` on port
+  5182, for when another chat already runs `linkkit` on 5181 (each port
+  has its own localStorage, so test maps never mix).

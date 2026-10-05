@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { asNodeId } from "./ids";
-import { canLink } from "./rules";
+import { asLinkId, asNodeId } from "./ids";
+import { canDeleteBox, canDeleteLink, canLink } from "./rules";
 import { build } from "./testMaps";
 
 const a = asNodeId("a");
@@ -24,5 +24,13 @@ describe("canLink (connections)", () => {
 
   it("refuses an arrow to a box that does not exist", () => {
     expect(canLink(build(["a"]), a, b)).toEqual({ ok: false, reason: "missing" });
+  });
+});
+
+describe("deleting (connections)", () => {
+  it("allows deleting any box or arrow", () => {
+    const map = build(["a", "b"], [["a", "b"]]);
+    expect(canDeleteBox(map, a)).toBe(true);
+    expect(canDeleteLink(map, asLinkId("a>b"))).toBe(true);
   });
 });

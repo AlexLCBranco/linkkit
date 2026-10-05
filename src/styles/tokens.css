@@ -64,6 +64,9 @@
   /* An arrow's label pill; longer labels end in "…". */
   --edge-label-max-width: 160px;
   --edge-width: 1.5px;
+  /* How close the pointer must come to a label-less arrow (a tree's) to
+     show its ×. */
+  --edge-hit-width: 14px;
   /* Arrows inside the needs / breaks highlight are a bit thicker. */
   --edge-width-lit: 2.2px;
   /* The colour squares beside the status line's counts. */
@@ -127,8 +130,10 @@
   --accent-hover: #91a7ff;
   --focus-ring: rgba(116, 143, 252, 0.5);
 
-  /* The core feature: what the selected box needs (teal) and what breaks
-     without it (orange). From the prototype's dark theme. */
+  /* The core feature: the selected box's teal and orange groups (what it
+     needs and what breaks without it; in a tree, the way to it and what
+     comes after), named after the connections meaning. From the
+     prototype's dark theme. */
   --need: #4fd1b5;
   --need-bg: #123a33;
   --break: #f08a5d;

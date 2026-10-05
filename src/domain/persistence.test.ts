@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { exampleMap, EXAMPLE_MAP_NAME } from "./example";
+import { exampleMap, EXAMPLE_MAP_NAME, exampleTree } from "./example";
 import { readMap, serializeMap } from "./persistence";
 import { build } from "./testMaps";
 
@@ -24,7 +24,7 @@ describe("readMap", () => {
     const saved = roundTrip(serializeMap(build(["a"])));
     expect(readMap(null, fallbackPage).status).toBe("unreadable");
     expect(readMap({ ...saved, version: 2 }, fallbackPage).status).toBe("unreadable");
-    expect(readMap({ ...saved, map: { ...saved.map, kind: "tree" } }, fallbackPage).status).toBe("unreadable");
+    expect(readMap({ ...saved, map: { ...saved.map, kind: "flowchart" } }, fallbackPage).status).toBe("unreadable");
     expect(readMap({ ...saved, map: { ...saved.map, id: 7 } }, fallbackPage).status).toBe("unreadable");
   });
 
@@ -91,5 +91,13 @@ describe("exampleMap", () => {
       "requires",
       "managed by",
     ]);
+  });
+});
+
+describe("readMap (tree)", () => {
+  it("reads back a tree exactly, arrows without labels included", () => {
+    const map = exampleTree({ width: 900, height: 560 });
+    expect(Object.values(map.links).every((l) => l.label === "")).toBe(true);
+    expect(readMap(roundTrip(serializeMap(map)), fallbackPage)).toEqual({ status: "ok", map });
   });
 });

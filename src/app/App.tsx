@@ -1,5 +1,6 @@
 import { AddBoxButton } from "../features/map/AddBoxButton";
 import { AlignPanel } from "../features/map/AlignPanel";
+import { DeleteBranchDialog } from "../features/map/DeleteBranchDialog";
 import { ArrowLengthPanel } from "../features/map/ArrowLengthPanel";
 import { DirectionToggle } from "../features/map/DirectionToggle";
 import { HistoryButtons } from "../features/map/HistoryButtons";
@@ -37,6 +38,7 @@ export function App() {
             measurements, glide and scroll) instead of inheriting this one's. */}
         <MapCanvas key={mapId} />
       </main>
+      <DeleteBranchDialog />
       <VersionBadge />
     </div>
   );

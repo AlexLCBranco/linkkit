@@ -30,6 +30,9 @@ import styles from "./MapSwitcher.module.css";
  * "Add example map" replaces the prototype's "Reset example": it always
  * adds a new map, so it can never wipe one the user has worked on.
  *
+ * "+ New tree" and "Add example tree" make decision trees (kind "tree").
+ * A new tree opens its start box's name for typing.
+ *
  * The menu and the confirm dialog are shadcn/ui: supporting chrome, not the
  * page, which is where CLAUDE.md draws the line. Their colours still come
  * from tokens.css through the bridge in global.css.
@@ -43,11 +46,16 @@ export function MapSwitcher() {
   const newMap = useMapStore((s) => s.newMap);
   const duplicateMap = useMapStore((s) => s.duplicateMap);
   const addExampleMap = useMapStore((s) => s.addExampleMap);
+  const newTree = useMapStore((s) => s.newTree);
+  const addExampleTree = useMapStore((s) => s.addExampleTree);
   const deleteMap = useMapStore((s) => s.deleteMap);
 
   const [renaming, setRenaming] = useState(false);
   // Set by "New map", read as the menu closes (see `onCloseAutoFocus`).
   const focusNameAfterClose = useRef(false);
+  // Set by "New tree": the tree is made once the menu has closed, so the
+  // start box's name field can take the focus.
+  const newTreeAfterClose = useRef(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   // Stored oldest-first; listed newest-first, so the latest map is always at
   // the top however many have piled up.
@@ -87,6 +95,12 @@ export function MapSwitcher() {
           // typed name goes to the menu instead. Focus would also normally
           // return to the trigger here, so that is skipped.
           onCloseAutoFocus={(event) => {
+            if (newTreeAfterClose.current) {
+              newTreeAfterClose.current = false;
+              event.preventDefault();
+              newTree();
+              return;
+            }
             if (!focusNameAfterClose.current) return;
             focusNameAfterClose.current = false;
             event.preventDefault();
@@ -109,8 +123,10 @@ export function MapSwitcher() {
           >
             + New map
           </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => (newTreeAfterClose.current = true)}>+ New tree</DropdownMenuItem>
           <DropdownMenuItem onSelect={duplicateMap}>Duplicate this map</DropdownMenuItem>
           <DropdownMenuItem onSelect={addExampleMap}>Add example map</DropdownMenuItem>
+          <DropdownMenuItem onSelect={addExampleTree}>Add example tree</DropdownMenuItem>
           <DropdownMenuItem disabled={maps.length <= 1} onSelect={() => setConfirmingDelete(true)}>
             Delete this map…
           </DropdownMenuItem>

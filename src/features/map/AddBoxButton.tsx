@@ -14,14 +14,25 @@ import { boxSizes, MAP_PAGE_ATTRIBUTE, MAP_VIEW_ATTRIBUTE, screenSize } from "./
  *
  * If that spot is taken, the box steps aside until it overlaps nothing.
  *
+ * In a tree a box can't stand on its own, so the button adds a next step
+ * to the selected box instead (and the tree makes room for it). With
+ * nothing selected it is greyed out, and its tooltip says why.
+ *
  * It sits in the header, outside the canvas, so it finds the page, the
  * scrolling area around it and the boxes' sizes through their marker
  * attributes in the page.
  */
 export function AddBoxButton() {
   const addBox = useMapStore((s) => s.addBox);
+  const addNextStep = useMapStore((s) => s.addNextStep);
+  const isTree = useMapStore((s) => s.map.kind === "tree");
+  const selected = useMapStore((s) => s.selected);
 
   const onClick = () => {
+    if (isTree) {
+      if (selected) addNextStep(selected);
+      return;
+    }
     const page = document.querySelector(`[${MAP_PAGE_ATTRIBUTE}]`);
     const view = document.querySelector(`[${MAP_VIEW_ATTRIBUTE}]`);
     if (!page || !view) return;
@@ -35,8 +46,22 @@ export function AddBoxButton() {
     addBox(clampToPage(spot, size, room, PAGE_INSETS));
   };
 
+  const title = !isTree
+    ? "Add a box (or double-click the paper)"
+    : selected
+      ? "Add a next step to the selected box"
+      : "Select a box first: the new box becomes its next step";
+
   return (
-    <button type="button" className={styles.button} onClick={onClick} title="Add a box (or double-click the paper)">
+    <button
+      type="button"
+      className={styles.button}
+      onClick={onClick}
+      // Not `disabled`: a disabled button shows no tooltip, and this one
+      // must say why it is greyed out.
+      aria-disabled={isTree && !selected}
+      title={title}
+    >
       <Plus size={16} />
       <span className={styles.word}>Add box</span>
     </button>

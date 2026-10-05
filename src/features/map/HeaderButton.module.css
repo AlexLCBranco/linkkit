@@ -36,3 +36,15 @@
     clip-path: inset(50%);
   }
 }
+
+/* Greyed out (`aria-disabled`, so its tooltip still says why). */
+.button[aria-disabled="true"] {
+  color: var(--text-muted);
+  opacity: 0.5;
+  cursor: default;
+}
+
+.button[aria-disabled="true"]:hover {
+  color: var(--text-muted);
+  background: none;
+}

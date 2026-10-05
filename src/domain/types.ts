@@ -16,8 +16,10 @@ export type MapId = Brand<string, "MapId">;
 export type NodeId = Brand<string, "NodeId">;
 export type LinkId = Brand<string, "LinkId">;
 
-/** Which rule set a map follows. Only "connections" exists for now. */
-export const MAP_KINDS = ["connections"] as const;
+/** Which rule set a map follows: "connections" (anything may need
+    anything, loops allowed) or "tree" (a decision tree: one start, each
+    step leads on to the next, no loops). See rules.ts. */
+export const MAP_KINDS = ["connections", "tree"] as const;
 export type MapKind = (typeof MAP_KINDS)[number];
 
 /** Fixed swatches, mirrored as `--palette-*` in styles/tokens.css. */
@@ -48,8 +50,10 @@ export const ARROW_LENGTH_PRESETS = { short: 15, medium: 47, long: 103 } as cons
 export type ArrowLengthPreset = keyof typeof ARROW_LENGTH_PRESETS;
 export const ARROW_LENGTH_RANGE = { min: 0, max: 240 } as const;
 
-/** The word an arrow shows when its label is left empty. */
-export const DEFAULT_LINK_LABEL = "needs";
+/** The label an arrow gets when none is typed (or one is emptied), per
+    kind. A connections arrow always says something ("needs"); a tree arrow
+    has no label at first, and shows no pill. */
+export const DEFAULT_LINK_LABELS: Readonly<Record<MapKind, string>> = { connections: "needs", tree: "" };
 
 export interface Point {
   readonly x: number;
@@ -72,12 +76,14 @@ export interface MapNode {
   readonly color: PaletteColor | null;
 }
 
-/** An arrow: `from` needs `to` (A -> B reads "A needs B"). */
+/** An arrow. In a connections map `from` needs `to` (A -> B reads "A
+    needs B"); in a tree `from` leads to `to` (`from` is the earlier step). */
 export interface Link {
   readonly id: LinkId;
   readonly from: NodeId;
   readonly to: NodeId;
-  /** Never empty: an emptied label goes back to `DEFAULT_LINK_LABEL`. */
+  /** An emptied label goes back to the kind's default
+      (`DEFAULT_LINK_LABELS`): "needs" in a connections map, none in a tree. */
   readonly label: string;
 }
 

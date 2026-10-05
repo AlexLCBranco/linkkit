@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-import { exampleMap } from "../domain/example";
+import { exampleMap, exampleTree } from "../domain/example";
 import * as history from "../domain/history";
 import { createMapId } from "../domain/ids";
 import {
@@ -23,6 +23,8 @@ import {
   setPage,
 } from "../domain/map";
 import { defaultPageSize } from "../domain/page";
+import { canDeleteBox, canDeleteLink } from "../domain/rules";
+import { addNextStep, branchOf, createTree, deleteBranch } from "../domain/tree";
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
 import { ARROW_LENGTH_PRESETS, type LinkId, type LinkMap, type MapId, type NodeId, type PaletteColor, type Point, type Size } from "../domain/types";
@@ -86,6 +88,17 @@ export interface MapState {
       named), so the next edit with the same key joins that step instead of
       making its own. `null`: the next edit is a step of its own. */
   readonly stepKey: string | null;
+  /** Bumped when a tree has grown (a next step, a second parent, a new
+      step's name typed): the canvas re-tidies the tree once every box is
+      measured, and the boxes glide to make room. That tidy joins the latest
+      undo step, so adding a step and making room for it undo together. */
+  readonly settleRequest: number;
+  /** A tree box whose delete takes other boxes with it, waiting for the
+      user to confirm (`count` boxes in all). */
+  readonly confirmingDelete: { readonly id: NodeId; readonly count: number } | null;
+  /** A box whose name opens for typing once the first tidy has shown the
+      map (a new tree's start: a hidden field could not take focus). */
+  readonly editAfterTidy: NodeId | null;
   /** Every saved map (ids and names, oldest first): the switcher's list. */
   readonly maps: Registry;
   /** The undo histories of the other maps opened this session, parked
@@ -120,14 +133,23 @@ export interface MapState {
   nudgeBoxes(positions: ReadonlyMap<NodeId, Point>): void;
   /** `null` clears the colour. */
   setBoxColor(id: NodeId, color: PaletteColor | null): void;
-  /** Deletes a box and every arrow touching it. */
+  /** Deletes a box and every arrow touching it. In a tree, also every box
+      only reachable through it (asking first, through `confirmingDelete`,
+      when that is more than the box itself); the start is never deleted. */
   deleteBox(id: NodeId): void;
+  confirmDelete(): void;
+  cancelDelete(): void;
+  /** Tree: adds a next step after `from` (at `at`, or just after it),
+      opens its name for typing and re-tidies the tree. */
+  addNextStep(from: NodeId, at?: Point): NodeId | null;
 
-  /** Draws an arrow (`from` needs `to`) if the map's rules allow it. */
+  /** Draws an arrow (`from` needs, or in a tree leads to, `to`) if the
+      map's rules allow it. */
   connect(from: NodeId, to: NodeId): boolean;
   setConnecting(connecting: Connecting | null): void;
-  /** An emptied label goes back to "needs". */
+  /** An emptied label goes back to the kind's default. */
   setLinkLabel(id: LinkId, label: string): void;
+  /** Only where the rules allow it (never a tree box's only way in). */
   deleteLink(id: LinkId): void;
 
   /* Several maps. Each one finishes typing and writes the pending save
@@ -139,6 +161,10 @@ export interface MapState {
   duplicateMap(): void;
   /** Adds a fresh example map (never replaces one) and opens it, tidied. */
   addExampleMap(): void;
+  /** Starts a blank tree (only its start box, its name open for typing). */
+  newTree(): void;
+  /** Adds a fresh example tree and opens it, tidied. */
+  addExampleTree(): void;
   switchMap(id: MapId): void;
   /** Renames the open map. Not an undo step: undo is about the map's
       content, and the name is right there to click and change back. An
@@ -210,6 +236,8 @@ function open(s: MapState, map: LinkMap, maps: Registry, needsTidy = false): Par
     selected: null,
     editing: null,
     connecting: null,
+    confirmingDelete: null,
+    editAfterTidy: null,
   };
 }
 
@@ -220,6 +248,8 @@ function createStored(map: LinkMap, maps: Registry): Registry {
 }
 
 const blankMap = (): LinkMap => createMap(createMapId(), UNTITLED_MAP, newPageSize());
+
+const UNTITLED_TREE = "Untitled tree";
 
 /** Drops view state that points at something no longer on the map. */
 function forget(s: MapState, map: LinkMap): Pick<MapState, "map" | "selected" | "editing"> {
@@ -249,6 +279,10 @@ function commit(s: MapState, next: LinkMap, key: string | null = null): Partial<
 /** The undo step a new box and its first name share. */
 const newBoxKey = (id: NodeId) => `new:${id}`;
 
+/** Where a new step goes before the tree re-tidies (it glides from here):
+    just after its parent, in the tree's direction. */
+const NEXT_STEP_OFFSET = { TB: { x: 0, y: 96 }, LR: { x: 200, y: 0 } };
+
 export const useMapStore = create<MapState>()((set, get) => ({
   ...initialState(),
   selected: null,
@@ -258,6 +292,9 @@ export const useMapStore = create<MapState>()((set, get) => ({
   history: history.EMPTY_HISTORY,
   stepKey: null,
   histories: {},
+  settleRequest: 0,
+  confirmingDelete: null,
+  editAfterTidy: null,
 
   // The example's first tidy places boxes that were never shown anywhere
   // else: not something to undo back to.
@@ -266,7 +303,11 @@ export const useMapStore = create<MapState>()((set, get) => ({
       let next = moveNodes(s.map, positions);
       if (page) next = setPage(next, page);
       if (settings) next = setArrowLength(setDirection(next, settings.direction), settings.arrowLength);
-      return s.needsTidy ? { map: next, needsTidy: false } : commit(s, next, gesture && `arrows:${gesture}`);
+      if (s.needsTidy) {
+        const edit = s.editAfterTidy && next.nodes[s.editAfterTidy] ? s.editAfterTidy : null;
+        return { map: next, needsTidy: false, editAfterTidy: null, editing: edit ? { kind: "box", id: edit } : s.editing };
+      }
+      return commit(s, next, gesture && `arrows:${gesture}`);
     }),
   select: (id) => set({ selected: id }),
   requestTidy: (change, gesture) =>
@@ -322,17 +363,41 @@ export const useMapStore = create<MapState>()((set, get) => ({
       return next === s.map ? {} : { map: next, history: history.amendLast(s.history, s.map, next) };
     }),
   setBoxColor: (id, color) => set((s) => commit(s, setNodeColor(s.map, id, color))),
-  deleteBox: (id) => set((s) => commit(s, deleteNode(s.map, id))),
+  deleteBox: (id) =>
+    set((s) => {
+      if (!canDeleteBox(s.map, id)) return {};
+      if (s.map.kind !== "tree") return commit(s, deleteNode(s.map, id));
+      const count = branchOf(s.map, id).size;
+      return count > 1 ? { confirmingDelete: { id, count } } : commit(s, deleteBranch(s.map, id));
+    }),
+  confirmDelete: () =>
+    set((s) => (s.confirmingDelete ? { ...commit(s, deleteBranch(s.map, s.confirmingDelete.id)), confirmingDelete: null } : {})),
+  cancelDelete: () => set({ confirmingDelete: null }),
+  addNextStep: (from, at) => {
+    get().stopEditing();
+    const { map } = get();
+    const parent = map.nodes[from];
+    if (map.kind !== "tree" || !parent) return null;
+    const offset = NEXT_STEP_OFFSET[map.direction];
+    const added = addNextStep(map, from, at ?? { x: parent.x + offset.x, y: parent.y + offset.y });
+    if (!added) return null;
+    set((s) => ({
+      ...commit(s, added.map, newBoxKey(added.nodeId)),
+      editing: { kind: "box", id: added.nodeId },
+      settleRequest: s.settleRequest + 1,
+    }));
+    return added.nodeId;
+  },
 
   connect: (from, to) => {
     const added = addLink(get().map, from, to);
     if (added.linkId === null) return false;
-    set((s) => commit(s, added.map));
+    set((s) => ({ ...commit(s, added.map), settleRequest: s.settleRequest + (s.map.kind === "tree" ? 1 : 0) }));
     return true;
   },
   setConnecting: (connecting) => set({ connecting }),
   setLinkLabel: (id, label) => set((s) => commit(s, setLinkLabel(s.map, id, label))),
-  deleteLink: (id) => set((s) => commit(s, deleteLink(s.map, id))),
+  deleteLink: (id) => set((s) => (canDeleteLink(s.map, id) ? commit(s, deleteLink(s.map, id)) : {})),
 
   newMap: () => {
     get().stopEditing();
@@ -351,6 +416,21 @@ export const useMapStore = create<MapState>()((set, get) => ({
     get().stopEditing();
     flushSave();
     const map = exampleMap(newPageSize());
+    set((s) => open(s, map, upsertMap(s.maps, { id: map.id, name: map.name }), true));
+  },
+  newTree: () => {
+    get().stopEditing();
+    flushSave();
+    const { map, startId } = createTree(createMapId(), UNTITLED_TREE, newPageSize());
+    // Saved at once, like a new map; the first tidy centres the start box,
+    // then its name opens for typing (select-all, so typing replaces
+    // "Start", and leaving it empty keeps "Start").
+    set((s) => ({ ...open(s, map, createStored(map, s.maps), true), editAfterTidy: startId }));
+  },
+  addExampleTree: () => {
+    get().stopEditing();
+    flushSave();
+    const map = exampleTree(newPageSize());
     set((s) => open(s, map, upsertMap(s.maps, { id: map.id, name: map.name }), true));
   },
   switchMap: (id) => {
@@ -407,7 +487,10 @@ export const useMapStore = create<MapState>()((set, get) => ({
         if (step) return { ...forget(s, step.map), history: step.history, stepKey: null, editing: null };
         return { ...commit(s, deleteNode(s.map, e.id)), editing: null };
       }
+      // A new tree step just named: its final size is known now, so the
+      // tree makes room for it (joined to the same step, see settleRequest).
+      const named = e?.kind === "box" && s.map.kind === "tree" && s.stepKey === newBoxKey(e.id);
       // Typing is over: a later rename of this box is its own step.
-      return { editing: null, stepKey: null };
+      return { editing: null, stepKey: null, settleRequest: s.settleRequest + (named ? 1 : 0) };
     }),
 }));

@@ -1,10 +1,11 @@
 import { BaseEdge, EdgeLabelRenderer, type Edge, type EdgeProps } from "@xyflow/react";
 import { X } from "lucide-react";
-import { memo, useCallback } from "react";
+import { memo, useCallback, useState } from "react";
 
 import { InlineEditable } from "../../components/InlineEditable";
 
 import type { LinkGeometry } from "../../domain/geometry";
+import { canDeleteLink } from "../../domain/rules";
 import type { LinkId, Point, Size } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { selectLinkHighlight } from "../../store/selectors";
@@ -40,6 +41,10 @@ export type LinkFlowEdge = Edge<LinkEdgeData, "link">;
  * Mouse (as in the prototype): click the label to type a new one (left
  * empty, it goes back to "needs"); the × on its corner deletes the arrow.
  *
+ * A tree's arrows have no label: no pill, just a small × in the arrow's
+ * middle that shows while the pointer is on the arrow. An arrow the rules
+ * won't let go (a tree box's only way in) shows no × at all.
+ *
  * Subscribes narrowly: only to its own label text, its own highlight and
  * whether its label is being typed in.
  */
@@ -52,6 +57,9 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
   const stopEditing = useMapStore((s) => s.stopEditing);
   const setLinkLabel = useMapStore((s) => s.setLinkLabel);
   const deleteLink = useMapStore((s) => s.deleteLink);
+  const deletable = useMapStore((s) => canDeleteLink(s.map, linkId));
+  // The pointer is on the line itself (a label-less arrow shows its × then).
+  const [hot, setHot] = useState(false);
 
   const onLabelSize = data?.onLabelSize;
   // Measures the pill with a ResizeObserver while it is on screen (as in
@@ -78,61 +86,86 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
   if (!g) return null;
   const [tip, left, right] = g.head;
   const at = data.labelAt ?? g.middle;
+  const line = `M${g.start.x} ${g.start.y}L${g.end.x} ${g.end.y}`;
+  const spot = { transform: `translate(-50%, -50%) translate(${at.x}px, ${at.y}px)` };
+  const hasPill = label !== "" || isEditing;
+  const deleteButton = deletable && (
+    <button
+      type="button"
+      className={styles.delete}
+      onClick={(e) => {
+        e.stopPropagation();
+        deleteLink(linkId);
+      }}
+      aria-label="Delete arrow"
+      title="Delete arrow"
+    >
+      <X size={10} strokeWidth={2.5} />
+    </button>
+  );
 
   return (
     <>
-      <BaseEdge
-        id={id}
-        path={`M${g.start.x} ${g.start.y}L${g.end.x} ${g.end.y}`}
-        className={styles.line}
-        data-highlight={highlight}
-      />
+      <BaseEdge id={id} path={line} className={styles.line} data-highlight={highlight} />
       <path
         className={styles.head}
         data-highlight={highlight}
         d={`M${tip.x} ${tip.y}L${left.x} ${left.y}L${right.x} ${right.y}Z`}
       />
+      {!hasPill && deletable && (
+        // A wider, invisible line to point at.
+        <path
+          className={styles.hit}
+          d={line}
+          onPointerEnter={() => setHot(true)}
+          onPointerLeave={() => setHot(false)}
+        />
+      )}
       <EdgeLabelRenderer>
-        <div
-          ref={measure}
-          // React Flow's opt-out classes: a press here is the label's own.
-          className={`${styles.label} nodrag nopan`}
-          data-highlight={highlight}
-          data-editing={isEditing || undefined}
-          style={{ transform: `translate(-50%, -50%) translate(${at.x}px, ${at.y}px)` }}
-          onClick={() => startEditing({ kind: "link", id: linkId })}
-          onDoubleClick={(e) => e.stopPropagation()}
-          title={isEditing ? undefined : "Click to change the label"}
-        >
-          {isEditing ? (
-            <InlineEditable
-              value={label}
-              editing
-              onCommit={(next) => setLinkLabel(linkId, next)}
-              onDone={stopEditing}
-              placeholder="needs"
-              ariaLabel="Arrow label"
-            />
-          ) : (
-            <>
-              <span className={styles.text}>{label}</span>
-              {/* Floats on the corner, so showing it never changes the
-                  label's size (labels are measured to keep them apart). */}
-              <button
-                type="button"
-                className={styles.delete}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  deleteLink(linkId);
-                }}
-                aria-label="Delete arrow"
-                title="Delete arrow"
-              >
-                <X size={10} strokeWidth={2.5} />
-              </button>
-            </>
-          )}
-        </div>
+        {!hasPill ? (
+          deletable && (
+            <div
+              ref={measure}
+              className={`${styles.bare} nodrag nopan`}
+              data-hot={hot || undefined}
+              data-highlight={highlight}
+              style={spot}
+              onDoubleClick={(e) => e.stopPropagation()}
+            >
+              {deleteButton}
+            </div>
+          )
+        ) : (
+          <div
+            ref={measure}
+            // React Flow's opt-out classes: a press here is the label's own.
+            className={`${styles.label} nodrag nopan`}
+            data-highlight={highlight}
+            data-editing={isEditing || undefined}
+            style={spot}
+            onClick={() => startEditing({ kind: "link", id: linkId })}
+            onDoubleClick={(e) => e.stopPropagation()}
+            title={isEditing ? undefined : "Click to change the label"}
+          >
+            {isEditing ? (
+              <InlineEditable
+                value={label}
+                editing
+                onCommit={(next) => setLinkLabel(linkId, next)}
+                onDone={stopEditing}
+                placeholder="needs"
+                ariaLabel="Arrow label"
+              />
+            ) : (
+              <>
+                <span className={styles.text}>{label}</span>
+                {/* Floats on the corner, so showing it never changes the
+                    label's size (labels are measured to keep them apart). */}
+                {deleteButton}
+              </>
+            )}
+          </div>
+        )}
       </EdgeLabelRenderer>
     </>
   );
