@@ -2,22 +2,29 @@ import { create } from "zustand";
 
 import { exampleMap } from "../domain/example";
 import * as history from "../domain/history";
+import { createMapId } from "../domain/ids";
 import {
   addLink,
   addNode,
   cleanName,
+  createMap,
   deleteLink,
   deleteNode,
+  duplicateMap,
   moveNode,
   moveNodes,
+  renameMap,
   renameNode,
   setLinkLabel,
   setNodeColor,
   setPage,
 } from "../domain/map";
 import { defaultPageSize } from "../domain/page";
-import type { LinkId, LinkMap, NodeId, PaletteColor, Point, Size } from "../domain/types";
-import { loadActiveMapId, loadMap } from "./persistMap";
+import { UNTITLED_MAP } from "../domain/persistence";
+import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
+import type { LinkId, LinkMap, MapId, NodeId, PaletteColor, Point, Size } from "../domain/types";
+import { deleteStoredMap, loadActiveMapId, loadMap, loadRegistry, saveActiveMapId, saveMap } from "./persistMap";
+import { cancelSave, flushSave } from "./saveQueue";
 
 /** What is open for typing: a box's name or an arrow's label. */
 export type Editing = { readonly kind: "box"; readonly id: NodeId } | { readonly kind: "link"; readonly id: LinkId };
@@ -42,7 +49,8 @@ export interface Connecting {
  *
  * `selected`, `editing` and `connecting` live here too, so any component
  * can read them, but they are view state: never saved, never undone, and a
- * reload starts without them. So is the undo history: it lasts the session.
+ * reload starts without them. So is the undo history: it lasts the session,
+ * one history per map (switching away and back keeps it, as in Treekit).
  */
 export interface MapState {
   readonly map: LinkMap;
@@ -61,6 +69,11 @@ export interface MapState {
       named), so the next edit with the same key joins that step instead of
       making its own. `null`: the next edit is a step of its own. */
   readonly stepKey: string | null;
+  /** Every saved map (ids and names, oldest first): the switcher's list. */
+  readonly maps: Registry;
+  /** The undo histories of the other maps opened this session, parked
+      while another map is open. */
+  readonly histories: Readonly<Record<MapId, history.History>>;
 
   /** Puts every box where Tidy up said and sets the page size, in one change. */
   placeAll(positions: ReadonlyMap<NodeId, Point>, page: Size): void;
@@ -97,6 +110,23 @@ export interface MapState {
   setLinkLabel(id: LinkId, label: string): void;
   deleteLink(id: LinkId): void;
 
+  /* Several maps. Each one finishes typing and writes the pending save
+     first, so the outgoing map's last edits are kept before anything else
+     happens. */
+  /** Starts a blank map and opens it. */
+  newMap(): void;
+  /** Copies the open map ("Name (copy)") and opens the copy. */
+  duplicateMap(): void;
+  /** Adds a fresh example map (never replaces one) and opens it, tidied. */
+  addExampleMap(): void;
+  switchMap(id: MapId): void;
+  /** Renames the open map. Not an undo step: undo is about the map's
+      content, and the name is right there to click and change back. An
+      empty name is ignored. */
+  renameMap(name: string): void;
+  /** Deletes a map for good. The last map can't be deleted. */
+  deleteMap(id: MapId): void;
+
   startEditing(editing: Editing): void;
   /** Ends typing. A box still without a name is removed (as in the
       prototype: a box added by mistake goes away on Escape). */
@@ -113,13 +143,62 @@ function newPageSize(): Size {
   return defaultPageSize(typeof window === "undefined" ? NEW_PAGE.maxWidth : window.innerWidth, NEW_PAGE);
 }
 
-/** The map that was open last, or the example if there is none (or it was
-    beyond repair). */
-function initialState(): Pick<MapState, "map" | "needsTidy"> {
-  const id = loadActiveMapId();
-  const saved = id === null ? null : loadMap(id, newPageSize());
-  return saved ? { map: saved, needsTidy: false } : { map: exampleMap(newPageSize()), needsTidy: true };
+/** Loads the newest map in `maps` that can be read. One that can't leaves
+    the list (`loadMap` has already copied it aside). */
+function loadNewest(maps: Registry): { map: LinkMap | null; maps: Registry } {
+  let left = maps;
+  while (left.length > 0) {
+    const id = left[left.length - 1].id;
+    const map = loadMap(id, newPageSize());
+    if (map) return { map, maps: left };
+    deleteStoredMap(id);
+    left = removeMap(left, id);
+  }
+  return { map: null, maps: left };
 }
+
+/** The map that was open last (else the newest saved one), or the example
+    if there is none. */
+function initialState(): Pick<MapState, "map" | "needsTidy" | "maps"> {
+  const registry = loadRegistry();
+  const id = loadActiveMapId();
+  const active = id !== null && registry.some((m) => m.id === id) ? loadMap(id, newPageSize()) : null;
+  const { map: saved, maps } = active ? { map: active, maps: registry } : loadNewest(registry);
+  const map = saved ?? exampleMap(newPageSize());
+  return { map, needsTidy: saved === null, maps: upsertMap(maps, { id: map.id, name: map.name }) };
+}
+
+/**
+ * The store fields that change when a different map goes on screen. The
+ * outgoing map's undo history is parked in `histories` (unless that map
+ * was just deleted), and the incoming one's picked back up. Selection,
+ * typing and a half-drawn arrow never carry across maps.
+ */
+function open(s: MapState, map: LinkMap, maps: Registry, needsTidy = false): Partial<MapState> {
+  // An example still waiting for its first tidy becomes "the map open
+  // last" only once it is tidied and saved: see autoSave.ts.
+  if (!needsTidy) saveActiveMapId(map.id);
+  const { [map.id]: incoming, ...others } = s.histories;
+  return {
+    map,
+    maps,
+    needsTidy,
+    history: incoming ?? history.EMPTY_HISTORY,
+    histories: maps.some((m) => m.id === s.map.id) ? { ...others, [s.map.id]: s.history } : others,
+    stepKey: null,
+    selected: null,
+    editing: null,
+    connecting: null,
+  };
+}
+
+/** Saves a new map right away, so it is listed even before its first edit. */
+function createStored(map: LinkMap, maps: Registry): Registry {
+  saveMap(map);
+  return upsertMap(maps, { id: map.id, name: map.name });
+}
+
+const blankMap = (): LinkMap => createMap(createMapId(), UNTITLED_MAP, newPageSize());
 
 /** Drops view state that points at something no longer on the map. */
 function forget(s: MapState, map: LinkMap): Pick<MapState, "map" | "selected" | "editing"> {
@@ -157,6 +236,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
   tidyRequest: 0,
   history: history.EMPTY_HISTORY,
   stepKey: null,
+  histories: {},
 
   // The example's first tidy places boxes that were never shown anywhere
   // else: not something to undo back to.
@@ -192,6 +272,9 @@ export const useMapStore = create<MapState>()((set, get) => ({
   },
 
   addBox: (at) => {
+    // Normally the old field's blur has already done this; if it never got
+    // focus, a nameless box would otherwise be left behind.
+    get().stopEditing();
     const { map, nodeId } = addNode(get().map, at);
     set((s) => ({ ...commit(s, map, newBoxKey(nodeId)), editing: { kind: "box", id: nodeId } }));
     return nodeId;
@@ -220,6 +303,68 @@ export const useMapStore = create<MapState>()((set, get) => ({
   setConnecting: (connecting) => set({ connecting }),
   setLinkLabel: (id, label) => set((s) => commit(s, setLinkLabel(s.map, id, label))),
   deleteLink: (id) => set((s) => commit(s, deleteLink(s.map, id))),
+
+  newMap: () => {
+    get().stopEditing();
+    flushSave();
+    const map = blankMap();
+    set((s) => open(s, map, createStored(map, s.maps)));
+  },
+  duplicateMap: () => {
+    get().stopEditing();
+    flushSave();
+    const s = get();
+    const map = duplicateMap(s.map, createMapId(), copyName(s.map.name, s.maps));
+    set(open(s, map, createStored(map, s.maps)));
+  },
+  addExampleMap: () => {
+    get().stopEditing();
+    flushSave();
+    const map = exampleMap(newPageSize());
+    set((s) => open(s, map, upsertMap(s.maps, { id: map.id, name: map.name }), true));
+  },
+  switchMap: (id) => {
+    if (id === get().map.id) return;
+    get().stopEditing();
+    flushSave();
+    const map = loadMap(id, newPageSize());
+    if (!map) {
+      // Missing, or unreadable -- in which case `loadMap` has already copied
+      // it aside. Either way there is nothing to open, so it leaves the list
+      // rather than stay there as a dead entry.
+      deleteStoredMap(id);
+      set((s) => ({ maps: removeMap(s.maps, id) }));
+      return;
+    }
+    set((s) => open(s, map, s.maps));
+  },
+  renameMap: (name) =>
+    set((s) => {
+      const map = renameMap(s.map, name);
+      return map === s.map ? {} : { map, maps: upsertMap(s.maps, { id: map.id, name: map.name }) };
+    }),
+  deleteMap: (id) => {
+    const s = get();
+    if (s.maps.length <= 1 || !s.maps.some((m) => m.id === id)) return;
+    if (id !== s.map.id) {
+      deleteStoredMap(id);
+      const { [id]: _, ...histories } = s.histories;
+      set({ maps: removeMap(s.maps, id), histories });
+      return;
+    }
+    // The open map: its pending save must not bring it back.
+    get().stopEditing();
+    cancelSave();
+    deleteStoredMap(id);
+    const { map: next, maps } = loadNewest(removeMap(s.maps, id));
+    // `open` parks the outgoing history only for maps still listed, so the
+    // deleted map's history is dropped here rather than kept around.
+    if (next) set((state) => open(state, next, maps));
+    else {
+      const blank = blankMap();
+      set((state) => open(state, blank, createStored(blank, maps)));
+    }
+  },
 
   startEditing: (editing) => set({ editing }),
   stopEditing: () =>

@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EXAMPLE_MAP_NAME } from "../domain/example";
+import { asMapId, asNodeId } from "../domain/ids";
 import { build } from "../domain/testMaps";
 import type { NodeId, Point } from "../domain/types";
 import { memoryStorage } from "./memoryStorage";
-import { saveActiveMapId, saveMap } from "./persistMap";
+import { loadActiveMapId, loadMap, loadRegistry, saveActiveMapId, saveMap } from "./persistMap";
+
+const PAGE = { width: 900, height: 560 };
 
 /** The store reads localStorage when its module loads, so each test loads a
     fresh copy after setting storage up. */
@@ -57,6 +60,13 @@ describe("map store", () => {
     useMapStore.getState().stopEditing();
     expect(useMapStore.getState().map.nodes[id]).toBeUndefined();
     expect(useMapStore.getState().editing).toBeNull();
+  });
+
+  it("never leaves a nameless box behind when another box is added", async () => {
+    const useMapStore = await freshStore();
+    const first = useMapStore.getState().addBox({ x: 300, y: 200 });
+    useMapStore.getState().addBox({ x: 500, y: 200 });
+    expect(useMapStore.getState().map.nodes[first]).toBeUndefined();
   });
 
   it("keeps a named box when typing ends, and never blanks a name", async () => {
@@ -183,5 +193,117 @@ describe("map store", () => {
     const store = (await freshStore()).getState();
     expect(store.map).toEqual(saved);
     expect(store.needsTidy).toBe(false);
+  });
+});
+
+describe("several maps", () => {
+  /** A store opened on a saved, placed map named "First". */
+  async function storeWithOneMap() {
+    const first = { ...build(["a", "b"], [["a", "b"]]), id: asMapId("first"), name: "First" };
+    saveMap(first);
+    saveActiveMapId(first.id);
+    // The auto-saver is what writes edits; it listens on the page for "tab
+    // closing" events, so the test gives it a stand-in page.
+    const page = { addEventListener: () => {}, innerWidth: 1200 };
+    vi.stubGlobal("window", page);
+    vi.stubGlobal("document", page);
+    const useMapStore = await freshStore();
+    (await import("./autoSave")).initAutoSave();
+    return { useMapStore, first };
+  }
+
+  it("starts a blank map, saved and listed straight away", async () => {
+    const { useMapStore } = await storeWithOneMap();
+    useMapStore.getState().newMap();
+    const s = useMapStore.getState();
+    expect(s.map.name).toBe("Untitled map");
+    expect(s.map.nodes).toEqual({});
+    expect(s.maps.map((m) => m.name)).toEqual(["First", "Untitled map"]);
+    expect(loadRegistry()).toEqual(s.maps);
+    expect(loadActiveMapId()).toBe(s.map.id);
+  });
+
+  it("saves the outgoing map's last edit before switching, and keeps each map's undo", async () => {
+    const { useMapStore, first } = await storeWithOneMap();
+    useMapStore.getState().setBoxColor(asNodeId("a"), "red");
+    useMapStore.getState().newMap();
+    expect(loadMap(first.id, PAGE)?.nodes[asNodeId("a")].color).toBe("red");
+    expect(useMapStore.getState().history.past).toHaveLength(0);
+
+    useMapStore.getState().switchMap(first.id);
+    expect(useMapStore.getState().map.nodes[asNodeId("a")].color).toBe("red");
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.nodes[asNodeId("a")].color).toBeNull();
+  });
+
+  it("finishes typing before switching, so a nameless box is not carried away", async () => {
+    const { useMapStore, first } = await storeWithOneMap();
+    useMapStore.getState().addBox({ x: 300, y: 200 });
+    useMapStore.getState().newMap();
+    expect(Object.keys(loadMap(first.id, PAGE)!.nodes)).toEqual(["a", "b"]);
+    expect(useMapStore.getState().editing).toBeNull();
+  });
+
+  it("duplicates the open map under a copy's name", async () => {
+    const { useMapStore, first } = await storeWithOneMap();
+    useMapStore.getState().duplicateMap();
+    const s = useMapStore.getState();
+    expect(s.map.id).not.toBe(first.id);
+    expect(s.map.name).toBe("First (copy)");
+    expect(s.map.nodes).toEqual(first.nodes);
+    expect(s.maps.map((m) => m.name)).toEqual(["First", "First (copy)"]);
+  });
+
+  it("adds a fresh example, waiting for its tidy, without touching the others", async () => {
+    const { useMapStore, first } = await storeWithOneMap();
+    useMapStore.getState().addExampleMap();
+    const s = useMapStore.getState();
+    expect(s.map.name).toBe(EXAMPLE_MAP_NAME);
+    expect(s.needsTidy).toBe(true);
+    expect(s.maps.map((m) => m.id)).toEqual([first.id, s.map.id]);
+    expect(loadMap(first.id, PAGE)).toEqual(first);
+  });
+
+  it("renames the open map in the list, without an undo step", async () => {
+    const { useMapStore } = await storeWithOneMap();
+    useMapStore.getState().renameMap("  Home   network ");
+    const s = useMapStore.getState();
+    expect(s.map.name).toBe("Home network");
+    expect(s.maps[0].name).toBe("Home network");
+    expect(s.history.past).toHaveLength(0);
+    useMapStore.getState().renameMap("   ");
+    expect(useMapStore.getState().map.name).toBe("Home network");
+  });
+
+  it("deletes the open map for good and opens the newest one left, never the last map", async () => {
+    const { useMapStore, first } = await storeWithOneMap();
+    useMapStore.getState().deleteMap(first.id);
+    expect(useMapStore.getState().map.id).toBe(first.id);
+
+    useMapStore.getState().newMap();
+    const second = useMapStore.getState().map.id;
+    useMapStore.getState().newMap();
+    useMapStore.getState().addBox({ x: 300, y: 200 });
+    useMapStore.getState().deleteMap(useMapStore.getState().map.id);
+    const s = useMapStore.getState();
+    expect(s.map.id).toBe(second);
+    expect(s.maps.map((m) => m.id)).toEqual([first.id, second]);
+    expect(loadRegistry()).toEqual(s.maps);
+
+    useMapStore.getState().deleteMap(first.id);
+    expect(useMapStore.getState().maps.map((m) => m.id)).toEqual([second]);
+    expect(loadMap(first.id, PAGE)).toBeNull();
+  });
+
+  it("drops a map from the list when it can no longer be read", async () => {
+    const { useMapStore } = await storeWithOneMap();
+    useMapStore.getState().newMap();
+    const id = useMapStore.getState().map.id;
+    useMapStore.getState().switchMap(asMapId("first"));
+    localStorage.setItem(`linkkit:map:${id}`, "{not json");
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    useMapStore.getState().switchMap(id);
+    expect(useMapStore.getState().map.id).toBe("first");
+    expect(useMapStore.getState().maps.map((m) => m.id)).toEqual(["first"]);
   });
 });

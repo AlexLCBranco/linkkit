@@ -1,22 +1,25 @@
 import { readMap, serializeMap, type MapRead } from "../domain/persistence";
+import { readRegistry, removeMap, serializeRegistry, upsertMap, type Registry } from "../domain/registry";
 import type { LinkMap, MapId, Size } from "../domain/types";
 
 /**
  * The only module that touches localStorage for maps. `domain/` owns the
- * saved shape and its validation; this owns where it lives:
+ * saved shapes and their validation; this owns where they live:
  *
  *   linkkit:map:<id>   one map
+ *   linkkit:registry   the list of maps (ids and names, creation order)
  *   linkkit:active     the id of the map that was open last
- *
- * One key per map from the start, so "several saved maps" (step 8) only
- * adds a list of them, without moving any saved data.
  *
  * Every write is wrapped: storage can fail (quota, private browsing)
  * without that being fatal -- the app keeps working in memory.
  */
 const MAP_KEY_PREFIX = "linkkit:map:";
+const REGISTRY_KEY = "linkkit:registry";
 const ACTIVE_KEY = "linkkit:active";
 const DAMAGED_KEY_PREFIX = "linkkit:damaged:";
+
+/** What the list shows for a stored map that cannot be read at all. */
+const DAMAGED_MAP_NAME = "Damaged map";
 
 function tryWrite(key: string, value: string): void {
   try {
@@ -34,8 +37,66 @@ function parse(raw: string, fallbackPage: Size): MapRead {
   }
 }
 
+function storedMapIds(): MapId[] {
+  const ids: MapId[] = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith(MAP_KEY_PREFIX)) ids.push(key.slice(MAP_KEY_PREFIX.length) as MapId);
+  }
+  return ids;
+}
+
+function writeRegistry(registry: Registry): void {
+  tryWrite(REGISTRY_KEY, JSON.stringify(serializeRegistry(registry)));
+}
+
+/**
+ * The list of saved maps, reconciled with what is actually stored: an entry
+ * whose map is gone is dropped, and a stored map the list does not know is
+ * added. That also covers the map saved before the list existed (v0.0.6
+ * and earlier), and a list lost or damaged on its own.
+ */
+export function loadRegistry(): Registry {
+  try {
+    const raw = localStorage.getItem(REGISTRY_KEY);
+    let registry: Registry = [];
+    if (raw !== null) {
+      try {
+        registry = readRegistry(JSON.parse(raw)) ?? [];
+      } catch {
+        registry = [];
+      }
+    }
+    const stored = new Set(storedMapIds());
+    let reconciled: Registry = registry.filter((m) => stored.has(m.id));
+    for (const id of stored) {
+      if (reconciled.some((m) => m.id === id)) continue;
+      // Only the name is needed, so the page size passed here never matters.
+      const read = parse(localStorage.getItem(MAP_KEY_PREFIX + id) ?? "", { width: 1, height: 1 });
+      reconciled = upsertMap(reconciled, { id, name: read.status === "unreadable" ? DAMAGED_MAP_NAME : read.map.name });
+    }
+    if (reconciled.length !== registry.length || reconciled.some((m, i) => m !== registry[i])) {
+      writeRegistry(reconciled);
+    }
+    return reconciled;
+  } catch {
+    return [];
+  }
+}
+
+/** Writes a map and keeps its list entry (name) in step. */
 export function saveMap(map: LinkMap): void {
   tryWrite(MAP_KEY_PREFIX + map.id, JSON.stringify(serializeMap(map)));
+  writeRegistry(upsertMap(loadRegistry(), { id: map.id, name: map.name }));
+}
+
+export function deleteStoredMap(id: MapId): void {
+  try {
+    localStorage.removeItem(MAP_KEY_PREFIX + id);
+  } catch {
+    // Nothing to do: the list below still forgets it.
+  }
+  writeRegistry(removeMap(loadRegistry(), id));
 }
 
 export function loadActiveMapId(): MapId | null {

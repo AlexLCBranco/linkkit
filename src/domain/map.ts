@@ -96,6 +96,12 @@ export function renameMap(map: LinkMap, name: string): LinkMap {
   return next && next !== map.name ? { ...map, name: next } : map;
 }
 
+/** A copy of the whole map under a new id and name. Box and arrow ids stay
+    the same: they only need to be unique within one map. */
+export function duplicateMap(map: LinkMap, id: MapId, name: string): LinkMap {
+  return { ...map, id, name: cleanName(name) || map.name };
+}
+
 export function setPage(map: LinkMap, page: Size): LinkMap {
   return page.width === map.page.width && page.height === map.page.height ? map : { ...map, page };
 }

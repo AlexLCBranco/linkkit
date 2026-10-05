@@ -4,7 +4,7 @@ import { asMapId } from "../domain/ids";
 import { serializeMap } from "../domain/persistence";
 import { build } from "../domain/testMaps";
 import { memoryStorage } from "./memoryStorage";
-import { loadActiveMapId, loadMap, saveActiveMapId, saveMap } from "./persistMap";
+import { deleteStoredMap, loadActiveMapId, loadMap, loadRegistry, saveActiveMapId, saveMap } from "./persistMap";
 
 const PAGE = { width: 900, height: 560 };
 
@@ -42,5 +42,25 @@ describe("map storage", () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     expect(loadMap(asMapId("x"), PAGE)).toBeNull();
     expect(localStorage.length).toBe(2);
+  });
+
+  it("lists every saved map, keeping names in step and forgetting deleted ones", () => {
+    const one = { ...build(["a"]), id: asMapId("one"), name: "One" };
+    const two = { ...build(["b"]), id: asMapId("two"), name: "Two" };
+    saveMap(one);
+    saveMap(two);
+    saveMap({ ...one, name: "First" });
+    expect(loadRegistry()).toEqual([{ id: "one", name: "First" }, { id: "two", name: "Two" }]);
+    deleteStoredMap(one.id);
+    expect(loadRegistry()).toEqual([{ id: "two", name: "Two" }]);
+    expect(loadMap(one.id, PAGE)).toBeNull();
+  });
+
+  it("rebuilds the list from the stored maps (a save from before the list existed)", () => {
+    const old = { ...build(["a"]), id: asMapId("old"), name: "Old map" };
+    localStorage.setItem("linkkit:map:old", JSON.stringify(serializeMap(old)));
+    localStorage.setItem("linkkit:map:bad", "{not json");
+    localStorage.setItem("linkkit:registry", JSON.stringify({ version: 1, maps: [{ id: "gone", name: "Gone" }] }));
+    expect(loadRegistry()).toEqual([{ id: "old", name: "Old map" }, { id: "bad", name: "Damaged map" }]);
   });
 });

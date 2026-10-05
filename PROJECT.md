@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-05, v0.0.6 (after step 7)_
+_Last updated: 2026-10-05, v0.0.7 (after step 8)_
 
 ## What it is
 
@@ -26,8 +26,20 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
 
 ## What works now
 
-- Dark header (with the map's name, "Add box", "Tidy up", and undo /
+- Dark header (with the map switcher, "Add box", "Tidy up", and undo /
   redo buttons), status line, version badge
+- Several saved maps (Treekit's tree switcher): click the map's name in
+  the header to rename it; the arrow beside it opens a menu listing every
+  map (newest first, a tick on the open one) to switch to, plus "+ New
+  map" (a blank map, its name open for typing), "Duplicate this map"
+  (named "… (copy)", then "(copy 2)" …), "Add example map" (a fresh,
+  tidied Microsoft 365 example added next to the others; it never
+  replaces one, unlike the prototype's "Reset example") and "Delete this
+  map…" (asks first; deleted for good; greyed out when only one map is
+  left; then the newest map left opens). Each map keeps its own undo
+  history for the session, so switching away and back still undoes.
+  Renaming a map is not an undo step. A reload opens the map that was
+  open last
 - Undo / redo: the header's arrows, or Ctrl+Z and Ctrl+Shift+Z (or
   Ctrl+Y). Every change to the map is one step: a whole drag, adding a
   box together with its first name, a Tidy up, a page resize, a colour.
@@ -95,7 +107,8 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   resize maths for a centred page), arrow geometry (with side-by-side
   opposite arrows) and label placement, the glide's easing, the undo
   history (steps, joining a drag into one step), saving with a
-  version number and repair of damaged saves, and the example map
+  version number and repair of damaged saves, the list of saved maps
+  (and "(copy)" names), and the example map
 
 ## What's next
 
@@ -111,10 +124,13 @@ The first build, in order:
 6. ~~Page: "More room" tab, corner grip, animated Tidy up~~ (done)
 7. ~~Undo/redo, then box colours (right-click menu, swatch row, keys
    1–8 / 0)~~ (done)
-8. Several saved maps: switcher, rename, new, duplicate, delete, "Add
+8. ~~Several saved maps: switcher, rename, new, duplicate, delete, "Add
    example map" (replaces the prototype's "Reset example": it adds a
-   fresh example map and never wipes one)
-9. Polish and a full check against the "done when" list
+   fresh example map and never wipes one)~~ (done)
+9. Polish and a full check against the "done when" list. Known
+   leftovers: on a window narrower than ~1000px a new map's page is a
+   few pixels wider than the space, so a horizontal scrollbar shows (the
+   new-page width doesn't allow for the vertical scrollbar)
 
 ## Open problems
 
@@ -153,6 +169,14 @@ The first build, in order:
   also in a palette button on the box's hover toolbar, so colouring
   doesn't depend on discovering right-click. Undo pressed while a menu
   is still fading out is ignored (as in Treekit).
-- The undo history is per session and covers only the open map. Step 8
-  (several maps) has to decide whether switching maps keeps each map's
-  history (Treekit keeps it per tree for the session).
+- Step 8 choices (the prototype has one map, so Treekit is the
+  reference): Treekit's switcher (name to rename, arrow for the menu,
+  confirm before delete, the last map can't be deleted); each map keeps
+  its undo history for the session, as in Treekit; renaming a map isn't
+  undoable (as in Treekit). Different from Treekit: duplicates get
+  "(copy 2)" etc. rather than repeating a name. Two example maps share
+  the same name; the tick shows which is open.
+- Step 8 fix: menus' and dialogs' buttons (shadcn) were losing their
+  padding, border and red "Delete" colour, because the page's own button
+  reset sat outside Tailwind's layers and so overrode them. Treekit has
+  the same reset, so its dialogs likely show the same plain buttons.

@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { asLinkId, asNodeId } from "./ids";
+import { asLinkId, asMapId, asNodeId } from "./ids";
 import {
   addLink,
   addNode,
   cleanName,
   deleteLink,
   deleteNode,
+  duplicateMap,
   moveNode,
   moveNodes,
   renameMap,
@@ -73,6 +74,14 @@ describe("map edits", () => {
     expect(setPage(map, { width: 800, height: 600 })).toBe(map);
     expect(setPage(map, { width: 900, height: 600 }).page.width).toBe(900);
     expect(map.nodes[c]).toBeDefined();
+  });
+
+  it("duplicates a map under a new id and name, sharing its content", () => {
+    const map = build(["a", "b"], [["a", "b"]]);
+    const copy = duplicateMap(map, asMapId("copy"), " Copy ");
+    expect(copy).toMatchObject({ id: "copy", name: "Copy", page: map.page });
+    expect(copy.nodes).toEqual(map.nodes);
+    expect(copy.links).toEqual(map.links);
   });
 
   it("tidies whitespace in names", () => {

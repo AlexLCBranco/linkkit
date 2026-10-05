@@ -3,8 +3,10 @@ import { saveMap } from "./persistMap";
 
 /**
  * The pending auto-save, if any (as in Treekit). Its own module so both the
- * auto-saver (which schedules) and, later, the store (which must flush
- * before switching maps) can reach it without importing each other.
+ * auto-saver (which schedules) and the store can reach it without importing
+ * each other. The store must flush before switching maps: a pending save
+ * reads the store when it runs, so after a switch it would read the *new*
+ * map, and the old map's last edits would never be written.
  */
 const SAVE_DELAY_MS = 400;
 
@@ -25,4 +27,11 @@ export function flushSave(): void {
   const read = pending;
   pending = null;
   if (read) saveMap(read());
+}
+
+/** Drops the pending save (the map it belongs to was just deleted). */
+export function cancelSave(): void {
+  if (timer !== null) clearTimeout(timer);
+  timer = null;
+  pending = null;
 }
