@@ -50,11 +50,18 @@ export interface MapState {
   readonly selected: NodeId | null;
   readonly editing: Editing | null;
   readonly connecting: Connecting | null;
+  /** Bumped by the "Tidy up" button. The canvas, which knows every box's
+      measured size, watches it, tidies and glides the boxes there. */
+  readonly tidyRequest: number;
 
   /** Puts every box where Tidy up said and sets the page size, in one change. */
   placeAll(positions: ReadonlyMap<NodeId, Point>, page: Size): void;
   /** Selects a box (`null` clears the selection). */
   select(id: NodeId | null): void;
+  /** Asks the canvas to tidy the map up (see `tidyRequest`). */
+  requestTidy(): void;
+  /** Sets the page's size (the corner grip and the "More room" tab). */
+  resizePage(size: Size): void;
 
   /** Adds a nameless box with its centre at `at` and opens its name for
       typing. */
@@ -114,9 +121,12 @@ export const useMapStore = create<MapState>()((set, get) => ({
   selected: null,
   editing: null,
   connecting: null,
+  tidyRequest: 0,
 
   placeAll: (positions, page) => set((s) => ({ map: setPage(moveNodes(s.map, positions), page), needsTidy: false })),
   select: (id) => set({ selected: id }),
+  requestTidy: () => set((s) => ({ tidyRequest: s.tidyRequest + 1 })),
+  resizePage: (size) => set((s) => ({ map: setPage(s.map, size) })),
 
   addBox: (at) => {
     const { map, nodeId } = addNode(get().map, at);

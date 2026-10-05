@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-05, v0.0.4 (after step 5)_
+_Last updated: 2026-10-05, v0.0.5 (after step 6)_
 
 ## What it is
 
@@ -26,8 +26,8 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
 
 ## What works now
 
-- Dark header (with the map's name and an "Add box" button), status line,
-  version badge
+- Dark header (with the map's name and "Add box" and "Tidy up" buttons),
+  status line, version badge
 - The page: a sheet of dotted paper with the map's boxes and arrows on
   it. Boxes look like Treekit's nodes (wrap past 220px, palette colours
   show as a tint); arrows are straight lines from box edge to box edge
@@ -63,14 +63,26 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     select it and press Delete
   - Two arrows between the same boxes in opposite directions are drawn
     side by side instead of on top of each other
+- Tidy up (header button): rearranges the boxes in rows, each box above
+  what it needs, centred on the page (which grows if the map needs more
+  room), and the boxes glide there with their arrows attached. Saved as
+  one change. With "reduce motion" switched on in the system, they jump
+  there instead
+- Resizing the page:
+  - Drag the grip in the page's bottom-right corner: width and height.
+    The grip stays under the pointer even though the page is centred
+  - Drag the "More room" tab on the bottom edge: height only. A click on
+    it adds 200px of room and scrolls the tab back under the pointer
+  - The page can't shrink past a box (or below 320 × 240). While dragging,
+    "width × height" shows in the corner; the size is saved on letting go
 - The engine underneath, all in `src/domain/` with tests: the map model
   (boxes with a centre position and an optional colour, arrows with a
   label), the one place that decides which arrows are allowed, "needs /
   breaks" reach and the status-bar counts, a loop-safe Tidy-up layout,
-  page sizing (keeping boxes on the page, a free spot for a new box),
-  arrow geometry (with side-by-side opposite arrows) and label placement,
-  saving with a version
-  number and repair of damaged saves, and the example map
+  page sizing (keeping boxes on the page, a free spot for a new box, the
+  resize maths for a centred page), arrow geometry (with side-by-side
+  opposite arrows) and label placement, the glide's easing, saving with a
+  version number and repair of damaged saves, and the example map
 
 ## What's next
 
@@ -83,7 +95,7 @@ The first build, in order:
    (done)
 5. ~~Editing with the mouse: add, rename, connect, move, delete, arrow
    labels~~ (done)
-6. Page: "More room" tab, corner grip, animated Tidy up
+6. ~~Page: "More room" tab, corner grip, animated Tidy up~~ (done)
 7. Undo/redo, then box colours (right-click menu, swatch row, keys 1–8 / 0)
 8. Several saved maps: switcher, rename, new, duplicate, delete, "Add
    example map" (replaces the prototype's "Reset example": it adds a
@@ -111,3 +123,10 @@ The first build, in order:
 - Step 5 additions beyond the prototype: opposite arrows are drawn side
   by side (straight, slightly apart) rather than bent; "Add box" steps a
   new box aside rather than stacking it on another.
+- Step 6 choices: Tidy up's glide uses Treekit's length (220ms, the
+  prototype took 450ms); the page's tab and grip use Treekit's colours
+  (accent on hover). Additions beyond the prototype: a click on "More
+  room" adds 200px (the prototype's tab only dragged); a glide cut short
+  by a paused browser tab still ends with the boxes in place. Not done:
+  dragging a handle past the window's edge doesn't scroll by itself
+  (scroll with the wheel mid-drag, or drag again).

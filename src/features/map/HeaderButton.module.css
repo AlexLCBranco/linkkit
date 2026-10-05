@@ -1,5 +1,5 @@
 /* A quiet header button with an icon and a word, in the style of
-   Treekit's header buttons. */
+   Treekit's header buttons ("Add box", "Tidy up"). */
 .button {
   display: inline-flex;
   align-items: center;

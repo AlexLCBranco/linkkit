@@ -3,7 +3,17 @@ import { describe, expect, it } from "vitest";
 import { asNodeId } from "./ids";
 import { layoutMap } from "./layout";
 import { moveNode } from "./map";
-import { clampToPage, defaultPageSize, freeSpot, keepOnPage, minPageSize, placeOnPage, visibleCenter } from "./page";
+import {
+  clampToPage,
+  defaultPageSize,
+  freeSpot,
+  keepOnPage,
+  minPageSize,
+  pageRightEdge,
+  pageWidthForRightEdge,
+  placeOnPage,
+  visibleCenter,
+} from "./page";
 import { build } from "./testMaps";
 import type { NodeId, Size } from "./types";
 
@@ -75,5 +85,21 @@ describe("page", () => {
 
     const tight = placeOnPage(layout, { width: 200, height: 100 }, { x: 50, y: 60 });
     expect(tight.page).toEqual({ width: 330, height: 262 });
+  });
+});
+
+describe("page right edge (dragging the corner grip)", () => {
+  it("a centred page grows on both sides; a wide one only to the right", () => {
+    expect(pageRightEdge(600, 1000)).toBe(800);
+    expect(pageRightEdge(1000, 1000)).toBe(1000);
+    expect(pageRightEdge(1400, 1000)).toBe(1400);
+  });
+
+  it("finds the width for an edge, exactly undoing pageRightEdge", () => {
+    for (const width of [320, 600, 999, 1000, 1001, 1600]) {
+      expect(pageWidthForRightEdge(pageRightEdge(width, 1000), 1000)).toBeCloseTo(width);
+    }
+    // Moving the edge 10px right widens a centred page by 20px.
+    expect(pageWidthForRightEdge(810, 1000) - pageWidthForRightEdge(800, 1000)).toBe(20);
   });
 });

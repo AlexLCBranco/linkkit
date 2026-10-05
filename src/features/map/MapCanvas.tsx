@@ -1,19 +1,31 @@
 import { ReactFlow, ReactFlowProvider, useReactFlow, type NodeChange, type NodeOrigin } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
-import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 
 import { linkGeometry, type Box, type LinkGeometry } from "../../domain/geometry";
 import { placeLabels } from "../../domain/labels";
 import { layoutMap } from "../../domain/layout";
-import { clampToPage, keepOnPage, placeOnPage } from "../../domain/page";
-import type { LinkId, NodeId, Size } from "../../domain/types";
+import { clampToPage, keepOnPage, minPageSize, placeOnPage } from "../../domain/page";
+import type { LinkId, NodeId, Point, Size } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { BoxView, type BoxFlowNode } from "./BoxView";
 import { ConnectPreview } from "./ConnectPreview";
-import { ARROW, LABEL_FALLBACK_SIZE, LABELS, MAP_LAYOUT, PAGE_INSETS, PAGE_MARGIN, TWIN_OFFSET } from "./layoutConfig";
+import {
+  ARROW,
+  LABEL_FALLBACK_SIZE,
+  LABELS,
+  MAP_LAYOUT,
+  PAGE_FLOOR,
+  PAGE_INSETS,
+  PAGE_MARGIN,
+  TIDY_GLIDE_MS,
+  TWIN_OFFSET,
+} from "./layoutConfig";
 import { LinkEdgeView, type LinkFlowEdge } from "./LinkEdgeView";
 import styles from "./MapCanvas.module.css";
+import { PageHandles } from "./PageHandles";
 import { MAP_PAGE_ATTRIBUTE, MAP_VIEW_ATTRIBUTE } from "./pageMarkers";
+import { useGlide } from "./useGlide";
 
 // Defined once at module level: React Flow warns (and re-mounts every
 // node) if these objects change identity between renders.
@@ -42,6 +54,11 @@ const NO_DATA = {};
  * selected box. Everything else starts on a box or a label (BoxView,
  * LinkEdgeView). A box that grows past the page's edge (a longer name) is
  * moved back onto it.
+ *
+ * Tidy up (asked for by the header button) runs here, because only the
+ * canvas knows each box's size; the boxes glide to their new places. The
+ * page's resize handles (PageHandles) draw a size while being dragged and
+ * save it when let go.
  */
 function MapCanvasInner() {
   const map = useMapStore((s) => s.map);
@@ -105,10 +122,44 @@ function MapCanvasInner() {
     if (moves.size > 0) moveBoxes(moves);
   }, [needsTidy, map, sizes, moveBoxes]);
 
+  // Read by handlers outside rendering (Tidy up, the resize handles), which
+  // need the sizes at that moment without re-subscribing on every change.
+  const sizesRef = useRef(sizes);
+  useEffect(() => {
+    sizesRef.current = sizes;
+  }, [sizes]);
+
+  // Tidy up (the header button): the new places go into the store at once,
+  // as one change; `useGlide` then draws the boxes on their way there.
+  const glide = useGlide(map.nodes, TIDY_GLIDE_MS);
+  const startGlide = glide.start;
+  useEffect(
+    () =>
+      useMapStore.subscribe((s, prev) => {
+        if (s.tidyRequest === prev.tidyRequest || s.needsTidy) return;
+        const before = s.map;
+        const placed = placeOnPage(layoutMap(before, sizesRef.current, MAP_LAYOUT), before.page, PAGE_MARGIN);
+        const from = new Map<NodeId, Point>(Object.values(before.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
+        s.placeAll(placed.positions, placed.page);
+        startGlide(from, useMapStore.getState().map.nodes);
+      }),
+    [startGlide],
+  );
+  const at = useCallback((id: NodeId): Point => glide.shown?.get(id) ?? map.nodes[id], [glide.shown, map.nodes]);
+
+  // The page's size while the corner grip or "More room" tab is dragged:
+  // drawn, but only saved when let go.
+  const [draftPage, setDraftPage] = useState<Size | null>(null);
+  const page = draftPage ?? map.page;
+  const minSize = useCallback(
+    () => minPageSize(useMapStore.getState().map, sizesRef.current, MAP_LAYOUT.fallbackSize, PAGE_INSETS, PAGE_FLOOR),
+    [],
+  );
+
   const nodes = useMemo<BoxFlowNode[]>(
     () =>
       nodeIds.map((id) => {
-        const node = map.nodes[id];
+        const node = at(id);
         return {
           id,
           type: "box",
@@ -121,7 +172,7 @@ function MapCanvasInner() {
           measured: sizes.get(id),
         };
       }),
-    [nodeIds, map.nodes, sizes],
+    [nodeIds, at, sizes],
   );
 
   // Labels are not measured by React Flow: each reports its own size.
@@ -143,10 +194,10 @@ function MapCanvasInner() {
     const out = new Map<NodeId, Box>();
     for (const id of nodeIds) {
       const size = sizes.get(id);
-      if (size) out.set(id, { center: { x: map.nodes[id].x, y: map.nodes[id].y }, size });
+      if (size) out.set(id, { center: at(id), size });
     }
     return out;
-  }, [nodeIds, map.nodes, sizes]);
+  }, [nodeIds, at, sizes]);
 
   const geometries = useMemo(() => {
     const out = new Map<LinkId, LinkGeometry>();
@@ -217,7 +268,7 @@ function MapCanvasInner() {
       <div className={styles.sheet}>
         <div
           className={styles.page}
-          style={{ width: map.page.width, height: map.page.height }}
+          style={{ width: page.width, height: page.height }}
           onDoubleClick={onPageDoubleClick}
           {...{ [MAP_PAGE_ATTRIBUTE]: true }}
         >
@@ -252,6 +303,7 @@ function MapCanvasInner() {
             attributionPosition="top-right"
           />
           <ConnectPreview boxes={boxes} />
+          <PageHandles minSize={minSize} onDraft={setDraftPage} />
         </div>
       </div>
     </div>

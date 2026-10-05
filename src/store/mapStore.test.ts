@@ -37,6 +37,17 @@ describe("map store", () => {
     expect(map.nodes[ids[3]]).toMatchObject({ x: 103, y: 50 });
   });
 
+  it("resizes the page, and asks the canvas for a tidy without touching the map", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().resizePage({ width: 700, height: 900 });
+    expect(useMapStore.getState().map.page).toEqual({ width: 700, height: 900 });
+
+    const before = useMapStore.getState().map;
+    useMapStore.getState().requestTidy();
+    expect(useMapStore.getState().tidyRequest).toBe(1);
+    expect(useMapStore.getState().map).toBe(before);
+  });
+
   it("adds a box ready for typing, and drops it if left without a name", async () => {
     const useMapStore = await freshStore();
     const id = useMapStore.getState().addBox({ x: 300, y: 200 });

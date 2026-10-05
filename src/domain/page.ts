@@ -147,3 +147,22 @@ export function freeSpot(
   }
   return at;
 }
+
+/**
+ * Where the page's right edge sits, counted from the left of the area it
+ * is centred in (`available` wide). A page narrower than that area sits in
+ * its middle; a wider one starts at its left and the area scrolls.
+ */
+export function pageRightEdge(width: number, available: number): number {
+  return width <= available ? (available + width) / 2 : width;
+}
+
+/**
+ * The page width that puts its right edge at `edge` (the inverse of
+ * `pageRightEdge`). Dragging the corner grip uses it so the grip stays
+ * under the pointer: while the page is centred, it grows on both sides, so
+ * the width changes twice as fast as the pointer moves.
+ */
+export function pageWidthForRightEdge(edge: number, available: number): number {
+  return edge <= available ? 2 * edge - available : edge;
+}

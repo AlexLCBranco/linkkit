@@ -3,7 +3,7 @@ import { Plus } from "lucide-react";
 import { clampToPage, freeSpot, visibleCenter } from "../../domain/page";
 import type { NodeId, Size } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
-import styles from "./AddBoxButton.module.css";
+import styles from "./HeaderButton.module.css";
 import { ADD_SPOT, MAP_LAYOUT, PAGE_INSETS } from "./layoutConfig";
 import { MAP_PAGE_ATTRIBUTE, MAP_VIEW_ATTRIBUTE } from "./pageMarkers";
 import { BOX_ID_ATTRIBUTE } from "./useBoxGestures";
