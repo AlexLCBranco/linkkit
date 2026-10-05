@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-05, v0.0.1_
+_Last updated: 2026-10-05, v0.0.1 (after step 2)_
 
 ## What it is
 
@@ -26,16 +26,19 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
 
 ## What works now
 
-- Project scaffold only: dark header, status line and an empty dotted page
+- Project scaffold: dark header, status line and an empty dotted page
+- The engine underneath (not on screen yet), all in `src/domain/` with
+  tests: the map model (boxes with a centre position and an optional
+  colour, arrows with a label), the one place that decides which arrows
+  are allowed, "needs / breaks" reach and the status-bar counts, a
+  loop-safe Tidy-up layout, page sizing, saving with a version number and
+  repair of damaged saves, and the Microsoft 365 sign-in example
 
 ## What's next
 
 The first build, in order:
 1. ~~Scaffold~~ (done)
-2. Domain + tests: data model, link rules, reach up/down and counts, a
-   loop-safe layered layout (break each loop at one arrow first, then
-   layer; the prototype pushes loops down into tall empty rows), page
-   sizing, versioned save and repair, the Microsoft 365 sign-in example
+2. ~~Domain + tests~~ (done)
 3. The page: boxes and arrows, the example map tidied on first load
 4. Click a box: teal needs / orange breaks highlight and the status bar
    (a box both needed and broken, in a loop, shows teal and counts only

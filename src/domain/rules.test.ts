@@ -1,0 +1,28 @@
+import { describe, expect, it } from "vitest";
+
+import { asNodeId } from "./ids";
+import { canLink } from "./rules";
+import { build } from "./testMaps";
+
+const a = asNodeId("a");
+const b = asNodeId("b");
+
+describe("canLink (connections)", () => {
+  it("allows an arrow between two boxes", () => {
+    expect(canLink(build(["a", "b"]), a, b)).toEqual({ ok: true });
+  });
+
+  it("refuses a box needing itself", () => {
+    expect(canLink(build(["a"]), a, a)).toEqual({ ok: false, reason: "self" });
+  });
+
+  it("refuses an exact repeat but allows the reverse arrow (a loop)", () => {
+    const map = build(["a", "b"], [["a", "b"]]);
+    expect(canLink(map, a, b)).toEqual({ ok: false, reason: "duplicate" });
+    expect(canLink(map, b, a)).toEqual({ ok: true });
+  });
+
+  it("refuses an arrow to a box that does not exist", () => {
+    expect(canLink(build(["a"]), a, b)).toEqual({ ok: false, reason: "missing" });
+  });
+});

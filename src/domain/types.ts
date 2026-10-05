@@ -1,0 +1,78 @@
+/**
+ * The map's data model. Pure types: no React, no store.
+ *
+ * Normalised like Treekit: flat `Record<id, entity>` maps. A node never
+ * lists its links and a link never contains its nodes, so lookups are O(1),
+ * one box's component can re-render alone, and deletes are cheap.
+ *
+ * The model is deliberately generic -- boxes, arrows, a `kind` -- so a
+ * future tree or flowchart is the same data with a different rule set
+ * (`rules.ts`), not a different shape.
+ */
+
+type Brand<T, B extends string> = T & { readonly __brand: B };
+
+export type MapId = Brand<string, "MapId">;
+export type NodeId = Brand<string, "NodeId">;
+export type LinkId = Brand<string, "LinkId">;
+
+/** Which rule set a map follows. Only "connections" exists for now. */
+export const MAP_KINDS = ["connections"] as const;
+export type MapKind = (typeof MAP_KINDS)[number];
+
+/** Fixed swatches, mirrored as `--palette-*` in styles/tokens.css. */
+export const PALETTE_COLORS = [
+  "slate",
+  "red",
+  "orange",
+  "yellow",
+  "green",
+  "teal",
+  "blue",
+  "purple",
+] as const;
+export type PaletteColor = (typeof PALETTE_COLORS)[number];
+
+/** The word an arrow shows when its label is left empty. */
+export const DEFAULT_LINK_LABEL = "needs";
+
+export interface Point {
+  readonly x: number;
+  readonly y: number;
+}
+
+export interface Size {
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface MapNode {
+  readonly id: NodeId;
+  readonly name: string;
+  /** The box's CENTRE on the page, in page pixels. Centre (not top-left)
+      so a box stays put when renaming makes it wider or narrower. */
+  readonly x: number;
+  readonly y: number;
+  /** `null` = the theme's default box style. */
+  readonly color: PaletteColor | null;
+}
+
+/** An arrow: `from` needs `to` (A -> B reads "A needs B"). */
+export interface Link {
+  readonly id: LinkId;
+  readonly from: NodeId;
+  readonly to: NodeId;
+  /** Never empty: an emptied label goes back to `DEFAULT_LINK_LABEL`. */
+  readonly label: string;
+}
+
+/** One whole map: everything that is saved and undone together. */
+export interface LinkMap {
+  readonly id: MapId;
+  readonly name: string;
+  readonly kind: MapKind;
+  /** The page's size in pixels; boxes live inside it. */
+  readonly page: Size;
+  readonly nodes: Readonly<Record<NodeId, MapNode>>;
+  readonly links: Readonly<Record<LinkId, Link>>;
+}
