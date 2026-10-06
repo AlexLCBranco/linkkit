@@ -364,69 +364,95 @@ turning a connections map into a tree.
 
 Goal: one store under Linkkit and Boardkit, so changing an item in one
 changes it in the other, moves included. Written before 14b–14d so their
-new fields land on the right side. Boardkit's side is from the owner's
-description, not its code (it's another repo): check against its real
-types before step 3.
+new fields land on the right side. Checked against both apps' code
+(`src/domain/types.ts` in each repo, 2026-10-06).
 
-**Linkkit today** (`src/domain/types.ts`, saved by `persistence.ts`):
+**Linkkit today:**
 - Map: `{ id, name, kind, page, direction, arrowLength, nodes, links }`
 - Box (node): `{ id, name, x, y, color }`. Nothing else: no text
   fields, no status, no order, no timestamps
 - Arrow (link): `{ id, from, to, label }`
-- Outside the map: the map list (`linkkit:registry`, ids + names in
-  creation order), `linkkit:active`, `linkkit:starter`,
-  `linkkit:damaged:*`, `linkkit:align`. Not saved at all: selection,
-  undo history, clipboard
+- Outside the map: the map list (`linkkit:registry`, ids + names),
+  `linkkit:active`, `linkkit:starter`, `linkkit:damaged:*`,
+  `linkkit:align`. Not saved: selection, undo history, clipboard
 - Siblings have NO stored order: left-to-right comes from Tidy up
-  (`layout.ts` orders each row by where the boxes above sit)
+- Deleting is for good (no trash)
 
-| Field | Class | Boardkit | Conflict |
+**Boardkit today:**
+- Board (`BoardState`): `lists`, `cards` (flat records like Linkkit's),
+  `listOrder` (columns left to right), `cardOrder` (cards top to bottom,
+  per list), `trash`, `trashedLists`, `background`, `collapsedLists`.
+  The board's id and name live only in the board list (`BoardSummary`)
+- List: `{ id, title, color?, icon?, width?, continuesNumbering?,
+  numberFormat?, numbersHidden? }`
+- Card: `{ id, title, kind? ("divider" | "note"), color?, description?
+  ("pregame thots"), postgameDescription? ("postgame thots"),
+  numberEmphasis?, highlight?, highlightStyle? }`
+- Ids: both apps use 10-character nanoids, so ids can be shared as-is.
+  Both have the same 8 palette names; Boardkit also takes any hex
+- A card's list is known only from `cardOrder`; a card doesn't store it
+- `collapsedLists` is kept outside the lists so undo never touches it:
+  the same split proposed below for Linkkit's collapse
+
+| Linkkit field | Class | Boardkit | Conflict |
 |---|---|---|---|
-| map.id | SHARED | board id | id formats may differ |
-| map.name | SHARED | board name | – |
+| map.id | SHARED | board id (`BoardSummary.id`) | – |
+| map.name | SHARED | board name (`BoardSummary.name`) | stored in Boardkit's board list, not the board |
 | map.kind | LINKKIT-ONLY | none | a connections map (loops, many links) has no board shape |
 | map.page, direction, arrowLength | VIEW STATE | none | saved and undoable in Linkkit today; must leave the shared record |
-| node.id | SHARED | card (or list) id | – |
-| node.name | SHARED | card title (or list name) | – |
+| node.id | SHARED | `ListId` or `CardId` | which one depends on depth (see structure) |
+| node.name | SHARED | list or card `title` | – |
 | node.x, y | VIEW STATE | none | – |
-| node.color | VIEW STATE | none (Boardkit has its own) | users may expect colour to carry over |
-| tree link, box's first parent | SHARED | which list the card is in | see structure |
-| tree link, second parent | LINKKIT-ONLY | none | a card sits in one list |
+| node.color | VIEW STATE | none (`color`, `highlight` stay Boardkit's) | same palette names, so carrying it over would be easy if wanted |
+| tree link, box's first parent | SHARED | which `cardOrder` entry holds the card | – |
+| tree link, second parent | LINKKIT-ONLY | none | a card is in one `cardOrder` entry |
 | connections link | LINKKIT-ONLY | none | – |
 | link.label ("needs"; 14b "if yes") | LINKKIT-ONLY | none | lost in Boardkit, fine |
-| sibling order (doesn't exist) | SHARED, needed | card order in list, list order on board | Tidy up would have to follow it |
-| 14c status keep/maybe/cut | SHARED (proposed) | new card field, or none | see below |
+| sibling order (doesn't exist) | SHARED, needed | `listOrder`, `cardOrder` | Tidy up would have to follow it |
+| 14c status keep/maybe/cut | SHARED (proposed) | none yet (new card field) | see below |
 | 14c hide cut branches | VIEW STATE | none | Treekit saves it on the board |
-| 14d collapsed | VIEW STATE | none | Treekit saves it on the node, undoable; here it must sit beside the shared node |
+| 14d collapsed | VIEW STATE | none (`collapsedLists` is Boardkit's own) | Treekit saves it on the node, undoable; here it must sit beside the shared node |
 | 14e repair | stores nothing new | none | originals stay in local `linkkit:damaged:*` |
 | registry, active, starter, align, undo, selection, clipboard | VIEW STATE | none | – |
-| (Boardkit) pregame / postgame text | not in Linkkit | card fields | Linkkit must keep them untouched when it writes |
-| (Boardkit) divider and note cards | not in Linkkit | card types | no box equivalent |
-| (Boardkit) list / card colours, icons, borders | not in Linkkit | styling | stay in Boardkit |
+| delete (for good) | – | `trash`, `trashedLists` | see structure |
+
+| Boardkit field | Class | Linkkit | Conflict |
+|---|---|---|---|
+| card `description`, `postgameDescription` | SHARED content Linkkit lacks | none (notes not in scope) | Linkkit must keep them when it writes |
+| card `kind` divider / note | SHARED content Linkkit lacks | none | no box equivalent |
+| list `color`, `icon`, `width`, numbering fields; card `color`, `numberEmphasis`, `highlight`, `highlightStyle`; `background`, `collapsedLists` | Boardkit view state | none | – |
 
 **Structure.** Proposed: start box → board, its next steps → lists,
 their next steps → cards. Moving a card to another list = changing the
 box's parent, and back. Where it doesn't fit:
 - Depth 3 and below has no place in Boardkit (cards don't nest)
-- A box at depth 1 is a list, not a card, so "node → card" isn't
-  uniform; a depth-1 box with no next steps is an empty list
+- A box at depth 1 is a list, not a card. Moving a box to another depth
+  turns a list into a card or back: the record changes table (`lists` ↔
+  `cards`), loses the other kind's fields, and a list moved down takes its
+  cards to depth 3
+- A depth-1 box with no next steps is an empty list
 - Two parents: a card is in one list, so one parent must be the "home"
   one, and nothing records which today
 - No "move to another branch" action exists yet: today it's two steps
   (draw a second way in, delete the first), with two parents between
 - Order: Boardkit's order is content, Linkkit's is computed
+- Delete: Boardkit trashes (a trashed card stays in `cards`, only leaves
+  `cardOrder`; a trashed list stays whole). Linkkit deletes for good and
+  takes a whole branch along. A trashed card would vanish from the tree;
+  a Linkkit delete would wipe what Boardkit could restore
 - Connections maps don't fit at all
 
 **Keep / maybe / cut.**
-- Status field on the box (Treekit's way): "move" means "change parent"
-  in both apps, and status changes only by setting it. Boardkit shows it
-  as a badge or just keeps it. No disagreement
+- Status field on the card / box (Treekit's way): "move" means "change
+  parent" in both apps, and status changes only by setting it. Boardkit
+  shows it as a badge or just keeps it. No disagreement
 - Lists in Boardkit (Keep / Maybe / Cut lists): a Boardkit move means
   "change status" between those lists and "change parent" between the
   others, and a card can't be in its branch's list and the Cut list at
   once. The apps would disagree about what a move is
 - Colour: colours are per-app styling, so the status would not cross
-  over, and it would clash with the owner's own box colours
+  over, and it would clash with the owner's own colours (and Boardkit
+  already has two: `color` and `highlight`)
 - So the status field is the one that keeps "move" meaning the same.
   Like Treekit, only a box's own status is stored; "looks cut because
   its parent is" is computed
@@ -436,17 +462,22 @@ box's parent, and back. Where it doesn't fit:
 2. Start → board, depth 1 → lists, depth 2 → cards: right? And deeper
    boxes: not allowed in a bridged tree, flattened into their list, or
    does Boardkit learn nesting?
-3. A box with two parents: which list is its card in, and how is the
+3. A box moved between depth 1 and 2 (list ↔ card): allowed, and what
+   happens to the fields only one kind has?
+4. A box with two parents: which list is its card in, and how is the
    home parent picked?
-4. Should Linkkit store sibling order (and Tidy up follow it)?
-5. Pregame / postgame text, divider and note cards: hidden in Linkkit
+5. Should Linkkit store sibling order (and Tidy up follow it)?
+6. Pregame / postgame text, divider and note cards: hidden in Linkkit
    but kept, or shown somehow?
-6. Does Boardkit show keep / maybe / cut, and do cards under a cut box
+7. Delete: does Linkkit get a trash, or does a Linkkit delete trash the
+   card in Boardkit? And what does a card in Boardkit's trash look like
+   in the tree?
+8. Does Boardkit show keep / maybe / cut, and do cards under a cut box
    look cut there?
-7. OK for collapsed, "hide cut" and box colour to stay per-app, unlike
+9. OK for collapsed, "hide cut" and box colour to stay per-app, unlike
    Treekit where collapsed is saved on the node?
-8. Undo: Linkkit's undo works on its own copy of the map; after step 3,
-   may it undo past a change made in Boardkit meanwhile?
+10. Undo: each app undoes its own copy; after step 3, may Linkkit's
+    undo take back a change made in Boardkit meanwhile?
 
 ## Open problems
 
