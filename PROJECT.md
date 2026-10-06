@@ -476,10 +476,9 @@ View state (each app's own, never shared):
 | Linkkit | box `x`, `y`, `color`; `page`, `direction`, `arrowLength`; collapse (14d, kept outside the box, undoable); "hide cut" (14c); `linkkit:align`, the map list, active map, selection, undo, clipboard |
 | Boardkit | list `color`, `icon`, `width`, numbering fields; card `color`, `numberEmphasis`, `highlight`, `highlightStyle`; `background`, `collapsedLists`; the board list's order, active board, undo |
 
-One point the mapping leaves open, for 14b: when a card moves to another
-list (in either app), its arrow in gets a new start. Does a label on
-that arrow ("if yes") stay, or is it cleared since it described the old
-step? Proposed: cleared, since a label describes one particular step.
+Decided (for 14b): when a card moves to another list, in either app, its
+arrow in gets a new start but keeps its label ("if yes"). Clearing it
+would let a Boardkit move delete text the user can't see there.
 
 How the mapping was worked out (kept for the reasoning; the table above
 is what holds):
