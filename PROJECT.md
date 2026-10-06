@@ -359,9 +359,10 @@ turning a connections map into a tree.
       a way to hide cut branches; a box with two parents is cut only if
       every way into it is cut; one undo step each, saved)
     - d. Collapse, copied from Treekit (a toggle on a box with next steps;
-      Treekit saves `collapsed` on the box, so it is saved and undoable
-      here too; a box with another parent still showing stays; Tidy up
-      lays out only what shows)
+      saved and undoable, but kept outside the box itself, unlike
+      Treekit, so it stays Linkkit's own view state when maps are shared
+      (see Bridge mapping, Decided); a box with another parent still
+      showing stays; Tidy up lays out only what shows)
     - e. Repairing a damaged tree. Proposed, waiting for the owner's OK:
       several starts: keep the oldest, the others become its next steps;
       a loose box: becomes a next step of the start; a loop: drop the
