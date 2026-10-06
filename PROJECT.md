@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-06, v0.0.17 (ready for the gauntlet's shared address, step 16)_
+_Last updated: 2026-10-06, v0.0.17 (bridge mapping planned, before 14b)_
 
 ## What it is
 
@@ -359,6 +359,94 @@ turning a connections map into a tree.
     for by the owner ahead of 14b, so 14b is still next. Later, not now:
     a data store shared with Boardkit, and a canvas holding live pieces
     of these apps)
+
+### Bridge mapping (plan for the shared store, bridge step 3)
+
+Goal: one store under Linkkit and Boardkit, so changing an item in one
+changes it in the other, moves included. Written before 14b–14d so their
+new fields land on the right side. Boardkit's side is from the owner's
+description, not its code (it's another repo): check against its real
+types before step 3.
+
+**Linkkit today** (`src/domain/types.ts`, saved by `persistence.ts`):
+- Map: `{ id, name, kind, page, direction, arrowLength, nodes, links }`
+- Box (node): `{ id, name, x, y, color }`. Nothing else: no text
+  fields, no status, no order, no timestamps
+- Arrow (link): `{ id, from, to, label }`
+- Outside the map: the map list (`linkkit:registry`, ids + names in
+  creation order), `linkkit:active`, `linkkit:starter`,
+  `linkkit:damaged:*`, `linkkit:align`. Not saved at all: selection,
+  undo history, clipboard
+- Siblings have NO stored order: left-to-right comes from Tidy up
+  (`layout.ts` orders each row by where the boxes above sit)
+
+| Field | Class | Boardkit | Conflict |
+|---|---|---|---|
+| map.id | SHARED | board id | id formats may differ |
+| map.name | SHARED | board name | – |
+| map.kind | LINKKIT-ONLY | none | a connections map (loops, many links) has no board shape |
+| map.page, direction, arrowLength | VIEW STATE | none | saved and undoable in Linkkit today; must leave the shared record |
+| node.id | SHARED | card (or list) id | – |
+| node.name | SHARED | card title (or list name) | – |
+| node.x, y | VIEW STATE | none | – |
+| node.color | VIEW STATE | none (Boardkit has its own) | users may expect colour to carry over |
+| tree link, box's first parent | SHARED | which list the card is in | see structure |
+| tree link, second parent | LINKKIT-ONLY | none | a card sits in one list |
+| connections link | LINKKIT-ONLY | none | – |
+| link.label ("needs"; 14b "if yes") | LINKKIT-ONLY | none | lost in Boardkit, fine |
+| sibling order (doesn't exist) | SHARED, needed | card order in list, list order on board | Tidy up would have to follow it |
+| 14c status keep/maybe/cut | SHARED (proposed) | new card field, or none | see below |
+| 14c hide cut branches | VIEW STATE | none | Treekit saves it on the board |
+| 14d collapsed | VIEW STATE | none | Treekit saves it on the node, undoable; here it must sit beside the shared node |
+| 14e repair | stores nothing new | none | originals stay in local `linkkit:damaged:*` |
+| registry, active, starter, align, undo, selection, clipboard | VIEW STATE | none | – |
+| (Boardkit) pregame / postgame text | not in Linkkit | card fields | Linkkit must keep them untouched when it writes |
+| (Boardkit) divider and note cards | not in Linkkit | card types | no box equivalent |
+| (Boardkit) list / card colours, icons, borders | not in Linkkit | styling | stay in Boardkit |
+
+**Structure.** Proposed: start box → board, its next steps → lists,
+their next steps → cards. Moving a card to another list = changing the
+box's parent, and back. Where it doesn't fit:
+- Depth 3 and below has no place in Boardkit (cards don't nest)
+- A box at depth 1 is a list, not a card, so "node → card" isn't
+  uniform; a depth-1 box with no next steps is an empty list
+- Two parents: a card is in one list, so one parent must be the "home"
+  one, and nothing records which today
+- No "move to another branch" action exists yet: today it's two steps
+  (draw a second way in, delete the first), with two parents between
+- Order: Boardkit's order is content, Linkkit's is computed
+- Connections maps don't fit at all
+
+**Keep / maybe / cut.**
+- Status field on the box (Treekit's way): "move" means "change parent"
+  in both apps, and status changes only by setting it. Boardkit shows it
+  as a badge or just keeps it. No disagreement
+- Lists in Boardkit (Keep / Maybe / Cut lists): a Boardkit move means
+  "change status" between those lists and "change parent" between the
+  others, and a card can't be in its branch's list and the Cut list at
+  once. The apps would disagree about what a move is
+- Colour: colours are per-app styling, so the status would not cross
+  over, and it would clash with the owner's own box colours
+- So the status field is the one that keeps "move" meaning the same.
+  Like Treekit, only a box's own status is stored; "looks cut because
+  its parent is" is computed
+
+**Open questions for the owner:**
+1. Are only trees bridged, with connections maps staying Linkkit-only?
+2. Start → board, depth 1 → lists, depth 2 → cards: right? And deeper
+   boxes: not allowed in a bridged tree, flattened into their list, or
+   does Boardkit learn nesting?
+3. A box with two parents: which list is its card in, and how is the
+   home parent picked?
+4. Should Linkkit store sibling order (and Tidy up follow it)?
+5. Pregame / postgame text, divider and note cards: hidden in Linkkit
+   but kept, or shown somehow?
+6. Does Boardkit show keep / maybe / cut, and do cards under a cut box
+   look cut there?
+7. OK for collapsed, "hide cut" and box colour to stay per-app, unlike
+   Treekit where collapsed is saved on the node?
+8. Undo: Linkkit's undo works on its own copy of the map; after step 3,
+   may it undo past a change made in Boardkit meanwhile?
 
 ## Open problems
 
