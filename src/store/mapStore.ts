@@ -1,5 +1,6 @@
 import { create } from "zustand";
 
+import { mapsToRestore } from "../domain/backup";
 import { exampleMap, exampleTree } from "../domain/example";
 import * as history from "../domain/history";
 import { createMapId } from "../domain/ids";
@@ -34,7 +35,16 @@ import { addNextStep, branchesOf, createTree, deleteBranches } from "../domain/t
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
 import { ARROW_LENGTH_PRESETS, type LinkId, type LinkMap, type MapId, type NodeId, type PaletteColor, type Point, type Size } from "../domain/types";
-import { deleteStoredMap, loadActiveMapId, loadMap, loadRegistry, saveActiveMapId, saveMap } from "./persistMap";
+import {
+  deleteStoredMap,
+  loadActiveMapId,
+  loadMap,
+  loadRegistry,
+  loadStarterId,
+  saveActiveMapId,
+  saveMap,
+  saveStarterId,
+} from "./persistMap";
 import { cancelSave, flushSave } from "./saveQueue";
 
 /** What is open for typing: a box's name or an arrow's label. */
@@ -116,6 +126,9 @@ export interface MapState {
   readonly editAfterTidy: NodeId | null;
   /** Every saved map (ids and names, oldest first): the switcher's list. */
   readonly maps: Registry;
+  /** The example a first-ever visit opened, until it is first changed
+      (see `loadStarterId`). Alone in the list, it means Linkkit is empty. */
+  readonly starter: MapId | null;
   /** The undo histories of the other maps opened this session, parked
       while another map is open. */
   readonly histories: Readonly<Record<MapId, history.History>>;
@@ -210,6 +223,12 @@ export interface MapState {
   renameMap(name: string): void;
   /** Deletes a map for good. The last map can't be deleted. */
   deleteMap(id: MapId): void;
+  /**
+   * Adds the maps from a backup that aren't here yet (matched by id: one
+   * already here is never overwritten). An untouched starter example is
+   * taken away, and the newest restored map opens.
+   */
+  restoreMaps(maps: readonly LinkMap[]): { readonly added: number; readonly alreadyHere: number };
 
   startEditing(editing: Editing): void;
   /** Ends typing. A box still without a name is removed (as in the
@@ -224,7 +243,7 @@ export interface MapState {
  */
 const NEW_PAGE = { minWidth: 360, maxWidth: 980, viewportGutter: 48, height: 560 };
 
-function newPageSize(): Size {
+export function newPageSize(): Size {
   return defaultPageSize(typeof window === "undefined" ? NEW_PAGE.maxWidth : window.innerWidth, NEW_PAGE);
 }
 
@@ -242,15 +261,43 @@ function loadNewest(maps: Registry): { map: LinkMap | null; maps: Registry } {
   return { map: null, maps: left };
 }
 
+/**
+ * Every map, oldest first, for "Export all maps": the open one as it is on
+ * screen (its pending save is written first), the others as saved. An
+ * example still waiting for its first tidy is left out (its boxes are all
+ * on one spot), and so is a map that can no longer be read.
+ */
+export function mapsForExport(): LinkMap[] {
+  flushSave();
+  const s = useMapStore.getState();
+  const maps: LinkMap[] = [];
+  for (const { id } of s.maps) {
+    const map = id === s.map.id ? (s.needsTidy ? null : s.map) : loadMap(id, newPageSize());
+    if (map) maps.push(map);
+  }
+  return maps;
+}
+
 /** The map that was open last (else the newest saved one), or the example
     if there is none. */
-function initialState(): Pick<MapState, "map" | "needsTidy" | "maps"> {
+function initialState(): Pick<MapState, "map" | "needsTidy" | "maps" | "starter"> {
   const registry = loadRegistry();
   const id = loadActiveMapId();
   const active = id !== null && registry.some((m) => m.id === id) ? loadMap(id, newPageSize()) : null;
   const { map: saved, maps } = active ? { map: active, maps: registry } : loadNewest(registry);
   const map = saved ?? exampleMap(newPageSize());
-  return { map, needsTidy: saved === null, maps: upsertMap(maps, { id: map.id, name: map.name }) };
+  // Nothing saved: this example is the starter, and Linkkit is empty.
+  const remembered = loadStarterId();
+  const starter = saved === null ? map.id : remembered !== null && maps.some((m) => m.id === remembered) ? remembered : null;
+  if (starter !== remembered) saveStarterId(starter);
+  return { map, needsTidy: saved === null, maps: upsertMap(maps, { id: map.id, name: map.name }), starter };
+}
+
+/** Any change to the starter example makes it the user's own map. */
+function touchStarter(s: MapState): Partial<MapState> {
+  if (s.starter === null || s.starter !== s.map.id) return {};
+  saveStarterId(null);
+  return { starter: null };
 }
 
 /**
@@ -320,6 +367,7 @@ function commit(s: MapState, next: LinkMap, key: string | null = null): Partial<
   const join = key !== null && key === s.stepKey;
   return {
     ...forget(s, next),
+    ...touchStarter(s),
     history: join ? history.amendLast(s.history, s.map, next) : history.record(s.history, s.map, next),
     stepKey: key,
   };
@@ -549,7 +597,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
   renameMap: (name) =>
     set((s) => {
       const map = renameMap(s.map, name);
-      return map === s.map ? {} : { map, maps: upsertMap(s.maps, { id: map.id, name: map.name }) };
+      return map === s.map ? {} : { map, maps: upsertMap(s.maps, { id: map.id, name: map.name }), ...touchStarter(s) };
     }),
   deleteMap: (id) => {
     const s = get();
@@ -572,6 +620,27 @@ export const useMapStore = create<MapState>()((set, get) => ({
       const blank = blankMap();
       set((state) => open(state, blank, createStored(blank, maps)));
     }
+  },
+  restoreMaps: (incoming) => {
+    get().stopEditing();
+    flushSave();
+    const s = get();
+    const { add, alreadyHere } = mapsToRestore(s.maps, incoming);
+    if (add.length === 0) return { added: 0, alreadyHere };
+    let maps = s.maps;
+    for (const map of add) maps = createStored(map, maps);
+    // The untouched example goes: it was never the user's. If it is open,
+    // its pending save (or first tidy) must not bring it back.
+    const starter = s.starter !== null && maps.some((m) => m.id === s.starter) ? s.starter : null;
+    if (starter !== null) {
+      if (starter === s.map.id) cancelSave();
+      deleteStoredMap(starter);
+      maps = removeMap(maps, starter);
+      saveStarterId(null);
+    }
+    const newest = add[add.length - 1];
+    set((state) => ({ ...open(state, newest, maps), starter: null }));
+    return { added: add.length, alreadyHere };
   },
 
   startEditing: (editing) => set({ editing }),

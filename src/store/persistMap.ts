@@ -9,6 +9,13 @@ import type { LinkMap, MapId, Size } from "../domain/types";
  *   linkkit:map:<id>   one map
  *   linkkit:registry   the list of maps (ids and names, creation order)
  *   linkkit:active     the id of the map that was open last
+ *   linkkit:starter    the example a first-ever visit opened, while it is
+ *                      still untouched (see `loadStarterId`)
+ *   linkkit:damaged:…  a damaged map's original text, kept aside
+ *
+ * (`linkkit:align` belongs to `viewStore.ts`.) Every key starts with
+ * "linkkit:" because the shared gauntlet site gives Linkkit and Boardkit
+ * one localStorage between them.
  *
  * Every write is wrapped: storage can fail (quota, private browsing)
  * without that being fatal -- the app keeps working in memory.
@@ -17,6 +24,7 @@ const MAP_KEY_PREFIX = "linkkit:map:";
 const REGISTRY_KEY = "linkkit:registry";
 const ACTIVE_KEY = "linkkit:active";
 const DAMAGED_KEY_PREFIX = "linkkit:damaged:";
+const STARTER_KEY = "linkkit:starter";
 
 /** What the list shows for a stored map that cannot be read at all. */
 const DAMAGED_MAP_NAME = "Damaged map";
@@ -109,6 +117,32 @@ export function loadActiveMapId(): MapId | null {
 
 export function saveActiveMapId(id: MapId): void {
   tryWrite(ACTIVE_KEY, id);
+}
+
+/**
+ * The example map a first-ever visit opened, remembered until it is first
+ * changed. While it is the only map, Linkkit counts as empty: "Restore all
+ * maps from a file" is offered, and restoring takes the untouched example
+ * away (nothing of the user's is lost).
+ */
+export function loadStarterId(): MapId | null {
+  try {
+    return localStorage.getItem(STARTER_KEY) as MapId | null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveStarterId(id: MapId | null): void {
+  if (id !== null) {
+    tryWrite(STARTER_KEY, id);
+    return;
+  }
+  try {
+    localStorage.removeItem(STARTER_KEY);
+  } catch {
+    // Not fatal: at worst the restore is offered once more.
+  }
 }
 
 /**

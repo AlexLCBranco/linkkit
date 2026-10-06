@@ -18,6 +18,10 @@ const pkg = JSON.parse(readFileSync(path.resolve(import.meta.dirname, './package
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Served from `/linkkit/` on the shared gauntlet site, so every asset URL
+  // starts with it. The app's own address still works: `vercel.json` maps
+  // `/linkkit/...` back to the root there. The dev server is at /linkkit/ too.
+  base: '/linkkit/',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

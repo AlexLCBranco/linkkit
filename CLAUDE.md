@@ -13,7 +13,8 @@ where they differ in look, prefer Treekit's and tell the owner.
 ## Scope
 
 Not in this build: tree mode, flowchart mode, collapsing groups, import,
-export, notes, trash, shared board, accounts,
+export (beyond "Export all maps" / "Restore all maps from a file", for
+moving address), notes, trash, shared board, accounts,
 backend, numbers/charts.
 
 Long-term this becomes one nodes-and-links engine where a tree is just a
@@ -59,7 +60,7 @@ chat:
    goes in `domain/` with tests.
 3. `npm run build`, `npm test` and `npm run lint` must pass.
 4. Check it in the browser pane (dev server: `linkkit` in
-   `.claude/launch.json`, port 5181). Clear any `linkkit:*` localStorage
+   `.claude/launch.json`, port 5181; the app is at /linkkit/). Clear any `linkkit:*` localStorage
    keys you created while testing.
 5. Update `PROJECT.md`: strike the step through (`~~...~~ (done)`), add
    what now works, and record any decision the owner made in the step

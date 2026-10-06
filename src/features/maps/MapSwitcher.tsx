@@ -20,7 +20,30 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
 import { useMapStore } from "../../store/mapStore";
+import { exportAllMaps, readBackupFile } from "./backupFile";
 import styles from "./MapSwitcher.module.css";
+
+const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
+
+/** Restores from a picked file, and says what happened in words. */
+async function restoreFrom(file: File): Promise<{ title: string; text: string }> {
+  const read = await readBackupFile(file);
+  if (read.status === "not-a-backup") {
+    return {
+      title: "That isn’t a Linkkit backup",
+      text: "Pick the file “Export all maps” made: its name starts with “linkkit-maps”.",
+    };
+  }
+  const { added, alreadyHere } = useMapStore.getState().restoreMaps(read.maps);
+  const notes = [
+    alreadyHere > 0 && `${plural(alreadyHere, "map")} already here ${alreadyHere === 1 ? "was" : "were"} left as ${alreadyHere === 1 ? "it was" : "they were"}.`,
+    read.damaged > 0 && `${plural(read.damaged, "map")} in the file couldn’t be read.`,
+  ].filter(Boolean);
+  return {
+    title: added > 0 ? `Restored ${plural(added, "map")}` : "Nothing new to restore",
+    text: notes.join(" ") || "Every map in the file is back.",
+  };
+}
 
 /**
  * The open map's name (click to rename) plus a menu to switch to another
@@ -32,6 +55,11 @@ import styles from "./MapSwitcher.module.css";
  *
  * "+ New tree" and "Add example tree" make decision trees (kind "tree").
  * A new tree opens its start box's name for typing.
+ *
+ * "Export all maps" downloads every map as one file; on an empty Linkkit
+ * (only the untouched starter example) "Restore all maps from a file"
+ * reads one back. That is how maps move to a new address (each address
+ * has its own localStorage).
  *
  * The menu and the confirm dialog are shadcn/ui: supporting chrome, not the
  * page, which is where CLAUDE.md draws the line. Their colours still come
@@ -49,6 +77,11 @@ export function MapSwitcher() {
   const newTree = useMapStore((s) => s.newTree);
   const addExampleTree = useMapStore((s) => s.addExampleTree);
   const deleteMap = useMapStore((s) => s.deleteMap);
+  // Empty: only the untouched starter example. Only then is restoring
+  // offered, so a backup is never mixed into maps already in use.
+  const empty = useMapStore((s) => s.maps.length === 1 && s.maps[0].id === s.starter);
+  const filePicker = useRef<HTMLInputElement>(null);
+  const [report, setReport] = useState<{ title: string; text: string } | null>(null);
 
   const [renaming, setRenaming] = useState(false);
   // Set by "New map", read as the menu closes (see `onCloseAutoFocus`).
@@ -130,8 +163,38 @@ export function MapSwitcher() {
           <DropdownMenuItem disabled={maps.length <= 1} onSelect={() => setConfirmingDelete(true)}>
             Delete this map…
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={exportAllMaps}>Export all maps</DropdownMenuItem>
+          {empty && (
+            <DropdownMenuItem onSelect={() => filePicker.current?.click()}>Restore all maps from a file…</DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <input
+        ref={filePicker}
+        type="file"
+        accept=".json,application/json"
+        hidden
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          // Cleared, so picking the same file again still counts as a change.
+          e.target.value = "";
+          if (file) void restoreFrom(file).then(setReport);
+        }}
+      />
+
+      <AlertDialog open={report !== null} onOpenChange={(open) => !open && setReport(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{report?.title}</AlertDialogTitle>
+            <AlertDialogDescription>{report?.text}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
         <AlertDialogContent>

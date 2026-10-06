@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-05, v0.0.16 (selecting several boxes, step 15)_
+_Last updated: 2026-10-06, v0.0.17 (ready for the gauntlet's shared address, step 16)_
 
 ## What it is
 
@@ -14,7 +14,11 @@ will slowly take over Treekit's job. Mouse-first, for
 normal users. Sibling of Boardkit, Treekit and Vennkit, whose stack and
 look it mirrors; built and used on its own. Repo:
 github.com/AlexLCBranco/linkkit; every push to main deploys on Vercel
-(https://linkkit-lake.vercel.app). Behaviour reference:
+(https://linkkit-lake.vercel.app, also at
+https://linkkit-lake.vercel.app/linkkit/). It is moving to the shared
+gauntlet site, https://gauntlet-home.vercel.app/linkkit, next to
+Boardkit at /boardkit; that site forwards /linkkit to this Vercel
+project, and Linkkit stays its own repo. Behaviour reference:
 `reference/prototype.html`.
 
 ## Stack
@@ -24,7 +28,11 @@ as the renderer (camera locked: no pan, no zoom; the page scrolls
 natively), a small hand-written layout (no layout library), CSS Modules +
 design tokens (copied from Treekit) for the page, Tailwind v4 + shadcn/ui
 (Radix) for menus and dialogs, lucide icons. No backend: saved in the
-browser's localStorage. Layers: `app -> features -> components -> store ->
+browser's localStorage, every key starting with "linkkit:" (the shared
+site gives Linkkit and Boardkit one localStorage; Boardkit's keys start
+with "boardkit:"). Built with Vite's `base: '/linkkit/'`, so every asset
+is under /linkkit/; `vercel.json` maps /linkkit/... back to the root on
+Linkkit's own address, so both addresses work. Layers: `app -> features -> components -> store ->
 domain`; `domain/` is pure TypeScript with Vitest tests.
 
 ## What works now
@@ -53,6 +61,16 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   history for the session, so switching away and back still undoes.
   Renaming a map is not an undo step. A reload opens the map that was
   open last
+- Moving maps to another address (each web address has its own
+  storage): the map menu's "Export all maps" downloads every map as one
+  file (`linkkit-maps-<date>.json`). On an empty Linkkit (only the
+  example a first visit opens, untouched) the menu also shows "Restore
+  all maps from a file…": it adds every map from the file, takes the
+  untouched example away and opens the newest restored map. A map
+  already here (same map, even renamed since) is never overwritten, so
+  restoring twice is safe; a message says how many came back. Once the
+  example is changed (any edit or rename), it counts as the owner's map
+  and the restore is no longer offered
 - Undo / redo: the header's arrows, or Ctrl+Z and Ctrl+Shift+Z (or
   Ctrl+Y). Every change to the map is one step: a whole drag, adding a
   box together with its first name, a Tidy up, a page resize, a colour.
@@ -335,6 +353,12 @@ turning a connections map into a tree.
 15. ~~Selecting several boxes: the marquee, moving them together, copy /
     paste / duplicate / delete / colour~~ (done; asked for by the owner
     ahead of 14b, so 14b is still next)
+16. ~~Ready for the gauntlet's shared address: served under /linkkit
+    too, storage keys checked (all already "linkkit:", nothing renamed),
+    "Export all maps" and "Restore all maps from a file"~~ (done; asked
+    for by the owner ahead of 14b, so 14b is still next. Later, not now:
+    a data store shared with Boardkit, and a canvas holding live pieces
+    of these apps)
 
 ## Open problems
 

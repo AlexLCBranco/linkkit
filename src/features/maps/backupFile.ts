@@ -1,0 +1,37 @@
+import { readBackup, serializeBackup, type BackupRead } from "../../domain/backup";
+import { mapsForExport, newPageSize } from "../../store/mapStore";
+
+/**
+ * The browser side of "Export all maps" and "Restore all maps from a
+ * file": turning maps into a downloaded file, and a picked file back into
+ * maps. The format itself is `domain/backup.ts`.
+ */
+
+/** Downloads every map as one file, e.g. `linkkit-maps-2026-10-06.json`.
+    Returns how many maps it holds. */
+export function exportAllMaps(): number {
+  const now = new Date();
+  const maps = mapsForExport();
+  const text = JSON.stringify(serializeBackup(maps, now), null, 2);
+  const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
+  // A link clicked from code is how a page starts a download.
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `linkkit-maps-${now.toISOString().slice(0, 10)}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  // Revoked a moment later: some browsers start reading the file only
+  // after the click has returned.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return maps.length;
+}
+
+/** Reads a picked file. Anything that is not JSON is "not a backup". */
+export async function readBackupFile(file: File): Promise<BackupRead> {
+  try {
+    return readBackup(JSON.parse(await file.text()), newPageSize());
+  } catch {
+    return { status: "not-a-backup" };
+  }
+}

@@ -524,3 +524,58 @@ describe("map store (several boxes)", () => {
     expect(Object.keys(useMapStore.getState().map.nodes)).toHaveLength(Object.keys(before.nodes).length - 5);
   });
 });
+
+describe("restoring all maps", () => {
+  const saved = (id: string, name: string) => ({ ...build(["a", "b"], [["a", "b"]]), id: asMapId(id), name });
+
+  /** A first visit: the starter example, tidied (and so saved). */
+  async function firstVisit() {
+    const useMapStore = await freshStore();
+    const ids = Object.keys(useMapStore.getState().map.nodes) as NodeId[];
+    useMapStore.getState().placeAll(new Map(ids.map((id, i) => [id, { x: i, y: 0 }])), PAGE);
+    saveMap(useMapStore.getState().map);
+    return useMapStore;
+  }
+
+  it("replaces the untouched starter example and opens the newest restored map", async () => {
+    const useMapStore = await firstVisit();
+    const starter = useMapStore.getState().map.id;
+    expect(useMapStore.getState().starter).toBe(starter);
+
+    const result = useMapStore.getState().restoreMaps([saved("A", "Map A"), saved("B", "Map B")]);
+    expect(result).toEqual({ added: 2, alreadyHere: 0 });
+    const s = useMapStore.getState();
+    expect(s.maps.map((m) => m.id)).toEqual(["A", "B"]);
+    expect(s.map.id).toBe("B");
+    expect(s.starter).toBeNull();
+    expect(loadMap(starter, PAGE)).toBeNull();
+    expect(loadRegistry().map((m) => m.id)).toEqual(["A", "B"]);
+  });
+
+  it("is safe twice, and never overwrites a map already here", async () => {
+    const useMapStore = await firstVisit();
+    useMapStore.getState().restoreMaps([saved("A", "Map A")]);
+    useMapStore.getState().renameMap("Mine now");
+    saveMap(useMapStore.getState().map); // what auto-save would do
+
+    const again = useMapStore.getState().restoreMaps([saved("A", "Map A"), saved("B", "Map B")]);
+    expect(again).toEqual({ added: 1, alreadyHere: 1 });
+    expect(loadMap(asMapId("A"), PAGE)?.name).toBe("Mine now");
+    expect(useMapStore.getState().maps.map((m) => m.id)).toEqual(["A", "B"]);
+  });
+
+  it("keeps the starter once it is changed: it is the user's map then", async () => {
+    const useMapStore = await firstVisit();
+    const starter = useMapStore.getState().map.id;
+    useMapStore.getState().renameMap("My map");
+    expect(useMapStore.getState().starter).toBeNull();
+
+    useMapStore.getState().restoreMaps([saved("A", "Map A")]);
+    expect(useMapStore.getState().maps.map((m) => m.id)).toEqual([starter, "A"]);
+  });
+
+  it("has no starter when maps were already saved (the old address)", async () => {
+    saveMap(saved("A", "Map A"));
+    expect((await freshStore()).getState().starter).toBeNull();
+  });
+});
