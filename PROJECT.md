@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-06, v0.0.20 (a banner names maps whose content was lost)_
+_Last updated: 2026-10-06, v0.0.21 (switching maps is safe while saves fail)_
 
 ## What it is
 
@@ -103,8 +103,11 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   map as it is on screen) and "Try again" (after room has been made,
   retries every save that failed, maps that aren't open included, then
   saves the open map). Linkkit has no trash to empty, so the banner
-  suggests deleting maps no longer needed. Switching maps while it shows
-  loses the open map's unsaved changes, so it says not to
+  suggests deleting maps no longer needed. Switching maps meanwhile is
+  safe: a map whose save failed reopens with its real content (kept in
+  memory until it saves). A new map joins the saved list only once its
+  own content is stored, so a failed first save never leaves the list
+  naming nothing
 - A map the saved list still names but whose content isn't in storage
   (its save failed and the tab closed before "Try again") is taken off
   the list as Linkkit opens, and a banner names it instead of it

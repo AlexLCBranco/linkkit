@@ -22,8 +22,8 @@ export function SaveFailedBanner() {
         <p className={styles.title}>Changes aren't being saved</p>
         <p className={styles.body}>
           The browser's storage for this site is full, so your latest changes exist only in this
-          tab. Keep it open and don't switch maps until this goes away. Export your maps now, then
-          make room (delete maps you no longer need) and try again.
+          tab. Keep it open until this goes away (switching maps is fine). Export your maps now,
+          then make room (delete maps you no longer need) and try again.
         </p>
       </div>
       <div className={styles.actions}>

@@ -110,9 +110,29 @@ export function loadRegistry(onMissing?: (missing: Registry) => void): Registry 
   }
 }
 
-/** Writes a map and keeps its list entry (name) in step. */
+/**
+ * Maps whose latest save failed, as they were meant to be saved. Until a
+ * retry stores them, `loadMap` looks here first, so switching to one (or
+ * exporting it) gets its real content in this session instead of the stale
+ * stored copy -- or, for a map whose first save failed, nothing.
+ */
+const unsaved = new Map<MapId, LinkMap>();
+
+/**
+ * Writes a map, then its list entry (name) -- the entry only once the map
+ * itself is stored, so a failed first save never leaves the list naming a
+ * map with nothing behind it. The retry the banner keeps is this whole save,
+ * so a map that finally stores gets its entry then.
+ */
 export function saveMap(map: LinkMap): void {
-  tryWrite(MAP_KEY_PREFIX + map.id, JSON.stringify(serializeMap(map)));
+  const key = MAP_KEY_PREFIX + map.id;
+  const ok = tryWrite(key, JSON.stringify(serializeMap(map)), false);
+  useSaveHealth.getState().report(key, ok, () => saveMap(map));
+  if (!ok) {
+    unsaved.set(map.id, map);
+    return;
+  }
+  unsaved.delete(map.id);
   writeRegistry(upsertMap(loadRegistry(), { id: map.id, name: map.name }));
 }
 
@@ -122,6 +142,7 @@ export function deleteStoredMap(id: MapId): void {
   } catch {
     // Nothing to do: the list below still forgets it.
   }
+  unsaved.delete(id);
   useSaveHealth.getState().forget(MAP_KEY_PREFIX + id);
   writeRegistry(removeMap(loadRegistry(), id));
 }
@@ -174,6 +195,9 @@ export function saveStarterId(id: MapId | null): void {
  * "repaired" would quietly mean "whatever the repair kept".
  */
 export function loadMap(id: MapId, fallbackPage: Size): LinkMap | null {
+  // Its latest save failed this session: that content is the real map.
+  const pending = unsaved.get(id);
+  if (pending) return pending;
   try {
     const raw = localStorage.getItem(MAP_KEY_PREFIX + id);
     if (raw === null) return null;

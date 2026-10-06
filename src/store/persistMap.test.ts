@@ -165,3 +165,41 @@ describe("maps the list names but storage lost", () => {
     expect(onMissing).not.toHaveBeenCalled();
   });
 });
+
+describe("a map whose save failed", () => {
+  beforeEach(() => useSaveHealth.setState({ failing: [] }));
+
+  function fillable() {
+    const storage = memoryStorage();
+    const state = { full: false };
+    const setItem = storage.setItem.bind(storage);
+    storage.setItem = (k, v) => {
+      if (state.full && k.startsWith("linkkit:map:")) throw new DOMException("full", "QuotaExceededError");
+      setItem(k, v);
+    };
+    vi.stubGlobal("localStorage", storage);
+    return state;
+  }
+
+  it("gets no list entry until it is stored, then gets one on retry", () => {
+    const storage = fillable();
+    const fresh = build(["a"]);
+    storage.full = true;
+    saveMap(fresh);
+    expect(loadRegistry().map((m) => m.id)).not.toContain(fresh.id);
+
+    storage.full = false;
+    useSaveHealth.getState().retryAll();
+    expect(loadRegistry().map((m) => m.id)).toContain(fresh.id);
+  });
+
+  it("reads back with its real content in the same session", () => {
+    const storage = fillable();
+    const map = build(["a"]);
+    saveMap(map);
+    const edited = { ...map, name: "Edited while full" };
+    storage.full = true;
+    saveMap(edited);
+    expect(loadMap(map.id, PAGE)).toEqual(edited);
+  });
+});
