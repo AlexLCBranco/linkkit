@@ -5,6 +5,7 @@ import { serializeMap } from "../domain/persistence";
 import { build } from "../domain/testMaps";
 import { memoryStorage } from "./memoryStorage";
 import { deleteStoredMap, loadActiveMapId, loadMap, loadRegistry, saveActiveMapId, saveMap } from "./persistMap";
+import { useSaveHealth } from "./saveHealth";
 
 const PAGE = { width: 900, height: 560 };
 
@@ -62,5 +63,70 @@ describe("map storage", () => {
     localStorage.setItem("linkkit:map:bad", "{not json");
     localStorage.setItem("linkkit:registry", JSON.stringify({ version: 1, maps: [{ id: "gone", name: "Gone" }] }));
     expect(loadRegistry()).toEqual([{ id: "old", name: "Old map" }, { id: "bad", name: "Damaged map" }]);
+  });
+});
+
+describe("when storage is full", () => {
+  /** A storage that refuses new writes once `full` is set, like a browser
+      over its quota. */
+  function fillable() {
+    const storage = memoryStorage();
+    const state = { full: false };
+    const setItem = storage.setItem.bind(storage);
+    storage.setItem = (k, v) => {
+      if (state.full) throw new DOMException("full", "QuotaExceededError");
+      setItem(k, v);
+    };
+    vi.stubGlobal("localStorage", storage);
+    return state;
+  }
+
+  beforeEach(() => useSaveHealth.setState({ failing: [] }));
+
+  it("reports the failed save, and clears it once that save goes through", () => {
+    const storage = fillable();
+    const map = build(["a"]);
+    storage.full = true;
+    saveMap(map);
+    expect(useSaveHealth.getState().failing).toContain(`linkkit:map:${map.id}`);
+
+    storage.full = false;
+    saveMap(map);
+    expect(useSaveHealth.getState().failing).toEqual([]);
+  });
+
+  it("a small write that fits doesn't hide the map that didn't", () => {
+    const storage = fillable();
+    const map = build(["a"]);
+    storage.full = true;
+    saveMap(map);
+    storage.full = false;
+    saveActiveMapId(map.id);
+    expect(useSaveHealth.getState().failing).toContain(`linkkit:map:${map.id}`);
+  });
+
+  it("stops reporting a map that was deleted", () => {
+    const storage = fillable();
+    const map = build(["a"]);
+    storage.full = true;
+    saveMap(map);
+    storage.full = false;
+    deleteStoredMap(map.id);
+    expect(useSaveHealth.getState().failing).toEqual([]);
+  });
+
+  it("doesn't claim a damaged map's original was kept when it wasn't", () => {
+    const storage = fillable();
+    const map = build(["a"]);
+    const data = serializeMap(map) as unknown as { map: { name: number } };
+    data.map.name = 42;
+    localStorage.setItem(`linkkit:map:${map.id}`, JSON.stringify(data));
+    storage.full = true;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    loadMap(map.id, PAGE);
+    expect(warn.mock.calls[0][0]).toContain("could NOT be kept aside");
+    // The one-off copy is not retried, so it must not hold the banner up.
+    expect(useSaveHealth.getState().failing).toEqual([]);
   });
 });

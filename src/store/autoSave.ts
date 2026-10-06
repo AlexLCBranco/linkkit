@@ -1,4 +1,4 @@
-import { saveActiveMapId } from "./persistMap";
+import { saveActiveMapId, saveMap } from "./persistMap";
 import { flushSave, scheduleSave } from "./saveQueue";
 import { useMapStore } from "./mapStore";
 
@@ -11,6 +11,16 @@ import { useMapStore } from "./mapStore";
  * spot, and a reload in that moment must start over and tidy again, not
  * reopen the stack. The tidy itself is a change, so it saves.
  */
+/** Saves the open map right away, edited or not: the save-failed banner's
+    "Try again", after the user has made room. */
+export function saveOpenMapNow(): void {
+  flushSave();
+  const { map, needsTidy } = useMapStore.getState();
+  if (needsTidy) return;
+  saveMap(map);
+  saveActiveMapId(map.id);
+}
+
 export function initAutoSave(): void {
   useMapStore.subscribe((state, prev) => {
     if (state.needsTidy) return;

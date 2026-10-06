@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-06, v0.0.17 (bridge mapping planned, before 14b)_
+_Last updated: 2026-10-06, v0.0.18 (a banner when saving fails)_
 
 ## What it is
 
@@ -95,7 +95,15 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
 - First visit: the Microsoft 365 sign-in example appears already tidied
   (boxes measured out of sight, Tidy up runs once, then they show)
 - Saved automatically in the browser; a reload reopens the same map where
-  it was. A damaged save is repaired and the original kept aside
+  it was. A damaged save is repaired and the original kept aside (the
+  console says so only if that copy really was written)
+- When a save fails (the browser's storage for the site is full), a
+  banner under the header says changes aren't being saved and stays
+  until they are. It offers "Export all maps" (the file holds the open
+  map as it is on screen) and "Try again" (saves the open map now, after
+  room has been made). Linkkit has no trash to empty, so the banner
+  suggests deleting maps no longer needed. Switching maps while it shows
+  loses the open map's unsaved changes, so it says not to
 - Click a box: what it needs lights up teal, what breaks without it
   lights up orange (boxes fill, arrows on those paths turn colour and
   thicken), everything else fades, and the status line shows the box's

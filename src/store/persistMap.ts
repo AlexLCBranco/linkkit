@@ -1,6 +1,7 @@
 import { readMap, serializeMap, type MapRead } from "../domain/persistence";
 import { readRegistry, removeMap, serializeRegistry, upsertMap, type Registry } from "../domain/registry";
 import type { LinkMap, MapId, Size } from "../domain/types";
+import { useSaveHealth } from "./saveHealth";
 
 /**
  * The only module that touches localStorage for maps. `domain/` owns the
@@ -18,7 +19,9 @@ import type { LinkMap, MapId, Size } from "../domain/types";
  * one localStorage between them.
  *
  * Every write is wrapped: storage can fail (quota, private browsing)
- * without that being fatal -- the app keeps working in memory.
+ * without that being fatal -- the app keeps working in memory. A failure
+ * is never silent, though: each write is reported to `saveHealth.ts`, and
+ * a banner stays up until that key saves again.
  */
 const MAP_KEY_PREFIX = "linkkit:map:";
 const REGISTRY_KEY = "linkkit:registry";
@@ -29,12 +32,19 @@ const STARTER_KEY = "linkkit:starter";
 /** What the list shows for a stored map that cannot be read at all. */
 const DAMAGED_MAP_NAME = "Damaged map";
 
-function tryWrite(key: string, value: string): void {
+/** Writes one key; true if it was stored. `track` false keeps a one-off
+    write (a damaged map's original, set aside) out of the banner: it is
+    never retried, so it would hold the banner up for good. */
+function tryWrite(key: string, value: string, track = true): boolean {
+  let ok = true;
   try {
     localStorage.setItem(key, value);
   } catch {
     // See the module comment: failing to save is not fatal.
+    ok = false;
   }
+  if (track) useSaveHealth.getState().report(key, ok);
+  return ok;
 }
 
 function parse(raw: string, fallbackPage: Size): MapRead {
@@ -104,6 +114,7 @@ export function deleteStoredMap(id: MapId): void {
   } catch {
     // Nothing to do: the list below still forgets it.
   }
+  useSaveHealth.getState().forget(MAP_KEY_PREFIX + id);
   writeRegistry(removeMap(loadRegistry(), id));
 }
 
@@ -143,6 +154,7 @@ export function saveStarterId(id: MapId | null): void {
   } catch {
     // Not fatal: at worst the restore is offered once more.
   }
+  useSaveHealth.getState().forget(STARTER_KEY);
 }
 
 /**
@@ -161,11 +173,17 @@ export function loadMap(id: MapId, fallbackPage: Size): LinkMap | null {
     if (read.status === "ok") return read.map;
 
     const asideKey = `${DAMAGED_KEY_PREFIX}${id}:${Date.now()}`;
-    tryWrite(asideKey, raw);
+    // Say where the original is only if it really got there. With storage
+    // full the copy fails, and the map's own key is all that is left (the
+    // next save of a repaired map writes over it).
+    const keptAside = tryWrite(asideKey, raw, false);
+    const where = keptAside
+      ? `The original is kept in localStorage under "${asideKey}".`
+      : `The original could NOT be kept aside (storage is full or blocked); it is still under "${MAP_KEY_PREFIX}${id}" until this map is next saved.`;
     console.warn(
       read.status === "repaired"
-        ? `Linkkit: a saved map was damaged and has been repaired (${read.fixes} fixes). The original is kept in localStorage under "${asideKey}".`
-        : `Linkkit: a saved map could not be read. It is kept in localStorage under "${asideKey}".`,
+        ? `Linkkit: a saved map was damaged and has been repaired (${read.fixes} fixes). ${where}`
+        : `Linkkit: a saved map could not be read. ${where}`,
     );
     return read.status === "repaired" ? read.map : null;
   } catch {

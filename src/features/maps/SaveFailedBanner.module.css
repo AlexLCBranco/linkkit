@@ -1,0 +1,72 @@
+/* Boardkit's notice banner (RecoveryNotice), so both apps warn the same
+   way: a strip under the header with an orange edge. */
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--palette-orange);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-normal);
+}
+
+.text {
+  flex: 1 1 320px;
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-weight: var(--weight-bold);
+}
+
+.body {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.primary,
+.secondary {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.primary {
+  background: var(--accent);
+  color: var(--text-inverted);
+}
+
+.primary:hover {
+  background: var(--accent-hover);
+}
+
+.secondary {
+  border-color: var(--border-strong);
+  background: transparent;
+  color: var(--text-primary);
+}
+
+.secondary:hover {
+  background: var(--surface-hover);
+}
+
+.primary:focus-visible,
+.secondary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
