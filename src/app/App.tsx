@@ -9,6 +9,7 @@ import { ReachStatus } from "../features/map/ReachStatus";
 import { SelectionBar } from "../features/map/SelectionBar";
 import { TidyButton } from "../features/map/TidyButton";
 import { MapSwitcher } from "../features/maps/MapSwitcher";
+import { MissingMapsBanner } from "../features/maps/MissingMapsBanner";
 import { SaveFailedBanner } from "../features/maps/SaveFailedBanner";
 import { useMapStore } from "../store/mapStore";
 import styles from "./App.module.css";
@@ -33,6 +34,7 @@ export function App() {
         <AlignPanel />
       </header>
       <SaveFailedBanner />
+      <MissingMapsBanner />
       <div className={styles.status} aria-live="polite">
         <ReachStatus />
       </div>

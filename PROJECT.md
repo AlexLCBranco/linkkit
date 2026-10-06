@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-06, v0.0.19 ("Try again" retries every failed save)_
+_Last updated: 2026-10-06, v0.0.20 (a banner names maps whose content was lost)_
 
 ## What it is
 
@@ -105,6 +105,11 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   saves the open map). Linkkit has no trash to empty, so the banner
   suggests deleting maps no longer needed. Switching maps while it shows
   loses the open map's unsaved changes, so it says not to
+- A map the saved list still names but whose content isn't in storage
+  (its save failed and the tab closed before "Try again") is taken off
+  the list as Linkkit opens, and a banner names it instead of it
+  vanishing silently. The banner offers "Restore from a file…" (an
+  exported file; maps already here are left alone) and "Dismiss"
 - Click a box: what it needs lights up teal, what breaks without it
   lights up orange (boxes fill, arrows on those paths turn colour and
   thicken), everything else fades, and the status line shows the box's

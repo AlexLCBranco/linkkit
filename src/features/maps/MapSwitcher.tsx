@@ -20,30 +20,8 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
 import { useMapStore } from "../../store/mapStore";
-import { exportAllMaps, readBackupFile } from "./backupFile";
+import { exportAllMaps, restoreFrom } from "./backupFile";
 import styles from "./MapSwitcher.module.css";
-
-const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
-
-/** Restores from a picked file, and says what happened in words. */
-async function restoreFrom(file: File): Promise<{ title: string; text: string }> {
-  const read = await readBackupFile(file);
-  if (read.status === "not-a-backup") {
-    return {
-      title: "That isn’t a Linkkit backup",
-      text: "Pick the file “Export all maps” made: its name starts with “linkkit-maps”.",
-    };
-  }
-  const { added, alreadyHere } = useMapStore.getState().restoreMaps(read.maps);
-  const notes = [
-    alreadyHere > 0 && `${plural(alreadyHere, "map")} already here ${alreadyHere === 1 ? "was" : "were"} left as ${alreadyHere === 1 ? "it was" : "they were"}.`,
-    read.damaged > 0 && `${plural(read.damaged, "map")} in the file couldn’t be read.`,
-  ].filter(Boolean);
-  return {
-    title: added > 0 ? `Restored ${plural(added, "map")}` : "Nothing new to restore",
-    text: notes.join(" ") || "Every map in the file is back.",
-  };
-}
 
 /**
  * The open map's name (click to rename) plus a menu to switch to another

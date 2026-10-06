@@ -35,6 +35,7 @@ import { addNextStep, branchesOf, createTree, deleteBranches } from "../domain/t
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
 import { ARROW_LENGTH_PRESETS, type LinkId, type LinkMap, type MapId, type NodeId, type PaletteColor, type Point, type Size } from "../domain/types";
+import { useMissingMaps } from "./missingMaps";
 import {
   deleteStoredMap,
   loadActiveMapId,
@@ -281,7 +282,8 @@ export function mapsForExport(): LinkMap[] {
 /** The map that was open last (else the newest saved one), or the example
     if there is none. */
 function initialState(): Pick<MapState, "map" | "needsTidy" | "maps" | "starter"> {
-  const registry = loadRegistry();
+  // Maps the list names but storage lost are reported, not just dropped.
+  const registry = loadRegistry((missing) => useMissingMaps.getState().setMissing(missing.map((m) => m.name)));
   const id = loadActiveMapId();
   const active = id !== null && registry.some((m) => m.id === id) ? loadMap(id, newPageSize()) : null;
   const { map: saved, maps } = active ? { map: active, maps: registry } : loadNewest(registry);

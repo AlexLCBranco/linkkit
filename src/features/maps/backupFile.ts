@@ -1,5 +1,5 @@
 import { readBackup, serializeBackup, type BackupRead } from "../../domain/backup";
-import { mapsForExport, newPageSize } from "../../store/mapStore";
+import { mapsForExport, newPageSize, useMapStore } from "../../store/mapStore";
 
 /**
  * The browser side of "Export all maps" and "Restore all maps from a
@@ -34,4 +34,27 @@ export async function readBackupFile(file: File): Promise<BackupRead> {
   } catch {
     return { status: "not-a-backup" };
   }
+}
+
+const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? "" : "s"}`;
+
+/** Restores from a picked file, and says what happened in words. Used by the
+    map menu and by the missing-maps banner. */
+export async function restoreFrom(file: File): Promise<{ title: string; text: string }> {
+  const read = await readBackupFile(file);
+  if (read.status === "not-a-backup") {
+    return {
+      title: "That isn’t a Linkkit backup",
+      text: "Pick the file “Export all maps” made: its name starts with “linkkit-maps”.",
+    };
+  }
+  const { added, alreadyHere } = useMapStore.getState().restoreMaps(read.maps);
+  const notes = [
+    alreadyHere > 0 && `${plural(alreadyHere, "map")} already here ${alreadyHere === 1 ? "was" : "were"} left as ${alreadyHere === 1 ? "it was" : "they were"}.`,
+    read.damaged > 0 && `${plural(read.damaged, "map")} in the file couldn’t be read.`,
+  ].filter(Boolean);
+  return {
+    title: added > 0 ? `Restored ${plural(added, "map")}` : "Nothing new to restore",
+    text: notes.join(" ") || "Every map in the file is back.",
+  };
 }

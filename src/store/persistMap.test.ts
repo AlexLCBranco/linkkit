@@ -141,3 +141,27 @@ describe("when storage is full", () => {
     expect(useSaveHealth.getState().failing).toEqual([]);
   });
 });
+
+describe("maps the list names but storage lost", () => {
+  it("reports them to the caller that asks, and drops them from the list", () => {
+    const kept = build(["a"]);
+    saveMap(kept);
+    const lost = { ...build(["b"]), id: asMapId("lost"), name: "Lost map" };
+    saveMap(lost);
+    localStorage.removeItem("linkkit:map:lost");
+
+    const onMissing = vi.fn();
+    const registry = loadRegistry(onMissing);
+    expect(onMissing).toHaveBeenCalledWith([{ id: "lost", name: "Lost map" }]);
+    expect(registry.map((m) => m.id)).toEqual([kept.id]);
+  });
+
+  it("doesn't call a deleted map missing", () => {
+    const map = build(["a"]);
+    saveMap(map);
+    const onMissing = vi.fn();
+    deleteStoredMap(map.id);
+    loadRegistry(onMissing);
+    expect(onMissing).not.toHaveBeenCalled();
+  });
+});

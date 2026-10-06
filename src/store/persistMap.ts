@@ -73,8 +73,14 @@ function writeRegistry(registry: Registry): void {
  * whose map is gone is dropped, and a stored map the list does not know is
  * added. That also covers the map saved before the list existed (v0.0.6
  * and earlier), and a list lost or damaged on its own.
+ *
+ * A dropped entry means a map's content is gone -- most likely its save
+ * failed (storage full) and the tab closed before it was retried. Opening
+ * Linkkit passes `onMissing` to hear which ones, so it can say so instead of
+ * the map just vanishing. (Other callers leave it out: deleting a map
+ * removes its content before its list entry, which is not a loss.)
  */
-export function loadRegistry(): Registry {
+export function loadRegistry(onMissing?: (missing: Registry) => void): Registry {
   try {
     const raw = localStorage.getItem(REGISTRY_KEY);
     let registry: Registry = [];
@@ -87,6 +93,8 @@ export function loadRegistry(): Registry {
     }
     const stored = new Set(storedMapIds());
     let reconciled: Registry = registry.filter((m) => stored.has(m.id));
+    const missing = registry.filter((m) => !stored.has(m.id));
+    if (missing.length > 0) onMissing?.(missing);
     for (const id of stored) {
       if (reconciled.some((m) => m.id === id)) continue;
       // Only the name is needed, so the page size passed here never matters.
