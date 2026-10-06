@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-06, v0.0.22 (field mapping current; backups (17) next, before 14b)_
+_Last updated: 2026-10-06, v0.0.23 (automatic backups, step 17)_
 
 ## What it is
 
@@ -30,7 +30,8 @@ design tokens (copied from Treekit) for the page, Tailwind v4 + shadcn/ui
 (Radix) for menus and dialogs, lucide icons. No backend: saved in the
 browser's localStorage, every key starting with "linkkit:" (the shared
 site gives Linkkit and Boardkit one localStorage; Boardkit's keys start
-with "boardkit:"). Built with Vite's `base: '/linkkit/'`, so every asset
+with "boardkit:"), plus an IndexedDB database "linkkit" holding only the
+automatic-backup folder (Boardkit's is "boardkit"). Built with Vite's `base: '/linkkit/'`, so every asset
 is under /linkkit/; `vercel.json` maps /linkkit/... back to the root on
 Linkkit's own address, so both addresses work. Layers: `app -> features -> components -> store ->
 domain`; `domain/` is pure TypeScript with Vitest tests.
@@ -71,6 +72,20 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   restoring twice is safe; a message says how many came back. Once the
   example is changed (any edit or rename), it counts as the owner's map
   and the restore is no longer offered
+- Automatic backup (Chrome and Edge; the option is hidden in Firefox and
+  Safari, which can't write to folders): "Automatic backup…" in the map
+  menu picks a folder (ideally a synced one). Ten seconds after changes
+  stop, every map is written there as one file
+  (`linkkit-backup-<date>-<time>.json`, the "Export all maps" format, so
+  "Restore all maps from a file" reads it); the newest 20 are kept, and
+  nothing else in the folder is ever touched. The menu says where and
+  how long ago ("Backing up to “OneDrive” · last 2 min ago"). Backups
+  never stop silently: after a browser restart the menu offers "Resume
+  backups" (Chrome asks for one click), a folder that has gone offers
+  "Choose folder…", and either way an orange dot shows on the map menu's
+  button. "Turn off automatic backup" stops it. No file is written while
+  there is nothing to keep (the first visit's example before its first
+  tidy)
 - Undo / redo: the header's arrows, or Ctrl+Z and Ctrl+Shift+Z (or
   Ctrl+Y). Every change to the map is one step: a whole drag, adding a
   box together with its first name, a Tidy up, a page resize, a colour.
@@ -342,19 +357,8 @@ The first build, in order:
 The first build is complete. Small things noticed but left alone (see
 Open problems): arrow labels can't be edited from the keyboard.
 
-17. Automatic backups for Linkkit (done before 14b by the owner's
-    choice: it protects data while tree mode is built, and touches
-    nothing tree mode does; listed here so it comes first), before the
-    bridge's shared store:
-    today its only safety net is "Export all maps" by hand. Copied from
-    Boardkit's (`../Projects/boardkit/plans/automatic-backup.md`,
-    `src/features/board/autoBackup.ts`): "Automatic backup…" in the map
-    menu picks a folder (ideally a synced one); a few seconds after
-    changes stop, a backup in the "Export all maps" format is written
-    there, so "Restore all maps from a file" reads it; the last 20 are
-    kept; after a browser restart one click resumes them, and they never
-    stop silently. Chrome and Edge only (Firefox and Safari can't write
-    to folders), so the option is hidden elsewhere
+17. ~~Automatic backups for Linkkit, copied from Boardkit's~~ (done;
+    asked for by the owner ahead of 14b, so 14b is next)
 
 Tree mode (a new map kind for decisions, "What should I choose?"; it
 will slowly take over Treekit's job; Treekit itself is left alone).

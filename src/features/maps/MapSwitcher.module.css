@@ -44,3 +44,18 @@ button.name:hover {
   width: 1em;
   color: var(--accent);
 }
+
+.trigger {
+  position: relative;
+}
+
+/* Automatic backup has stopped (Boardkit's switcher dot). */
+.dot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--palette-orange);
+}

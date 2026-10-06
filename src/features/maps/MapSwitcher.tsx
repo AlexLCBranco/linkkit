@@ -19,7 +19,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
+import { backupNeedsAttention } from "../../domain/autoBackup";
+import { useBackupStore } from "../../store/backupStore";
 import { useMapStore } from "../../store/mapStore";
+import { BackupMenuItems } from "./BackupMenuItems";
 import { exportAllMaps, restoreFrom } from "./backupFile";
 import styles from "./MapSwitcher.module.css";
 
@@ -58,6 +61,9 @@ export function MapSwitcher() {
   // Empty: only the untouched starter example. Only then is restoring
   // offered, so a backup is never mixed into maps already in use.
   const empty = useMapStore((s) => s.maps.length === 1 && s.maps[0].id === s.starter);
+  // Automatic backup has stopped and needs a click: a dot on the button,
+  // so it never stops silently.
+  const backupStopped = useBackupStore((s) => backupNeedsAttention(s.status));
   const filePicker = useRef<HTMLInputElement>(null);
   const [report, setReport] = useState<{ title: string; text: string } | null>(null);
 
@@ -93,8 +99,14 @@ export function MapSwitcher() {
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button type="button" className={styles.trigger} aria-label="Switch map" title="Your maps">
+          <button
+            type="button"
+            className={styles.trigger}
+            aria-label={backupStopped ? "Switch map (automatic backup has stopped)" : "Switch map"}
+            title={backupStopped ? "Your maps · automatic backup has stopped" : "Your maps"}
+          >
             <ChevronDown size={14} />
+            {backupStopped && <span className={styles.dot} />}
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent
@@ -143,6 +155,7 @@ export function MapSwitcher() {
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={exportAllMaps}>Export all maps</DropdownMenuItem>
+          <BackupMenuItems />
           {empty && (
             <DropdownMenuItem onSelect={() => filePicker.current?.click()}>Restore all maps from a file…</DropdownMenuItem>
           )}

@@ -45,7 +45,7 @@ export async function restoreFrom(file: File): Promise<{ title: string; text: st
   if (read.status === "not-a-backup") {
     return {
       title: "That isn’t a Linkkit backup",
-      text: "Pick the file “Export all maps” made: its name starts with “linkkit-maps”.",
+      text: "Pick a file “Export all maps” made (its name starts with “linkkit-maps”) or an automatic backup (“linkkit-backup”).",
     };
   }
   const { added, alreadyHere } = useMapStore.getState().restoreMaps(read.maps);
