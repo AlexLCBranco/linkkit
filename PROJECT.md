@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-06, v0.0.18 (a banner when saving fails)_
+_Last updated: 2026-10-06, v0.0.19 ("Try again" retries every failed save)_
 
 ## What it is
 
@@ -100,8 +100,9 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
 - When a save fails (the browser's storage for the site is full), a
   banner under the header says changes aren't being saved and stays
   until they are. It offers "Export all maps" (the file holds the open
-  map as it is on screen) and "Try again" (saves the open map now, after
-  room has been made). Linkkit has no trash to empty, so the banner
+  map as it is on screen) and "Try again" (after room has been made,
+  retries every save that failed, maps that aren't open included, then
+  saves the open map). Linkkit has no trash to empty, so the banner
   suggests deleting maps no longer needed. Switching maps while it shows
   loses the open map's unsaved changes, so it says not to
 - Click a box: what it needs lights up teal, what breaks without it

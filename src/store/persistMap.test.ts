@@ -115,6 +115,17 @@ describe("when storage is full", () => {
     expect(useSaveHealth.getState().failing).toEqual([]);
   });
 
+  it("retries a map that isn't open any more, with the text it last tried", () => {
+    const storage = fillable();
+    const left = build(["a"]);
+    storage.full = true;
+    saveMap(left);
+    storage.full = false;
+    useSaveHealth.getState().retryAll();
+    expect(useSaveHealth.getState().failing).toEqual([]);
+    expect(loadMap(left.id, PAGE)).toEqual(left);
+  });
+
   it("doesn't claim a damaged map's original was kept when it wasn't", () => {
     const storage = fillable();
     const map = build(["a"]);

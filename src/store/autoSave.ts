@@ -1,4 +1,5 @@
 import { saveActiveMapId, saveMap } from "./persistMap";
+import { useSaveHealth } from "./saveHealth";
 import { flushSave, scheduleSave } from "./saveQueue";
 import { useMapStore } from "./mapStore";
 
@@ -11,10 +12,13 @@ import { useMapStore } from "./mapStore";
  * spot, and a reload in that moment must start over and tidy again, not
  * reopen the stack. The tidy itself is a change, so it saves.
  */
-/** Saves the open map right away, edited or not: the save-failed banner's
-    "Try again", after the user has made room. */
+/** The save-failed banner's "Try again", after the user has made room:
+    makes every failed write again (maps that aren't open too, with the text
+    each last tried to store), then saves the open map as it is now, so its
+    latest state is what ends up saved. */
 export function saveOpenMapNow(): void {
   flushSave();
+  useSaveHealth.getState().retryAll();
   const { map, needsTidy } = useMapStore.getState();
   if (needsTidy) return;
   saveMap(map);

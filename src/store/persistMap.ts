@@ -43,7 +43,7 @@ function tryWrite(key: string, value: string, track = true): boolean {
     // See the module comment: failing to save is not fatal.
     ok = false;
   }
-  if (track) useSaveHealth.getState().report(key, ok);
+  if (track) useSaveHealth.getState().report(key, ok, () => tryWrite(key, value));
   return ok;
 }
 
