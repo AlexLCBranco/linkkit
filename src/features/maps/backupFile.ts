@@ -1,4 +1,5 @@
 import { readBackup, serializeBackup, type BackupRead } from "../../domain/backup";
+import { useBackupStore } from "../../store/backupStore";
 import { mapsForExport, newPageSize, useMapStore } from "../../store/mapStore";
 
 /**
@@ -24,6 +25,8 @@ export function exportAllMaps(): number {
   // Revoked a moment later: some browsers start reading the file only
   // after the click has returned.
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+  // An export is a backup too: it resets the 7-day reminder.
+  useBackupStore.getState().markBackedUp(now.getTime());
   return maps.length;
 }
 

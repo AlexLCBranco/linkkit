@@ -49,7 +49,8 @@ button.name:hover {
   position: relative;
 }
 
-/* Automatic backup has stopped (Boardkit's switcher dot). */
+/* Backups need the user: automatic backup has stopped, or nothing was
+   backed up for 7 days (Boardkit's switcher dot). */
 .dot {
   position: absolute;
   top: 2px;

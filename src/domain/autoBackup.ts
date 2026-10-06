@@ -42,11 +42,40 @@ function ago(count: number, unit: string): string {
   return `${count} ${unit}${count === 1 ? "" : "s"} ago`;
 }
 
-/** Whether the map menu's button shows a dot: only when automatic backup
-    has stopped and needs the user (a click to resume, or a new folder).
-    Backups never stop silently. */
-export function backupNeedsAttention(status: AutoBackupStatus): boolean {
+/** After this long without a backup (automatic, or "Export all maps"), the
+    map menu's button shows its dot. */
+export const BACKUP_STALE_AFTER_MS = 7 * DAY_MS;
+
+/** True if there has never been a backup, or the last one is over 7 days
+    old. */
+export function isBackupStale(lastBackupAt: number | null, now: number): boolean {
+  return lastBackupAt === null || now - lastBackupAt > BACKUP_STALE_AFTER_MS;
+}
+
+/** True when automatic backup has stopped and needs a click (to resume, or
+    a new folder). Backups never stop silently. */
+export function backupStopped(status: AutoBackupStatus): boolean {
   return status === "needs-permission" || status === "folder-error";
+}
+
+/**
+ * Whether the map menu's button shows its dot (Boardkit's rule). Automatic
+ * backup that is working never needs attention, however old its last file;
+ * one that has stopped always does. Otherwise (off, or a browser that can't
+ * write to folders) it is the 7-day reminder to export. `empty` (only the
+ * untouched first-visit example) has nothing worth keeping yet, so it never
+ * nags then.
+ */
+export function backupNeedsAttention(input: {
+  readonly status: AutoBackupStatus;
+  readonly lastBackupAt: number | null;
+  readonly now: number;
+  readonly empty: boolean;
+}): boolean {
+  const { status, lastBackupAt, now, empty } = input;
+  if (backupStopped(status)) return true;
+  if (status === "active" || empty) return false;
+  return isBackupStale(lastBackupAt, now);
 }
 
 /** Automatic backups are named apart from "Export all maps" files

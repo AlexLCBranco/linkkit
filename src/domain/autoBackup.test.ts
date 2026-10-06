@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { backupFileName, backupNeedsAttention, backupsToDelete, formatBackupAge } from "./autoBackup";
+import {
+  BACKUP_STALE_AFTER_MS,
+  backupFileName,
+  backupNeedsAttention,
+  backupsToDelete,
+  formatBackupAge,
+  isBackupStale,
+} from "./autoBackup";
 
 describe("backupFileName", () => {
   it("names a file by local date and time, zero-padded", () => {
@@ -41,12 +48,45 @@ describe("formatBackupAge", () => {
   });
 });
 
+describe("isBackupStale", () => {
+  const now = 1_000_000_000_000;
+  it("is stale when there was never a backup, or the last is over 7 days old", () => {
+    expect(isBackupStale(null, now)).toBe(true);
+    expect(isBackupStale(now - BACKUP_STALE_AFTER_MS - 1, now)).toBe(true);
+    expect(isBackupStale(now - BACKUP_STALE_AFTER_MS, now)).toBe(false);
+    expect(isBackupStale(now - 60_000, now)).toBe(false);
+  });
+});
+
 describe("backupNeedsAttention", () => {
-  it("only when backups have stopped and need the user", () => {
-    expect(backupNeedsAttention("needs-permission")).toBe(true);
-    expect(backupNeedsAttention("folder-error")).toBe(true);
-    expect(backupNeedsAttention("active")).toBe(false);
-    expect(backupNeedsAttention("off")).toBe(false);
-    expect(backupNeedsAttention("unsupported")).toBe(false);
+  const now = 1_000_000_000_000;
+  const old = now - BACKUP_STALE_AFTER_MS - 1;
+  const fresh = now - 60_000;
+  type Status = Parameters<typeof backupNeedsAttention>[0]["status"];
+  const ask = (status: Status, lastBackupAt: number | null, empty = false) =>
+    backupNeedsAttention({ status, lastBackupAt, now, empty });
+
+  it("always when automatic backup has stopped and needs the user", () => {
+    expect(ask("needs-permission", fresh)).toBe(true);
+    expect(ask("folder-error", fresh)).toBe(true);
+    expect(ask("folder-error", null, true)).toBe(true);
+  });
+
+  it("never while automatic backup is working, however old its last file", () => {
+    expect(ask("active", old)).toBe(false);
+    expect(ask("active", null)).toBe(false);
+  });
+
+  it("otherwise reminds after 7 days, or when there was never a backup", () => {
+    expect(ask("off", old)).toBe(true);
+    expect(ask("off", null)).toBe(true);
+    expect(ask("unsupported", old)).toBe(true);
+    expect(ask("off", fresh)).toBe(false);
+    expect(ask("unsupported", fresh)).toBe(false);
+  });
+
+  it("not while there is only the untouched first-visit example", () => {
+    expect(ask("off", null, true)).toBe(false);
+    expect(ask("unsupported", old, true)).toBe(false);
   });
 });

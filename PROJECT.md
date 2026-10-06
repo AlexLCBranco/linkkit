@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-06, v0.0.23 (automatic backups, step 17)_
+_Last updated: 2026-10-06, v0.0.24 (backup reminder dot, step 19)_
 
 ## What it is
 
@@ -86,6 +86,15 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   button. "Turn off automatic backup" stops it. No file is written while
   there is nothing to keep (the first visit's example before its first
   tidy)
+- Backup reminder (Boardkit's 7-day dot), in every browser: while
+  automatic backup isn't running (off, or Firefox / Safari), the same
+  orange dot shows when nothing has been backed up for 7 days, or ever.
+  Its tooltip says "no backup yet" or "no backup for over 7 days". The
+  menu's first backup line, "Last backup: 9 days ago · Back up now",
+  runs "Export all maps"; any export counts as a backup and clears the
+  dot. Running automatic backup never shows it. No dot while Linkkit
+  holds only the untouched first-visit example (nothing to keep yet). A
+  page left open re-checks every minute
 - Undo / redo: the header's arrows, or Ctrl+Z and Ctrl+Shift+Z (or
   Ctrl+Y). Every change to the map is one step: a whole drag, adding a
   box together with its first name, a Tidy up, a page resize, a colour.
@@ -359,6 +368,9 @@ Open problems): arrow labels can't be edited from the keyboard.
 
 17. ~~Automatic backups for Linkkit, copied from Boardkit's~~ (done;
     asked for by the owner ahead of 14b, so 14b is next)
+19. ~~Boardkit's 7-day backup reminder dot, also in browsers without
+    automatic backup (as an export reminder)~~ (done; asked for by the
+    owner ahead of 14b, so 14b is next)
 
 Tree mode (a new map kind for decisions, "What should I choose?"; it
 will slowly take over Treekit's job; Treekit itself is left alone).
@@ -735,3 +747,10 @@ All bridge-mapping questions are decided.
 - `.claude/launch.json` has a second dev server, `linkkit-2` on port
   5182, for when another chat already runs `linkkit` on 5181 (each port
   has its own localStorage, so test maps never mix).
+- Step 19 (owner asked for Boardkit's 7-day backup reminder dot, also
+  where automatic backup can't run). Owner decision: the dot shows at
+  once when there has never been a backup (no 7-day grace from the first
+  visit: the risk starts with the first real map), except while only the
+  untouched first-visit example exists. Like Boardkit: an export resets
+  the clock (so "Backing up to … · last" can show an export's time), and
+  restoring from a file doesn't count as a backup.

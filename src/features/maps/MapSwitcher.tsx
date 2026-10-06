@@ -19,12 +19,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
-import { backupNeedsAttention } from "../../domain/autoBackup";
+import { backupNeedsAttention, backupStopped } from "../../domain/autoBackup";
 import { useBackupStore } from "../../store/backupStore";
 import { useMapStore } from "../../store/mapStore";
 import { BackupMenuItems } from "./BackupMenuItems";
 import { exportAllMaps, restoreFrom } from "./backupFile";
 import styles from "./MapSwitcher.module.css";
+import { useNow } from "./useNow";
 
 /**
  * The open map's name (click to rename) plus a menu to switch to another
@@ -61,9 +62,22 @@ export function MapSwitcher() {
   // Empty: only the untouched starter example. Only then is restoring
   // offered, so a backup is never mixed into maps already in use.
   const empty = useMapStore((s) => s.maps.length === 1 && s.maps[0].id === s.starter);
-  // Automatic backup has stopped and needs a click: a dot on the button,
-  // so it never stops silently.
-  const backupStopped = useBackupStore((s) => backupNeedsAttention(s.status));
+  // A dot on the button when backups need the user: automatic backup has
+  // stopped (it never stops silently), or, without it, nothing has been
+  // backed up for 7 days. The minute clock lets the dot appear on a page
+  // left open.
+  const backupStatus = useBackupStore((s) => s.status);
+  const lastBackupAt = useBackupStore((s) => s.lastBackupAt);
+  const now = useNow(60_000);
+  const stopped = backupStopped(backupStatus);
+  const attention = backupNeedsAttention({ status: backupStatus, lastBackupAt, now, empty });
+  const triggerNote = stopped
+    ? "automatic backup has stopped"
+    : !attention
+      ? null
+      : lastBackupAt === null
+        ? "no backup yet"
+        : "no backup for over 7 days";
   const filePicker = useRef<HTMLInputElement>(null);
   const [report, setReport] = useState<{ title: string; text: string } | null>(null);
 
@@ -102,11 +116,11 @@ export function MapSwitcher() {
           <button
             type="button"
             className={styles.trigger}
-            aria-label={backupStopped ? "Switch map (automatic backup has stopped)" : "Switch map"}
-            title={backupStopped ? "Your maps · automatic backup has stopped" : "Your maps"}
+            aria-label={triggerNote ? `Switch map (${triggerNote})` : "Switch map"}
+            title={triggerNote ? `Your maps · ${triggerNote}` : "Your maps"}
           >
             <ChevronDown size={14} />
-            {backupStopped && <span className={styles.dot} />}
+            {attention && <span className={styles.dot} />}
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent

@@ -4,14 +4,16 @@ import { DropdownMenuItem, DropdownMenuLabel } from "../../components/ui/dropdow
 import { formatBackupAge } from "../../domain/autoBackup";
 import { useBackupStore } from "../../store/backupStore";
 import { chooseBackupFolder, isAutoBackupSupported, resumeBackups, turnOffAutoBackup } from "./autoBackup";
+import { exportAllMaps } from "./backupFile";
 
 /**
- * The map menu's automatic-backup items (Boardkit's `BackupMenuItems`): one
- * line saying how backups stand, with the action that fits -- "Resume
- * backups" after a restart, "Choose folder…" when the folder is gone -- plus
- * "Automatic backup…" and "Turn off automatic backup". Renders nothing
- * where the browser can't write to a folder (Firefox, Safari): there
- * "Export all maps" is the backup.
+ * The map menu's backup items (Boardkit's `BackupMenuItems`): one line
+ * saying how backups stand, with the action that fits -- "Back up now" (an
+ * export) while automatic backup isn't running, "Resume backups" after a
+ * restart, "Choose folder…" when the folder is gone -- plus "Automatic
+ * backup…" and "Turn off automatic backup" where the browser can write to
+ * a folder. In Firefox and Safari only the first line shows: there the
+ * export is the backup, and the line is the 7-day reminder's way to it.
  *
  * Menu content mounts when the menu opens, so the age is read fresh each
  * time it opens, without a ticking clock.
@@ -23,11 +25,16 @@ export function BackupMenuItems() {
   const note = useBackupStore((s) => s.note);
   // Read once as the menu opens (its content mounts then).
   const [openedAt] = useState(() => Date.now());
-  if (!isAutoBackupSupported()) return null;
   const age = lastBackupAt === null ? null : formatBackupAge(lastBackupAt, openedAt);
+  const supported = isAutoBackupSupported();
 
   return (
     <>
+      {(status === "off" || status === "unsupported") && (
+        <DropdownMenuItem onSelect={exportAllMaps}>
+          Last backup: {age ?? "never"} · <span className="font-medium">Back up now</span>
+        </DropdownMenuItem>
+      )}
       {status === "active" && (
         <DropdownMenuLabel className="font-normal">
           Backing up to “{folderName}” · last {age ?? "not yet"}
@@ -44,10 +51,12 @@ export function BackupMenuItems() {
         </DropdownMenuItem>
       )}
       {note && <DropdownMenuLabel className="font-normal">{note}</DropdownMenuLabel>}
-      <DropdownMenuItem onSelect={() => void chooseBackupFolder()}>
-        {status === "off" ? "Automatic backup…" : "Back up to another folder…"}
-      </DropdownMenuItem>
-      {status !== "off" && status !== "unsupported" && (
+      {supported && (
+        <DropdownMenuItem onSelect={() => void chooseBackupFolder()}>
+          {status === "off" ? "Automatic backup…" : "Back up to another folder…"}
+        </DropdownMenuItem>
+      )}
+      {supported && status !== "off" && status !== "unsupported" && (
         <DropdownMenuItem onSelect={() => void turnOffAutoBackup()}>Turn off automatic backup</DropdownMenuItem>
       )}
     </>
