@@ -474,36 +474,34 @@ box's parent, and back. Where it doesn't fit:
   that removes a list trashes the list with its cards (Boardkit already
   keeps a trashed list whole), and they come back together. A trashed
   card disappears from the tree and returns to the same spot when
-  restored. Only emptying the trash deletes for good
-
-Found while recording these, from Boardkit's code (`domain/trash.ts`):
-there is no 30-day trash. Boardkit's trash keeps the last 20 cards and
-the last 10 lists, and the oldest entry is forgotten (erased for good)
-when it's full. So "only the trash deletes for good" isn't true today:
-a 21st delete silently erases the oldest card.
+  restored
+- Deletes go to the trash. Nothing is erased permanently except by
+  emptying the trash or confirming the overflow warning. Built in
+  Boardkit v0.0.76: its trash holds 200 cards and 30 lists per board, and
+  a delete into a full trash asks first, naming the oldest item it would
+  erase. (A trashed list counts once against the list limit; its cards
+  don't count against the card limit.)
 
 **Still open for the owner:**
-1. Boardkit's trash limit: switch it to a 30-day trash (or no limit)
-   before step 3, so a delete from Linkkit can't push something out?
-2. Linkkit has no trash, and "trash" is listed as not in this build.
+1. Linkkit has no trash, and "trash" is listed as not in this build.
    For linked maps it needs at least somewhere to see and restore
    trashed boxes: OK to add, and is Boardkit's trash panel enough?
-3. Two names: a tree has a map name ("Untitled tree") and a start box
+2. Two names: a tree has a map name ("Untitled tree") and a start box
    name (the question). A board has one name. Which one is the board's?
-4. A box with two parents: within three levels, a card can still have
+3. A box with two parents: within three levels, a card can still have
    two lists as parents. Refuse that in a linked map, or pick a home
    list (how)?
-5. "Link to Boardkit" on a tree that's already too deep or has two
+4. "Link to Boardkit" on a tree that's already too deep or has two
    parents: refuse with a message, or offer to fix?
-6. Should Linkkit store sibling order (and Tidy up follow it)?
-7. Pregame / postgame text, divider and note cards: hidden in Linkkit
+5. Should Linkkit store sibling order (and Tidy up follow it)?
+6. Pregame / postgame text, divider and note cards: hidden in Linkkit
    but kept, or shown somehow?
-8. Does Boardkit show keep / maybe / cut, and do cards under a cut box
+7. Does Boardkit show keep / maybe / cut, and do cards under a cut box
    look cut there?
-9. OK for collapsed, "hide cut" and box colour to stay per-app, unlike
+8. OK for collapsed, "hide cut" and box colour to stay per-app, unlike
    Treekit where collapsed is saved on the node?
-10. Undo: each app undoes its own copy; after step 3, may Linkkit's
-    undo take back a change made in Boardkit meanwhile?
+9. Undo: each app undoes its own copy; after step 3, may Linkkit's
+   undo take back a change made in Boardkit meanwhile?
 
 ## Open problems
 
