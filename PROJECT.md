@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-06, v0.0.22 (leave-page warning while saves fail)_
+_Last updated: 2026-10-06, v0.0.22 (bridge decisions; trash planned as step 17)_
 
 ## What it is
 
@@ -377,6 +377,16 @@ turning a connections map into a tree.
     for by the owner ahead of 14b, so 14b is still next. Later, not now:
     a data store shared with Boardkit, and a canvas holding live pieces
     of these apps)
+17. A trash for Linkkit, before the bridge's shared store (bridge step
+    3): the bridge decisions below promise that nothing is erased except
+    by emptying the trash or confirming its overflow warning, and step 3
+    is when deletes start crossing between the apps. Ported from
+    Treekit's trash but wider (see "Trash in Linkkit" under Decided):
+    deleted boxes and branches with their arrows, and deleted maps, with
+    an overflow warning like Boardkit's. Linked maps later send deletes
+    to Boardkit's trash instead. (Owner asked for it "right after
+    Linkkit's automatic backups", but Linkkit has no backups step; if
+    one is wanted, it goes before this)
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 
@@ -521,16 +531,34 @@ box's parent, and back. Where it doesn't fit:
   means deleting arrows or flattening branches, which is the owner's
   call. Once fixed, the link works
 
+- Tree maps store sibling order: each box keeps an ordered list of its
+  next steps (as Treekit does), and Tidy up follows it (a change to
+  `layout.ts` only). Boardkit's card order and column order map onto it
+  one to one, so reordering means the same in both apps. Connections maps
+  keep their computed order. Needed before step 3; best before 14b-14d
+- Boardkit shows keep / maybe / cut as a small badge on a card, and
+  anything under a cut box looks cut (computed, never stored; a cut list
+  fades all its cards). Both apps use one definition of "looks cut". This
+  is a new feature in Boardkit, not only a display of existing data
+- Collapsed, "hide cut" and box colour stay per-app. Linkkit keeps
+  collapse outside the shared node (as Boardkit keeps collapsed lists
+  outside its lists), and it stays undoable in Linkkit, because there it
+  changes the layout (Tidy up places only what shows)
+
 **Still open for the owner:**
-1. Should Linkkit store sibling order (and Tidy up follow it)?
-2. Pregame / postgame text, divider and note cards: hidden in Linkkit
-   but kept, or shown somehow?
-3. Does Boardkit show keep / maybe / cut, and do cards under a cut box
-   look cut there?
-4. OK for collapsed, "hide cut" and box colour to stay per-app, unlike
-   Treekit where collapsed is saved on the node?
-5. Undo: each app undoes its own copy; after step 3, may Linkkit's
-   undo take back a change made in Boardkit meanwhile?
+1. Pregame / postgame text, divider and note cards: kept and hidden in
+   Linkkit (proposed). Still to decide: when Linkkit reorders cards, what
+   keeps hidden dividers in place? Proposed: dividers never move; a
+   moved card goes directly after the card it follows in Linkkit (if it
+   is first, directly before the card that comes next; in an otherwise
+   empty list, at the end), so it lands in its visible neighbour's
+   section
+2. Undo across apps: each app undoes only its own changes, and refuses
+   when the item changed in the other app since (proposed). Still to
+   decide: what happens to the stack after a refusal? Proposed: stop.
+   The refused step and everything older are dropped (with a message
+   naming the conflict); redo keeps the steps undone before it. Skipping
+   could produce combinations that never existed
 
 ## Open problems
 
