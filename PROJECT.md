@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-06, v0.0.22 (bridge mapping fully decided; backups and trash planned as steps 17-18)_
+_Last updated: 2026-10-06, v0.0.22 (field mapping current; backups (17) next, before 14b)_
 
 ## What it is
 
@@ -342,6 +342,20 @@ The first build, in order:
 The first build is complete. Small things noticed but left alone (see
 Open problems): arrow labels can't be edited from the keyboard.
 
+17. Automatic backups for Linkkit (done before 14b by the owner's
+    choice: it protects data while tree mode is built, and touches
+    nothing tree mode does; listed here so it comes first), before the
+    bridge's shared store:
+    today its only safety net is "Export all maps" by hand. Copied from
+    Boardkit's (`../Projects/boardkit/plans/automatic-backup.md`,
+    `src/features/board/autoBackup.ts`): "Automatic backup…" in the map
+    menu picks a folder (ideally a synced one); a few seconds after
+    changes stop, a backup in the "Export all maps" format is written
+    there, so "Restore all maps from a file" reads it; the last 20 are
+    kept; after a browser restart one click resumes them, and they never
+    stop silently. Chrome and Edge only (Firefox and Safari can't write
+    to folders), so the option is hidden elsewhere
+
 Tree mode (a new map kind for decisions, "What should I choose?"; it
 will slowly take over Treekit's job; Treekit itself is left alone).
 Not in this version: notes, fork a branch, Mermaid import / export,
@@ -378,16 +392,6 @@ turning a connections map into a tree.
     for by the owner ahead of 14b, so 14b is still next. Later, not now:
     a data store shared with Boardkit, and a canvas holding live pieces
     of these apps)
-17. Automatic backups for Linkkit, before the bridge's shared store:
-    today its only safety net is "Export all maps" by hand. Copied from
-    Boardkit's (`../Projects/boardkit/plans/automatic-backup.md`,
-    `src/features/board/autoBackup.ts`): "Automatic backup…" in the map
-    menu picks a folder (ideally a synced one); a few seconds after
-    changes stop, a backup in the "Export all maps" format is written
-    there, so "Restore all maps from a file" reads it; the last 20 are
-    kept; after a browser restart one click resumes them, and they never
-    stop silently. Chrome and Edge only (Firefox and Safari can't write
-    to folders), so the option is hidden elsewhere
 18. A trash for Linkkit, before the bridge's shared store (bridge step
     3): the bridge decisions below promise that nothing is erased except
     by emptying the trash or confirming its overflow warning, and step 3
@@ -431,33 +435,54 @@ new fields land on the right side. Checked against both apps' code
 - `collapsedLists` is kept outside the lists so undo never touches it:
   the same split proposed below for Linkkit's collapse
 
-| Linkkit field | Class | Boardkit | Conflict |
-|---|---|---|---|
-| map.id | SHARED | board id (`BoardSummary.id`) | – |
-| map.name | SHARED | board name (`BoardSummary.name`) | stored in Boardkit's board list, not the board |
-| map.kind | LINKKIT-ONLY | none | a connections map (loops, many links) has no board shape |
-| map.page, direction, arrowLength | VIEW STATE | none | saved and undoable in Linkkit today; must leave the shared record |
-| node.id | SHARED | `ListId` or `CardId` | which one depends on depth (see structure) |
-| node.name | SHARED | list or card `title` | – |
-| node.x, y | VIEW STATE | none | – |
-| node.color | VIEW STATE | none (`color`, `highlight` stay Boardkit's) | same palette names, so carrying it over would be easy if wanted |
-| tree link, box's first parent | SHARED | which `cardOrder` entry holds the card | – |
-| tree link, second parent | LINKKIT-ONLY | none | a card is in one `cardOrder` entry |
-| connections link | LINKKIT-ONLY | none | – |
-| link.label ("needs"; 14b "if yes") | LINKKIT-ONLY | none | lost in Boardkit, fine |
-| sibling order (doesn't exist) | SHARED, needed | `listOrder`, `cardOrder` | Tidy up would have to follow it |
-| 14c status keep/maybe/cut | SHARED (proposed) | none yet (new card field) | see below |
-| 14c hide cut branches | VIEW STATE | none | Treekit saves it on the board |
-| 14d collapsed | VIEW STATE | none (`collapsedLists` is Boardkit's own) | Treekit saves it on the node, undoable; here it must sit beside the shared node |
-| 14e repair | stores nothing new | none | originals stay in local `linkkit:damaged:*` |
-| registry, active, starter, align, undo, selection, clipboard | VIEW STATE | none | – |
-| delete (for good) | – | `trash`, `trashedLists` | see structure |
+**Field mapping** (current, with every decision below applied; only
+linked tree maps are shared). Depth counts arrows from the start box:
+the start box is the board, depth 1 boxes are lists, depth 2 boxes are
+cards, and nothing goes deeper in a linked map.
 
-| Boardkit field | Class | Linkkit | Conflict |
-|---|---|---|---|
-| card `description`, `postgameDescription` | SHARED content Linkkit lacks | none (notes not in scope) | Linkkit must keep them when it writes |
-| card `kind` divider / note | SHARED content Linkkit lacks | none | no box equivalent |
-| list `color`, `icon`, `width`, numbering fields; card `color`, `numberEmphasis`, `highlight`, `highlightStyle`; `background`, `collapsedLists` | Boardkit view state | none | – |
+Shared (one value, both apps read and write it):
+
+| Linkkit | Boardkit | Notes |
+|---|---|---|
+| `map.id` | board id (`BoardSummary.id`) | |
+| start box `name` | board name (`BoardSummary.name`) | while linked, `map.name` follows it: one name |
+| depth 1 box `id`, `name` | list `id`, `title` | |
+| depth 2 box `id`, `name` | card `id`, `title` | |
+| a depth 2 box's arrow in | which `cardOrder` entry holds the card | moving a card to another list = changing that arrow |
+| sibling order (new, tree maps: each box's ordered next steps) | `listOrder` (start box's next steps), `cardOrder` (a list's next steps) | Linkkit's order is `cardOrder` with dividers and notes left out; divider rule under Decided |
+| status keep / maybe / cut (new, 14c) | new `status` on lists and cards | new in Boardkit too (badge; "looks cut" is computed, never stored) |
+| a deleted box or branch | `trash`, `trashedLists` | one trash for linked maps; Linkkit offers "Open trash in Boardkit" |
+
+Linkkit-only (content Boardkit has no place for):
+
+| Linkkit | Notes |
+|---|---|
+| arrow `label` ("needs"; in trees "if yes", 14b) | Boardkit has nothing for the tie between a list and a card; the label stays in Linkkit |
+| `map.kind`, and every connections map | only trees can be linked |
+| the link to a board (new map field, not built) | which board a map is linked to |
+| a second way into a box | refused in a linked map; fine in unlinked trees |
+
+Boardkit-only content (Linkkit keeps it untouched and doesn't show it):
+
+| Boardkit | Notes |
+|---|---|
+| card `description` ("pregame thots"), `postgameDescription` ("postgame thots") | Linkkit never removes or changes them |
+| divider and note cards (card `kind`) | stay in `cardOrder`, never move as a side effect of a Linkkit move |
+
+View state (each app's own, never shared):
+
+| App | Fields |
+|---|---|
+| Linkkit | box `x`, `y`, `color`; `page`, `direction`, `arrowLength`; collapse (14d, kept outside the box, undoable); "hide cut" (14c); `linkkit:align`, the map list, active map, selection, undo, clipboard |
+| Boardkit | list `color`, `icon`, `width`, numbering fields; card `color`, `numberEmphasis`, `highlight`, `highlightStyle`; `background`, `collapsedLists`; the board list's order, active board, undo |
+
+One point the mapping leaves open, for 14b: when a card moves to another
+list (in either app), its arrow in gets a new start. Does a label on
+that arrow ("if yes") stay, or is it cleared since it described the old
+step? Proposed: cleared, since a label describes one particular step.
+
+How the mapping was worked out (kept for the reasoning; the table above
+is what holds):
 
 **Structure.** Proposed: start box → board, its next steps → lists,
 their next steps → cards. Moving a card to another list = changing the
