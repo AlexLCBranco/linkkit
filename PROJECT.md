@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-06, v0.0.21 (switching maps is safe while saves fail)_
+_Last updated: 2026-10-06, v0.0.22 (leave-page warning while saves fail)_
 
 ## What it is
 
@@ -107,7 +107,8 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   safe: a map whose save failed reopens with its real content (kept in
   memory until it saves). A new map joins the saved list only once its
   own content is stored, so a failed first save never leaves the list
-  naming nothing
+  naming nothing. While it shows, closing or reloading the tab asks first
+  (the browser's "Leave site?" prompt; not on mobile Safari)
 - A map the saved list still names but whose content isn't in storage
   (its save failed and the tab closed before "Try again") is taken off
   the list as Linkkit opens, and a banner names it instead of it

@@ -1,7 +1,29 @@
+import { useEffect } from "react";
+
 import { saveOpenMapNow } from "../../store/autoSave";
 import { useSaveHealth } from "../../store/saveHealth";
 import { exportAllMaps } from "./backupFile";
 import styles from "./SaveFailedBanner.module.css";
+
+/**
+ * While saves fail, closing or reloading the tab asks first (the browser's
+ * own "Leave site?" prompt): the banner only helps while someone is looking
+ * at the tab, and closing it is the moment unsaved work is lost. Removed as
+ * soon as saves succeed. Browsers show it only after the page has been
+ * clicked or typed in, and mobile Safari never shows it.
+ */
+function useLeaveWarning(active: boolean): void {
+  useEffect(() => {
+    if (!active) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      // Older browsers need a returnValue set to show the prompt.
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [active]);
+}
 
 /**
  * Shown while saving fails (browser storage full or blocked). Not a toast:
@@ -14,6 +36,7 @@ import styles from "./SaveFailedBanner.module.css";
  */
 export function SaveFailedBanner() {
   const failing = useSaveHealth((s) => s.failing.length > 0);
+  useLeaveWarning(failing);
   if (!failing) return null;
 
   return (
