@@ -143,10 +143,11 @@ function MapCanvasInner() {
   // Labels are not measured by React Flow: each reports its own size.
   // Tidy up reads them too, to leave every label room on its arrow.
   const [labelSizes, setLabelSizes] = useState<ReadonlyMap<LinkId, Size>>(() => new Map());
+  // The ref is updated the moment a label reports, not after the next
+  // render: a tree re-tidies right after a label changes (see
+  // settleRequest), and must see the new size, or the gap a removed label
+  // leaves behind.
   const labelSizesRef = useRef(labelSizes);
-  useEffect(() => {
-    labelSizesRef.current = labelSizes;
-  }, [labelSizes]);
 
   useEffect(() => {
     if (!needsTidy || !allMeasured || !screen) return;
@@ -291,14 +292,14 @@ function MapCanvasInner() {
   );
 
   const onLabelSize = useCallback((id: LinkId, size: Size | null) => {
-    setLabelSizes((prev) => {
-      const old = prev.get(id);
-      if (size ? old && old.width === size.width && old.height === size.height : !old) return prev;
-      const next = new Map(prev);
-      if (size) next.set(id, size);
-      else next.delete(id);
-      return next;
-    });
+    const prev = labelSizesRef.current;
+    const old = prev.get(id);
+    if (size ? old && old.width === size.width && old.height === size.height : !old) return;
+    const next = new Map(prev);
+    if (size) next.set(id, size);
+    else next.delete(id);
+    labelSizesRef.current = next;
+    setLabelSizes(next);
   }, []);
 
   // Every arrow's line, then every label's spot, worked out together here

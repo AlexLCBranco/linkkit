@@ -382,6 +382,27 @@ describe("map store (tree)", () => {
     expect(useMapStore.getState().map).toEqual(before);
   });
 
+  it("labels a tree arrow and makes room for it, in one undo step with the room", async () => {
+    const useMapStore = await treeStore();
+    const before = useMapStore.getState().map;
+    const settle = useMapStore.getState().settleRequest;
+    const link = Object.values(before.links)[0];
+    useMapStore.getState().setLinkLabel(link.id, "if yes");
+    expect(useMapStore.getState().map.links[link.id].label).toBe("if yes");
+    expect(useMapStore.getState().settleRequest).toBe(settle + 1);
+    // The canvas's re-tidy joins the label's step.
+    useMapStore.getState().nudgeBoxes(new Map([[link.to, { x: 999, y: 999 }]]));
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map).toEqual(before);
+    // Emptied, the label goes away again; unchanged, nothing re-tidies.
+    useMapStore.getState().redo();
+    useMapStore.getState().setLinkLabel(link.id, "  ");
+    expect(useMapStore.getState().map.links[link.id].label).toBe("");
+    const now = useMapStore.getState().settleRequest;
+    useMapStore.getState().setLinkLabel(link.id, "");
+    expect(useMapStore.getState().settleRequest).toBe(now);
+  });
+
   it("drops a next step left without a name, arrow and all", async () => {
     const useMapStore = await treeStore();
     const before = useMapStore.getState().map;

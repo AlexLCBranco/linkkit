@@ -90,7 +90,7 @@ path.line {
   color: var(--ink-light);
 }
 
-/* ---- A tree's arrow, which has no label ---- */
+/* ---- An arrow with no label (a tree's, until one is typed) ---- */
 
 /* The invisible, wider line the pointer finds the arrow by. React Flow
    turns the mouse off on edges it doesn't handle; this path takes it back. */
@@ -101,8 +101,8 @@ path.hit {
   pointer-events: stroke;
 }
 
-/* Just the ×, in the arrow's middle, shown while the pointer is on the
-   arrow or on the × itself. */
+/* A small spot in the arrow's middle, with the chip floating over it: "+ label" and the ×, shown while
+   the pointer is on the arrow or on the chip. */
 .bare {
   position: absolute;
   width: var(--delete-button-size);
@@ -110,12 +110,48 @@ path.hit {
   pointer-events: all;
 }
 
-.bare .delete {
-  inset: 0;
+.chip {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--ease-standard);
 }
 
-.bare[data-hot] .delete,
-.bare:hover .delete {
+.bare[data-hot] .chip,
+.bare:hover .chip,
+.bare:focus-within .chip {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.addLabel {
+  padding: 0 var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--delete-button-size);
+  cursor: pointer;
+}
+
+.addLabel:hover,
+.addLabel:focus-visible {
+  color: var(--text-primary);
+}
+
+/* In the chip the × sits in line, always shown with it. */
+.chip .delete {
+  position: static;
   opacity: 1;
 }
 

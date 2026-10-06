@@ -41,9 +41,12 @@ export type LinkFlowEdge = Edge<LinkEdgeData, "link">;
  * Mouse (as in the prototype): click the label to type a new one (left
  * empty, it goes back to "needs"); the × on its corner deletes the arrow.
  *
- * A tree's arrows have no label: no pill, just a small × in the arrow's
- * middle that shows while the pointer is on the arrow. An arrow the rules
- * won't let go (a tree box's only way in) shows no × at all.
+ * An arrow without a label (a tree's, until one is typed) has no pill.
+ * Pointing at it shows a small chip in its middle: "+ label" opens a field
+ * to type one ("if yes"), and the × deletes the arrow -- except one the
+ * rules won't let go (a tree box's only way in), which shows no ×. The
+ * chip is not measured, so it never changes how much room Tidy up leaves
+ * on the arrow: only a real label does.
  *
  * Subscribes narrowly: only to its own label text, its own highlight and
  * whether its label is being typed in.
@@ -58,7 +61,9 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
   const setLinkLabel = useMapStore((s) => s.setLinkLabel);
   const deleteLink = useMapStore((s) => s.deleteLink);
   const deletable = useMapStore((s) => canDeleteLink(s.map, linkId));
-  // The pointer is on the line itself (a label-less arrow shows its × then).
+  const kind = useMapStore((s) => s.map.kind);
+  // The pointer is on the line itself (a label-less arrow shows its chip
+  // then).
   const [hot, setHot] = useState(false);
 
   const onLabelSize = data?.onLabelSize;
@@ -112,7 +117,7 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
         data-highlight={highlight}
         d={`M${tip.x} ${tip.y}L${left.x} ${left.y}L${right.x} ${right.y}Z`}
       />
-      {!hasPill && deletable && (
+      {!hasPill && (
         // A wider, invisible line to point at.
         <path
           className={styles.hit}
@@ -123,20 +128,36 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
       )}
       <EdgeLabelRenderer>
         {!hasPill ? (
-          deletable && (
-            <div
-              ref={measure}
-              className={`${styles.bare} nodrag nopan`}
-              data-hot={hot || undefined}
-              data-highlight={highlight}
-              style={spot}
-              onDoubleClick={(e) => e.stopPropagation()}
-            >
+          // Keyed apart from the pill, so switching between them swaps the
+          // element and the pill reports its size gone at once (a re-tidy
+          // right after a label is emptied must not keep its room). The
+          // spot is not measured: only a real label takes room on an arrow.
+          <div
+            key="chip"
+            className={`${styles.bare} nodrag nopan`}
+            data-hot={hot || undefined}
+            data-highlight={highlight}
+            style={spot}
+            onDoubleClick={(e) => e.stopPropagation()}
+          >
+            <div className={styles.chip}>
+              <button
+                type="button"
+                className={styles.addLabel}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  startEditing({ kind: "link", id: linkId });
+                }}
+                title="Give this arrow a label"
+              >
+                + label
+              </button>
               {deleteButton}
             </div>
-          )
+          </div>
         ) : (
           <div
+            key="pill"
             ref={measure}
             // React Flow's opt-out classes: a press here is the label's own.
             className={`${styles.label} nodrag nopan`}
@@ -153,7 +174,7 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
                 editing
                 onCommit={(next) => setLinkLabel(linkId, next)}
                 onDone={stopEditing}
-                placeholder="needs"
+                placeholder={kind === "tree" ? "if yes" : "needs"}
                 ariaLabel="Arrow label"
               />
             ) : (

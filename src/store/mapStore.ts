@@ -115,7 +115,8 @@ export interface MapState {
       making its own. `null`: the next edit is a step of its own. */
   readonly stepKey: string | null;
   /** Bumped when a tree has grown (a next step, a second parent, a new
-      step's name typed): the canvas re-tidies the tree once every box is
+      step's name typed, an arrow label typed or changed):
+      the canvas re-tidies the tree once every box is
       measured, and the boxes glide to make room. That tidy joins the latest
       undo step, so adding a step and making room for it undo together. */
   readonly settleRequest: number;
@@ -544,7 +545,14 @@ export const useMapStore = create<MapState>()((set, get) => ({
     return true;
   },
   setConnecting: (connecting) => set({ connecting }),
-  setLinkLabel: (id, label) => set((s) => commit(s, setLinkLabel(s.map, id, label))),
+  // A tree makes room for a new or changed label at once (the label and
+  // the room are one undo step, see settleRequest), so it never covers a box.
+  setLinkLabel: (id, label) =>
+    set((s) => {
+      const next = setLinkLabel(s.map, id, label);
+      const settle = next !== s.map && next.kind === "tree" ? 1 : 0;
+      return { ...commit(s, next), settleRequest: s.settleRequest + settle };
+    }),
   deleteLink: (id) => set((s) => (canDeleteLink(s.map, id) ? commit(s, deleteLink(s.map, id)) : {})),
 
   newMap: () => {

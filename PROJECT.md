@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-06, v0.0.25 (sibling order in trees, step 14a2)_
+_Last updated: 2026-10-06, v0.0.26 (arrow labels in trees, step 14b)_
 
 ## What it is
 
@@ -258,9 +258,16 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     through it; boxes another step also leads to stay. If more than the
     box itself would go, a dialog asks first and says how many. One undo
     step
-  - Arrows have no label (no "needs" pill). Pointing at an arrow shows a
-    small × in its middle to delete it, except on a box's only way in
-    (that would leave a loose box), which shows none
+  - Arrows start without a label (no "needs" pill). Pointing at one
+    shows a small chip in its middle: "+ label" opens a field to type one
+    ("if yes"; Enter or clicking away keeps it, left empty nothing is
+    added), and a × deletes the arrow, except on a box's only way in
+    (that would leave a loose box), which has none. A labelled arrow shows
+    its pill: click it to change the label, emptied it goes away again,
+    and the × sits on its corner where allowed. A new, changed or emptied
+    label re-tidies the tree so labels never cover a box (rows get as
+    much room as the tallest label needs); the label and the room are one
+    undo step. The chip itself never takes room
   - Click a box: teal is every way back to the start (through both
     parents where there are two), orange is everything that comes after
     it, the rest fades. The status line says e.g. "Live near the office ·
@@ -396,7 +403,7 @@ turning a connections map into a tree.
     - a2. ~~Sibling order (decided under Bridge mapping): each box keeps
       its next steps in order, Tidy up follows it~~ (done; done before
       14b because 14b-14d and the shared store build on it)
-    - b. Arrow labels in trees. OK'd by the owner: hovering an arrow
+    - b. ~~Arrow labels in trees~~ (done). OK'd by the owner: hovering an arrow
       shows a small chip in its middle with the × (where allowed) and
       "+ label"; clicking "+ label" opens a field to type ("if yes");
       Enter or clicking away keeps it, left empty nothing is added. A
@@ -783,3 +790,11 @@ All bridge-mapping questions are decided.
   a box with two parents still sits under the middle of both; no way to
   reorder by hand yet (none was asked for; the bridge needs only that
   Boardkit's reorders show here).
+- Step 14b (arrow labels in trees, design OK'd by the owner). Choices
+  made without asking, easy to change: the field's placeholder reads "if
+  yes"; the hover chip no longer takes room on the arrow (before, a
+  deletable arrow's × counted as a 16px label in Tidy up; now only real
+  labels do, so every tree is spaced the same); a moved card keeps its
+  label, but there is no "move" in Linkkit yet, and the two-step
+  workaround (a second way in, then delete the first) loses the first
+  arrow's label.
