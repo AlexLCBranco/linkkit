@@ -10,9 +10,11 @@ import type {
   MapNode,
   NodeId,
   PaletteColor,
+  SiblingOrder,
   Size,
 } from "./types";
 import { clampArrowLength } from "./map";
+import { isOrdered, normalizeOrder, sameOrder } from "./order";
 import { ARROW_LENGTH_PRESETS, DEFAULT_LINK_LABELS, LAYOUT_DIRECTIONS, MAP_KINDS, PALETTE_COLORS } from "./types";
 
 /**
@@ -33,12 +35,22 @@ export interface PersistedMap {
 }
 
 export function serializeMap(map: LinkMap): PersistedMap {
-  const { id, name, kind, page, direction, arrowLength, nodes, links } = map;
+  const { id, name, kind, page, direction, arrowLength, nodes, links, order } = map;
   // Copies out exactly the content fields, so nothing else that happens to
   // ride along on the object can leak into storage.
   return {
     version: SCHEMA_VERSION,
-    map: { id, name, kind, page: { width: page.width, height: page.height }, direction, arrowLength, nodes, links },
+    map: {
+      id,
+      name,
+      kind,
+      page: { width: page.width, height: page.height },
+      direction,
+      arrowLength,
+      nodes,
+      links,
+      order,
+    },
   };
 }
 
@@ -138,7 +150,7 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
   // one arrow at a time (every box looks like a start before its arrow).
   const rawLinks: Record<string, unknown> = isObject(raw.links) ? raw.links : fix({});
   const links: Record<LinkId, Link> = {};
-  const map: LinkMap = { id: raw.id as MapId, name, kind, page, direction, arrowLength, nodes, links };
+  const map: LinkMap = { id: raw.id as MapId, name, kind, page, direction, arrowLength, nodes, links, order: {} };
   for (const [key, link] of Object.entries(rawLinks)) {
     if (!isObject(link) || typeof link.from !== "string" || typeof link.to !== "string") {
       fix(null);
@@ -158,5 +170,36 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
     links[id] = { id, from, to, label };
   }
 
-  return fixes === 0 ? { status: "ok", map } : { status: "repaired", map, fixes };
+  // Sibling order (trees only). A tree saved before it existed has none: its
+  // next steps take the order they show on the page, which is not damage.
+  // A stored order is cleaned against the arrows (a box listed under a
+  // parent that doesn't lead to it is dropped, one missing is added where
+  // it sits); any change there counts as a repair.
+  let order: SiblingOrder = {};
+  if (isOrdered(map)) {
+    const stored = readOrder(raw.order, fix);
+    order = normalizeOrder({ ...map, order: stored }, direction);
+    if (raw.order !== undefined && !sameOrder(order, stored)) fix(null);
+  } else if (raw.order !== undefined && !(isObject(raw.order) && Object.keys(raw.order).length === 0)) {
+    fix(null);
+  }
+
+  const read: LinkMap = { ...map, order };
+  return fixes === 0 ? { status: "ok", map: read } : { status: "repaired", map: read, fixes };
+}
+
+/** The saved order's well-formed entries (lists of ids); anything else is
+    reported to `fix` and left out. Missing entirely is fine (older save). */
+function readOrder(raw: unknown, fix: <T>(value: T) => T): SiblingOrder {
+  if (raw === undefined) return {};
+  if (!isObject(raw)) return fix({});
+  const order: Record<NodeId, readonly NodeId[]> = {};
+  for (const [parent, list] of Object.entries(raw)) {
+    if (!Array.isArray(list) || !list.every((c) => typeof c === "string")) {
+      fix(null);
+      continue;
+    }
+    order[parent as NodeId] = list as NodeId[];
+  }
+  return order;
 }

@@ -87,6 +87,10 @@ export interface Link {
   readonly label: string;
 }
 
+/** Each box's next steps in order, keyed by the box (see `domain/order.ts`).
+    A box with no next steps has no entry. */
+export type SiblingOrder = Readonly<Record<NodeId, readonly NodeId[]>>;
+
 /** One whole map: everything that is saved and undone together. */
 export interface LinkMap {
   readonly id: MapId;
@@ -104,4 +108,7 @@ export interface LinkMap {
   readonly arrowLength: ArrowLength;
   readonly nodes: Readonly<Record<NodeId, MapNode>>;
   readonly links: Readonly<Record<LinkId, Link>>;
+  /** Trees only: each box's next steps in order, which Tidy up follows.
+      Empty in a connections map (its order comes from Tidy up). */
+  readonly order: SiblingOrder;
 }

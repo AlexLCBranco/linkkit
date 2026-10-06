@@ -1,5 +1,6 @@
 import { createLinkId, createNodeId } from "./ids";
 import { addNode, createMap, deleteNodes } from "./map";
+import { withNextStep } from "./order";
 import { arrowsInto, canDeleteBox } from "./rules";
 import { walk } from "./reach";
 import type { Link, LinkId, LinkMap, MapId, NodeId, Point, Size } from "./types";
@@ -55,7 +56,8 @@ export function addNextStep(
   if (!map.nodes[from]) return null;
   const added = addNode(map, at, name, id);
   const link: Link = { id: linkId, from, to: id, label: DEFAULT_LINK_LABELS[map.kind] };
-  return { map: { ...added.map, links: { ...added.map.links, [linkId]: link } }, nodeId: id };
+  const order = withNextStep(added.map.order, from, id);
+  return { map: { ...added.map, links: { ...added.map.links, [linkId]: link }, order }, nodeId: id };
 }
 
 /**

@@ -1,5 +1,6 @@
 import { createLinkId, createNodeId } from "./ids";
 import { canLink, type LinkVerdict } from "./rules";
+import { isOrdered, withNextStep, withoutBoxes, withoutNextStep } from "./order";
 import type {
   ArrowLength,
   LayoutDirection,
@@ -24,7 +25,17 @@ import { ARROW_LENGTH_PRESETS, ARROW_LENGTH_RANGE, DEFAULT_LINK_LABELS } from ".
  */
 
 export function createMap(id: MapId, name: string, page: Size, kind: MapKind = "connections"): LinkMap {
-  return { id, name, kind, page, direction: "TB", arrowLength: ARROW_LENGTH_PRESETS.medium, nodes: {}, links: {} };
+  return {
+    id,
+    name,
+    kind,
+    page,
+    direction: "TB",
+    arrowLength: ARROW_LENGTH_PRESETS.medium,
+    nodes: {},
+    links: {},
+    order: {},
+  };
 }
 
 /** Tidies a typed name: runs of whitespace become one space, ends trimmed. */
@@ -64,16 +75,7 @@ export function moveNodes(map: LinkMap, positions: ReadonlyMap<NodeId, Point>): 
 }
 
 /** Deletes a box and every arrow touching it. */
-export function deleteNode(map: LinkMap, id: NodeId): LinkMap {
-  if (!map.nodes[id]) return map;
-  const nodes = { ...map.nodes };
-  delete nodes[id];
-  const links: Record<LinkId, Link> = {};
-  for (const link of Object.values(map.links)) {
-    if (link.from !== id && link.to !== id) links[link.id] = link;
-  }
-  return { ...map, nodes, links };
-}
+export const deleteNode = (map: LinkMap, id: NodeId): LinkMap => deleteNodes(map, [id]);
 
 /** Adds an arrow if the map's rules allow it; otherwise says why not. */
 export function addLink(
@@ -86,7 +88,8 @@ export function addLink(
   const verdict = canLink(map, from, to);
   if (!verdict.ok) return { map, linkId: null, verdict };
   const link: Link = { id, from, to, label: cleanName(label) || DEFAULT_LINK_LABELS[map.kind] };
-  return { map: { ...map, links: { ...map.links, [id]: link } }, linkId: id };
+  const order = isOrdered(map) ? withNextStep(map.order, from, to) : map.order;
+  return { map: { ...map, links: { ...map.links, [id]: link }, order }, linkId: id };
 }
 
 /** An emptied label goes back to the kind's default: "needs" (as in the
@@ -99,10 +102,11 @@ export function setLinkLabel(map: LinkMap, id: LinkId, label: string): LinkMap {
 }
 
 export function deleteLink(map: LinkMap, id: LinkId): LinkMap {
-  if (!map.links[id]) return map;
+  const link = map.links[id];
+  if (!link) return map;
   const links = { ...map.links };
   delete links[id];
-  return { ...map, links };
+  return { ...map, links, order: withoutNextStep(map.order, link.from, link.to) };
 }
 
 export function renameMap(map: LinkMap, name: string): LinkMap {
@@ -144,7 +148,7 @@ export function deleteNodes(map: LinkMap, ids: Iterable<NodeId>): LinkMap {
   for (const link of Object.values(map.links)) {
     if (!gone.has(link.from) && !gone.has(link.to)) links[link.id] = link;
   }
-  return { ...map, nodes, links };
+  return { ...map, nodes, links, order: withoutBoxes(map.order, gone) };
 }
 
 export function setNodesColor(map: LinkMap, ids: Iterable<NodeId>, color: PaletteColor | null): LinkMap {

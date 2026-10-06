@@ -1,3 +1,4 @@
+import { isOrdered, nextSteps } from "./order";
 import type { LayoutDirection, LinkId, LinkMap, NodeId, Point, Size } from "./types";
 
 /**
@@ -18,7 +19,8 @@ import type { LayoutDirection, LinkId, LinkMap, NodeId, Point, Size } from "./ty
  *     (longest path), so every arrow that was kept points downward and no
  *     row is ever empty.
  *  3. Order each row by the average x of the boxes above that need it, so
- *     arrows run as straight as cheaply possible. Ties keep creation order,
+ *     arrows run as straight as cheaply possible. Ties follow a tree's
+ *     sibling order (`order.ts`), then creation order,
  *     which makes the result deterministic.
  *  4. Centre every row on x = 0; rows stack from y = 0 downward.
  *
@@ -170,6 +172,16 @@ function layoutTopDown(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, options: 
     parents.set(link.to, [...(parents.get(link.to) ?? []), link.from]);
   }
 
+  // A tree's sibling order: where each box sits among its parent's next
+  // steps (its earliest place, for a box with two parents). It settles
+  // ties, so a parent's next steps line up in their stored order.
+  const rank = new Map<NodeId, number>();
+  if (isOrdered(map)) {
+    for (const id of Object.keys(map.nodes) as NodeId[]) {
+      for (const [i, child] of nextSteps(map, id).entries()) rank.set(child, Math.min(rank.get(child) ?? i, i));
+    }
+  }
+
   const positions = new Map<NodeId, Point>();
   let left = Infinity;
   let right = -Infinity;
@@ -181,7 +193,7 @@ function layoutTopDown(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, options: 
         const xs = (parents.get(id) ?? []).map((p) => positions.get(p)?.x).filter((x) => x !== undefined);
         key.set(id, xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
       }
-      row.sort((a, b) => key.get(a)! - key.get(b)!);
+      row.sort((a, b) => key.get(a)! - key.get(b)! || (rank.get(a) ?? 0) - (rank.get(b) ?? 0));
     }
     const width = row.reduce((sum, id) => sum + sizeOf(id).width, 0) + columnGap * (row.length - 1);
     const height = Math.max(...row.map((id) => sizeOf(id).height));

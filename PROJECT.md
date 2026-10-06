@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-06, v0.0.24 (backup reminder dot, step 19)_
+_Last updated: 2026-10-06, v0.0.25 (sibling order in trees, step 14a2)_
 
 ## What it is
 
@@ -268,11 +268,19 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   - Top-down / Left-right, Arrows, Align, colours, undo, Tidy up and
     saving work as in a connections map. A damaged saved tree opens as it
     was (its shape isn't repaired yet)
+  - Sibling order: each box keeps its next steps in order (a new step
+    goes last), and Tidy up lines them up that way, left to right (top to
+    bottom in Left-right), so a tree doesn't reshuffle as it grows. A box
+    with two parents sits under the middle of both, as before. There is
+    no way to reorder them by hand yet (Treekit has none either); the
+    order is what Boardkit's column and card order will map onto. Trees
+    saved earlier keep the order they show
 - The engine underneath: pure TypeScript in `src/domain/` (no React, no
   store), each file with a Vitest test beside it:
   - `types.ts`: the model. A map is `{ id, name, kind, page, direction,
-    arrowLength, nodes, links }`; `nodes` and `links` are flat
-    `Record<id, …>` maps. A box is `{ id, name, x, y, color }` (x, y is
+    arrowLength, nodes, links, order }`; `nodes` and `links` are flat
+    `Record<id, …>` maps, and `order` lists each box's next steps in order
+    (trees only; empty in a connections map). A box is `{ id, name, x, y, color }` (x, y is
     its centre); an arrow is `{ id, from, to, label }`, read "from needs
     to" in a connections map and "from leads to to" in a tree. `kind`
     names the map's rule set: `"connections"` or `"tree"`. An arrow's
@@ -289,6 +297,11 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     way in, and never takes a paste. The drag (to show valid drop
     targets), the hover toolbar's bin, an arrow's ×, the menus and the
     store all ask it
+  - `order.ts`: sibling order. `nextSteps(map, box)` reads a box's next
+    steps in order, trusting the stored order only for boxes an arrow
+    really leads to (the arrows stay the truth). Adding an arrow, deleting
+    one and deleting boxes keep it in step; `normalizeOrder` cleans it on
+    load, giving older trees the order of their boxes on the page
   - `tree.ts`: edits only a tree needs, each keeping "one start, no loose
     boxes" true in one step: a new tree (just its start box), adding a
     next step (the box and its arrow together), which boxes a delete
@@ -380,10 +393,17 @@ turning a connections map into a tree.
 14. Tree mode:
     - a. ~~Tree rules, "+ New tree" and "Add example tree", adding next
       steps, a second parent, deleting a branch, the highlight~~ (done)
-    - b. Arrow labels in trees. Proposed, waiting for the owner's OK:
-      hovering an arrow shows a small chip in its middle with the ×
-      (where allowed) and "+ label"; clicking "+ label" opens a field to
-      type ("if yes"); emptying it takes the label away again
+    - a2. ~~Sibling order (decided under Bridge mapping): each box keeps
+      its next steps in order, Tidy up follows it~~ (done; done before
+      14b because 14b-14d and the shared store build on it)
+    - b. Arrow labels in trees. OK'd by the owner: hovering an arrow
+      shows a small chip in its middle with the × (where allowed) and
+      "+ label"; clicking "+ label" opens a field to type ("if yes");
+      Enter or clicking away keeps it, left empty nothing is added. A
+      labelled arrow shows the pill (click to edit, × on its corner where
+      allowed); emptying it takes the label away again. Typing a label
+      re-tidies the tree so it never covers a box (one undo step with
+      it). Labels stay on their arrow when its card moves (decided)
     - c. Keep / maybe / cut, copied from Treekit (`../treekit/src/domain/
       tree.ts`: hover toolbar and right-click menu, cut branches faded,
       a way to hide cut branches; a box with two parents is cut only if
@@ -584,7 +604,9 @@ box's parent, and back. Where it doesn't fit:
   next steps (as Treekit does), and Tidy up follows it (a change to
   `layout.ts` only). Boardkit's card order and column order map onto it
   one to one, so reordering means the same in both apps. Connections maps
-  keep their computed order. Needed before step 3; best before 14b-14d
+  keep their computed order. Built in 14a2 (v0.0.25): stored as
+  `map.order` (box ids per parent, like `cardOrder`); a box with two
+  parents is listed under both
 - Boardkit shows keep / maybe / cut as a small badge on a card, and
   anything under a cut box looks cut (computed, never stored; a cut list
   fades all its cards). Both apps use one definition of "looks cut". This
@@ -754,3 +776,10 @@ All bridge-mapping questions are decided.
   untouched first-visit example exists. Like Boardkit: an export resets
   the clock (so "Backing up to … · last" can show an export's time), and
   restoring from a file doesn't count as a backup.
+- Step 14a2 (sibling order; design already decided, built before 14b at
+  Claude's suggestion, owner agreed). Choices made without asking, easy
+  to change: the order is stored per parent as box ids (Boardkit's
+  `cardOrder` shape), not on the box; it only settles ties in Tidy up, so
+  a box with two parents still sits under the middle of both; no way to
+  reorder by hand yet (none was asked for; the bridge needs only that
+  Boardkit's reorders show here).
