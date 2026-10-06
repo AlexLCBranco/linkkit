@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-06, v0.0.22 (bridge decisions; trash planned as step 17)_
+_Last updated: 2026-10-06, v0.0.22 (bridge mapping fully decided; backups and trash planned as steps 17-18)_
 
 ## What it is
 
@@ -378,16 +378,24 @@ turning a connections map into a tree.
     for by the owner ahead of 14b, so 14b is still next. Later, not now:
     a data store shared with Boardkit, and a canvas holding live pieces
     of these apps)
-17. A trash for Linkkit, before the bridge's shared store (bridge step
+17. Automatic backups for Linkkit, before the bridge's shared store:
+    today its only safety net is "Export all maps" by hand. Copied from
+    Boardkit's (`../Projects/boardkit/plans/automatic-backup.md`,
+    `src/features/board/autoBackup.ts`): "Automatic backup…" in the map
+    menu picks a folder (ideally a synced one); a few seconds after
+    changes stop, a backup in the "Export all maps" format is written
+    there, so "Restore all maps from a file" reads it; the last 20 are
+    kept; after a browser restart one click resumes them, and they never
+    stop silently. Chrome and Edge only (Firefox and Safari can't write
+    to folders), so the option is hidden elsewhere
+18. A trash for Linkkit, before the bridge's shared store (bridge step
     3): the bridge decisions below promise that nothing is erased except
     by emptying the trash or confirming its overflow warning, and step 3
     is when deletes start crossing between the apps. Ported from
     Treekit's trash but wider (see "Trash in Linkkit" under Decided):
     deleted boxes and branches with their arrows, and deleted maps, with
     an overflow warning like Boardkit's. Linked maps later send deletes
-    to Boardkit's trash instead. (Owner asked for it "right after
-    Linkkit's automatic backups", but Linkkit has no backups step; if
-    one is wanted, it goes before this)
+    to Boardkit's trash instead
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 
@@ -546,20 +554,24 @@ box's parent, and back. Where it doesn't fit:
   outside its lists), and it stays undoable in Linkkit, because there it
   changes the layout (Tidy up places only what shows)
 
-**Still open for the owner:**
-1. Pregame / postgame text, divider and note cards: kept and hidden in
-   Linkkit (proposed). Still to decide: when Linkkit reorders cards, what
-   keeps hidden dividers in place? Proposed: dividers never move; a
-   moved card goes directly after the card it follows in Linkkit (if it
-   is first, directly before the card that comes next; in an otherwise
-   empty list, at the end), so it lands in its visible neighbour's
-   section
-2. Undo across apps: each app undoes only its own changes, and refuses
-   when the item changed in the other app since (proposed). Still to
-   decide: what happens to the stack after a refusal? Proposed: stop.
-   The refused step and everything older are dropped (with a message
-   naming the conflict); redo keeps the steps undone before it. Skipping
-   could produce combinations that never existed
+- Pregame / postgame text, divider and note cards are kept and hidden in
+  Linkkit: it never removes or changes what it doesn't show. Linkkit's
+  order is Boardkit's card order with dividers and notes left out.
+  Dividers never move as a side effect. A card moved in Linkkit goes
+  right after the visible card above its drop position, joining that
+  card's section, even when a hidden divider sits between the two cards
+  it was dropped between; dropped at the very top, it goes right before
+  the first visible card; in a list with no other cards, at the end.
+  Deleting a card never moves a divider either
+- Undo across apps: each app undoes only its own changes. An undo whose
+  item was changed in the other app since is refused, with a message
+  naming the conflict ("Can't undo further: 'Rent' was changed in
+  Boardkit"). The stack stops there: the refused step and every older
+  step are dropped, so undo never produces a state that never existed
+  (skipping would). Redo keeps the steps undone before the refusal. Some
+  history is lost, in a rare case
+
+All bridge-mapping questions are decided.
 
 ## Open problems
 
