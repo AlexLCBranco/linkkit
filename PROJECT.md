@@ -457,21 +457,47 @@ box's parent, and back. Where it doesn't fit:
   Like Treekit, only a box's own status is stored; "looks cut because
   its parent is" is computed
 
-**Open questions for the owner:**
-1. Are only trees bridged, with connections maps staying Linkkit-only?
-2. Start → board, depth 1 → lists, depth 2 → cards: right? And deeper
-   boxes: not allowed in a bridged tree, flattened into their list, or
-   does Boardkit learn nesting?
-3. A box moved between depth 1 and 2 (list ↔ card): allowed, and what
-   happens to the fields only one kind has?
-4. A box with two parents: which list is its card in, and how is the
-   home parent picked?
-5. Should Linkkit store sibling order (and Tidy up follow it)?
-6. Pregame / postgame text, divider and note cards: hidden in Linkkit
+**Decided (2026-10-06, owner's review of this plan):**
+- Opt-in, one map at a time. A tree map gets a "Link to Boardkit"
+  action; connections maps can't be linked. The map will need a field
+  saying it is linked (and to which board): not built yet
+- A linked map has at most three levels (start → board, lists, cards).
+  Linkkit won't add a next step under a card, and a move never changes
+  depth: a card can go to another list or be reordered, a list can only
+  be reordered. Turning a card into a list (or back) is refused with a
+  message saying why. If list ↔ card is wanted later, it is its own
+  action with a "you'll lose X" confirmation, never a drag side effect.
+  In code this is a stricter rule set in `rules.ts` for linked trees
+  (e.g. no second way in that would put a box at two depths)
+- Deletes follow Boardkit: in a linked map, deleting from either app
+  moves the item to the trash, never erases it. A Linkkit branch delete
+  that removes a list trashes the list with its cards (Boardkit already
+  keeps a trashed list whole), and they come back together. A trashed
+  card disappears from the tree and returns to the same spot when
+  restored. Only emptying the trash deletes for good
+
+Found while recording these, from Boardkit's code (`domain/trash.ts`):
+there is no 30-day trash. Boardkit's trash keeps the last 20 cards and
+the last 10 lists, and the oldest entry is forgotten (erased for good)
+when it's full. So "only the trash deletes for good" isn't true today:
+a 21st delete silently erases the oldest card.
+
+**Still open for the owner:**
+1. Boardkit's trash limit: switch it to a 30-day trash (or no limit)
+   before step 3, so a delete from Linkkit can't push something out?
+2. Linkkit has no trash, and "trash" is listed as not in this build.
+   For linked maps it needs at least somewhere to see and restore
+   trashed boxes: OK to add, and is Boardkit's trash panel enough?
+3. Two names: a tree has a map name ("Untitled tree") and a start box
+   name (the question). A board has one name. Which one is the board's?
+4. A box with two parents: within three levels, a card can still have
+   two lists as parents. Refuse that in a linked map, or pick a home
+   list (how)?
+5. "Link to Boardkit" on a tree that's already too deep or has two
+   parents: refuse with a message, or offer to fix?
+6. Should Linkkit store sibling order (and Tidy up follow it)?
+7. Pregame / postgame text, divider and note cards: hidden in Linkkit
    but kept, or shown somehow?
-7. Delete: does Linkkit get a trash, or does a Linkkit delete trash the
-   card in Boardkit? And what does a card in Boardkit's trash look like
-   in the tree?
 8. Does Boardkit show keep / maybe / cut, and do cards under a cut box
    look cut there?
 9. OK for collapsed, "hide cut" and box colour to stay per-app, unlike
