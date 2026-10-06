@@ -499,26 +499,37 @@ box's parent, and back. Where it doesn't fit:
   a delete into a full trash asks first, naming the oldest item it would
   erase. (A trashed list counts once against the list limit; its cards
   don't count against the card limit.)
+- Trash in Linkkit. In a linked map, a delete goes to Boardkit's trash
+  for that board, and Linkkit offers "Open trash in Boardkit": one place
+  to restore from. Unlinked maps get a small trash of their own, ported
+  from Treekit's, so the rule above (nothing erased except by emptying
+  the trash or confirming the overflow warning) holds in both apps and
+  for every map. This overrides "trash" in CLAUDE.md's not-in-this-build
+  list. Not built yet. Treekit's trash is narrower than this needs: it
+  holds only whole deleted trees (a deleted branch or node is gone for
+  good, undo aside) and forgets the oldest past 10 without asking. So
+  the port must take deleted boxes and branches (with their arrows) and
+  deleted maps, and warn before overflow like Boardkit's
+- The board's name is the start box's name (the question the tree
+  asks); while linked, the map's own name follows it, so there is one
+  name that can't drift
+- A linked map refuses a second way into a box (no "home" list to
+  pick). Two parents still work in unlinked trees
+- "Link to Boardkit" on a tree that breaks the rules (too deep, two ways
+  in) is refused, naming each box that's in the way ("'Rent' has two
+  ways in", "'Walk to work' is 4 levels deep"). No automatic fix: fixing
+  means deleting arrows or flattening branches, which is the owner's
+  call. Once fixed, the link works
 
 **Still open for the owner:**
-1. Linkkit has no trash, and "trash" is listed as not in this build.
-   For linked maps it needs at least somewhere to see and restore
-   trashed boxes: OK to add, and is Boardkit's trash panel enough?
-2. Two names: a tree has a map name ("Untitled tree") and a start box
-   name (the question). A board has one name. Which one is the board's?
-3. A box with two parents: within three levels, a card can still have
-   two lists as parents. Refuse that in a linked map, or pick a home
-   list (how)?
-4. "Link to Boardkit" on a tree that's already too deep or has two
-   parents: refuse with a message, or offer to fix?
-5. Should Linkkit store sibling order (and Tidy up follow it)?
-6. Pregame / postgame text, divider and note cards: hidden in Linkkit
+1. Should Linkkit store sibling order (and Tidy up follow it)?
+2. Pregame / postgame text, divider and note cards: hidden in Linkkit
    but kept, or shown somehow?
-7. Does Boardkit show keep / maybe / cut, and do cards under a cut box
+3. Does Boardkit show keep / maybe / cut, and do cards under a cut box
    look cut there?
-8. OK for collapsed, "hide cut" and box colour to stay per-app, unlike
+4. OK for collapsed, "hide cut" and box colour to stay per-app, unlike
    Treekit where collapsed is saved on the node?
-9. Undo: each app undoes its own copy; after step 3, may Linkkit's
+5. Undo: each app undoes its own copy; after step 3, may Linkkit's
    undo take back a change made in Boardkit meanwhile?
 
 ## Open problems
