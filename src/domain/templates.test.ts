@@ -10,13 +10,14 @@ const PAGE = { width: 800, height: 600 };
 
 describe("built-in templates", () => {
   it("each makes a map that loads without repair, one box per outline line", () => {
+    expect(BUILT_IN_TEMPLATES.slice(0, 2).map((t) => t.id)).toEqual(["example-signin", "example-job"]);
     expect(BUILT_IN_TEMPLATES.length).toBeGreaterThanOrEqual(4);
     for (const template of BUILT_IN_TEMPLATES) {
       const map = builtInMap(template, PAGE);
       expect(map.kind).toBe(template.kind);
       expect(map.name).toBe(template.name);
       expect(readMap(JSON.parse(JSON.stringify(serializeMap(map))), PAGE).status, template.id).toBe("ok");
-      expect(Object.keys(map.nodes)).toHaveLength(template.outline.split("\n").length);
+      if (template.outline) expect(Object.keys(map.nodes)).toHaveLength(template.outline.split("\n").length);
       if (map.kind === "tree") expect(startOf(map)).not.toBeNull();
     }
   });

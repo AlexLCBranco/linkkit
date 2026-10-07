@@ -1,5 +1,6 @@
 import { REACH_MEANINGS, reachCounts } from "../../domain/reach";
 import type { MapKind } from "../../domain/types";
+import { useGallery } from "../../store/gallery";
 import { useMapStore } from "../../store/mapStore";
 import { selectReach } from "../../store/selectors";
 import styles from "./ReachStatus.module.css";
@@ -32,6 +33,9 @@ export function ReachStatus() {
   const linked = useMapStore((s) => s.map.linkedBoard !== undefined);
   const name = useMapStore((s) => (s.selected ? s.map.nodes[s.selected]?.name : undefined));
   const picked = useMapStore((s) => s.group.length);
+  // A first visit (the untouched starter example) or an empty map points
+  // to the gallery, where the examples are: one click to another one.
+  const offerTemplates = useMapStore((s) => s.starter === s.map.id || isEmpty(s.map.nodes));
 
   if (picked > 1) {
     return (
@@ -42,7 +46,18 @@ export function ReachStatus() {
     );
   }
 
-  if (!reach) return <span className={styles.hint}>{linked ? LINKED_HINT : HINTS[kind]}</span>;
+  if (!reach) {
+    return (
+      <>
+        <span className={styles.hint}>{linked ? LINKED_HINT : HINTS[kind]}</span>
+        {offerTemplates && (
+          <button type="button" className={styles.templates} onClick={() => useGallery.getState().setOpen(true)}>
+            Start from a template or example…
+          </button>
+        )}
+      </>
+    );
+  }
   const counts = reachCounts(reach);
   const words = REACH_MEANINGS[kind];
   return (
@@ -58,4 +73,9 @@ export function ReachStatus() {
       </span>
     </>
   );
+}
+
+function isEmpty(record: object): boolean {
+  for (const _ in record) return false;
+  return true;
 }

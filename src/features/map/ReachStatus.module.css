@@ -31,3 +31,15 @@
 .swatch[data-kind="orange"] {
   background: var(--break);
 }
+
+/* "Start from a template": a link-like button after the hint. */
+.templates {
+  margin-left: var(--space-2);
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.templates:hover {
+  color: var(--accent-hover);
+}

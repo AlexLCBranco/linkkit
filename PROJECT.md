@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.49 (map names you can tell apart)_
+_Last updated: 2026-10-07, v0.0.50 (examples moved into the template gallery)_
 
 ## What it is
 
@@ -57,9 +57,7 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   numbered, "Rent 2") to switch to, plus "+ New
   map" (a blank map, "Untitled map 2" … when taken, its name open for
   typing; it takes its first box's name until renamed), "Duplicate this map"
-  (named "… (copy)", then "(copy 2)" …), "Add example map" (a fresh,
-  tidied Microsoft 365 example added next to the others; it never
-  replaces one, unlike the prototype's "Reset example") and "Delete this
+  (named "… (copy)", then "(copy 2)" …) and "Delete this
   map" (no question: it goes to the trash, see below; greyed out when only
   one map is left; then the newest map left opens). Each map keeps its own undo
   history for the session, so switching away and back still undoes.
@@ -319,8 +317,9 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   Connections maps work exactly as before.
   - The map menu has "+ New tree" (a blank tree: just its start box,
     centred, its name "Start" open for typing over; left empty it stays
-    "Start"; the tree is called "Untitled tree" until renamed in the
-    header) and "Add example tree" ("Take the new job?", with one merge)
+    "Start"; the map takes the start's name until renamed in the
+    header). The example tree ("Take the new job?", with one merge) is in
+    the template gallery
   - Add a next step: the "+" in a box's hover toolbar, "Add next step" in
     its right-click menu, "Add box" in the header (adds to the selected
     box; greyed out with nothing selected, and its tooltip says why), or
@@ -1145,6 +1144,15 @@ One commit per item. Short entries only.
   repeat in the list (typed by hand, or two maps whose first box has the
   same name) show numbered in the map menu and header ("Rent", "Rent 2",
   the older one keeps the plain name); stored names are never rewritten
+- ~~U12. Examples are templates~~ (done, v0.0.50). "Add example map" and
+  "Add example map with tree rules" left the map menu; both examples
+  (Microsoft 365 sign-in, Take the new job?) are the first two cards in
+  the gallery's "Ready-made" (`make` instead of an outline in
+  `BUILT_IN_TEMPLATES`, since their shared steps don't fit an outline).
+  A first visit still opens the sign-in example; while it is untouched,
+  or whenever the open map has no boxes, the status line ends with
+  "Start from a template or example…", which opens the gallery: another
+  example is one click away (gallery open state: `store/gallery.ts`)
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { EXAMPLE_MAP_NAME } from "../domain/example";
+import { EXAMPLE_MAP_NAME, exampleMap, exampleTree } from "../domain/example";
 import { asMapId, asNodeId } from "../domain/ids";
 import { build } from "../domain/testMaps";
 import type { NodeId, Point } from "../domain/types";
@@ -322,9 +322,9 @@ describe("several maps", () => {
     expect(s.maps.map((m) => m.name)).toEqual(["First", "First (copy)"]);
   });
 
-  it("adds a fresh example, waiting for its tidy, without touching the others", async () => {
+  it("adds a fresh example from the gallery, waiting for its tidy, without touching the others", async () => {
     const { useMapStore, first } = await storeWithOneMap();
-    useMapStore.getState().addExampleMap();
+    useMapStore.getState().newFromTemplate(exampleMap(PAGE));
     const s = useMapStore.getState();
     expect(s.map.name).toBe(EXAMPLE_MAP_NAME);
     expect(s.needsTidy).toBe(true);
@@ -464,7 +464,7 @@ describe("map store (tree)", () => {
   /** A fresh store with the example tree open and tidied. */
   async function treeStore() {
     const useMapStore = await freshStore();
-    useMapStore.getState().addExampleTree();
+    useMapStore.getState().newFromTemplate(exampleTree(PAGE));
     useMapStore.getState().placeAll(new Map(), PAGE);
     return useMapStore;
   }
@@ -662,7 +662,7 @@ describe("map store (tree)", () => {
 describe("map store (arrows)", () => {
   async function treeWith() {
     const useMapStore = await freshStore();
-    useMapStore.getState().addExampleTree();
+    useMapStore.getState().newFromTemplate(exampleTree(PAGE));
     useMapStore.getState().placeAll(new Map());
     const { useHint } = await import("./hint");
     return { useMapStore, useHint };
@@ -888,7 +888,7 @@ describe("map store (several boxes)", () => {
 
   it("never copies or pastes in a tree, and asks before a group delete takes more", async () => {
     const useMapStore = await freshStore();
-    useMapStore.getState().addExampleTree();
+    useMapStore.getState().newFromTemplate(exampleTree(PAGE));
     useMapStore.getState().placeAll(new Map(), PAGE);
     const named = (name: string) =>
       Object.values(useMapStore.getState().map.nodes).find((n) => n.name === name)!.id;

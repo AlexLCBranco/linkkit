@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 import { mapsToRestore } from "../domain/backup";
-import { exampleMap, exampleTree } from "../domain/example";
+import { exampleMap } from "../domain/example";
 import * as history from "../domain/history";
 import { createMapId, createNodeId } from "../domain/ids";
 import {
@@ -381,12 +381,8 @@ export interface MapState {
   newMap(): void;
   /** Copies the open map ("Name (copy)") and opens the copy. */
   duplicateMap(): void;
-  /** Adds a fresh example map (never replaces one) and opens it, tidied. */
-  addExampleMap(): void;
   /** Starts a blank tree (only its start box, its name open for typing). */
   newTree(): void;
-  /** Adds a fresh example tree and opens it, tidied. */
-  addExampleTree(): void;
   /** Opens `map` (made from a template: fresh ids, boxes not yet placed)
       as a new map, tidied once measured. */
   newFromTemplate(map: LinkMap): void;
@@ -1153,12 +1149,6 @@ export const useMapStore = create<MapState>()((set, get) => ({
     const map = duplicateMap(s.map, createMapId(), copyName(s.map.name, s.maps));
     set(open(s, map, createStored(map, s.maps)));
   },
-  addExampleMap: () => {
-    get().stopEditing();
-    flushSave();
-    const map = exampleMap(newPageSize());
-    set((s) => open(s, map, upsertMap(s.maps, { id: map.id, name: map.name }), true));
-  },
   newTree: () => {
     get().stopEditing();
     flushSave();
@@ -1167,12 +1157,6 @@ export const useMapStore = create<MapState>()((set, get) => ({
     // then its name opens for typing (select-all, so typing replaces
     // "Start", and leaving it empty keeps "Start").
     set((s) => ({ ...open(s, map, createStored(map, s.maps), true), editAfterTidy: startId }));
-  },
-  addExampleTree: () => {
-    get().stopEditing();
-    flushSave();
-    const map = exampleTree(newPageSize());
-    set((s) => open(s, map, upsertMap(s.maps, { id: map.id, name: map.name }), true));
   },
   newFromTemplate: (map) => {
     get().stopEditing();

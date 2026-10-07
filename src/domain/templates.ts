@@ -1,3 +1,4 @@
+import { EXAMPLE_MAP_NAME, EXAMPLE_TREE_NAME, exampleMap, exampleTree } from "./example";
 import { createLinkId, createMapId, createNodeId } from "./ids";
 import { createMap } from "./map";
 import { parseOutline, pasteOutline } from "./outline";
@@ -8,7 +9,8 @@ import type { Link, LinkId, LinkMap, MapId, MapKind, MapNode, NodeId, SiblingOrd
 
 /**
  * Templates (usability pass U6): ready-made maps to start from. Built-in
- * ones are written as outlines (`domain/outline.ts`); the user's own are
+ * ones are written as outlines (`domain/outline.ts`), or made whole (the
+ * examples); the user's own are
  * whole maps saved with "Save this map as a template", kept in the browser
  * like maps. Starting from either gives an ordinary map with fresh ids:
  * normal, editable boxes, nothing tied to the template.
@@ -20,8 +22,11 @@ export interface BuiltInTemplate {
   /** What it is for, in a few words (the gallery's second line). */
   readonly blurb: string;
   readonly kind: MapKind;
-  /** The boxes, one per line, nested by indentation. */
-  readonly outline: string;
+  /** The boxes, one per line, nested by indentation; or `make`. */
+  readonly outline?: string;
+  /** The whole map, for a shape an outline can't hold (the examples, where
+      two boxes share a next step). Fresh ids every call. */
+  readonly make?: (page: Size, id: MapId) => LinkMap;
 }
 
 /** A template the user saved: a map as stored (no trash, never linked). */
@@ -35,6 +40,22 @@ export interface SavedTemplate {
 const lines = (...rows: string[]) => rows.join("\n");
 
 export const BUILT_IN_TEMPLATES: readonly BuiltInTemplate[] = [
+  // The examples, first: what the map menu's "Add example map" and "Add
+  // example map with tree rules" used to add (U12).
+  {
+    id: "example-signin",
+    name: EXAMPLE_MAP_NAME,
+    blurb: "Example: what a sign-in needs, and what breaks without it",
+    kind: "connections",
+    make: exampleMap,
+  },
+  {
+    id: "example-job",
+    name: EXAMPLE_TREE_NAME,
+    blurb: "Example: a decision where two ways lead to one place",
+    kind: "tree",
+    make: exampleTree,
+  },
   {
     id: "decision",
     name: "Weigh a decision",
@@ -82,7 +103,8 @@ export const BUILT_IN_TEMPLATES: readonly BuiltInTemplate[] = [
 /** A built-in template as a map. Boxes start at 0, 0: whoever shows it
     tidies it once measured. */
 export function builtInMap(template: BuiltInTemplate, page: Size, id: MapId = createMapId()): LinkMap {
-  const [first, ...rest] = parseOutline(template.outline);
+  if (template.make) return template.make(page, id);
+  const [first, ...rest] = parseOutline(template.outline ?? "");
   const start = createNodeId();
   const blank =
     template.kind === "tree"

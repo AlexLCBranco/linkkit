@@ -25,6 +25,7 @@ import { hasBoardList } from "../../store/persistBoard";
 import { linkPreview, useMapStore, type LinkPreview } from "../../store/mapStore";
 import { LinkDialog, UnlinkDialog } from "./BoardLink";
 import { TemplateGallery } from "./TemplateGallery";
+import { useGallery } from "../../store/gallery";
 import { useTemplates } from "../../store/templates";
 import { BackupMenuItems } from "./BackupMenuItems";
 import { exportAllMaps, restoreFrom } from "./backupFile";
@@ -33,14 +34,14 @@ import { useNow } from "./useNow";
 
 /**
  * The open map's name (click to rename) plus a menu to switch to another
- * saved map, start a new one, duplicate or delete this one, or add a fresh
- * example. Copied from Treekit's `TreeSwitcher`.
+ * saved map, start a new one (blank or from a template), duplicate or
+ * delete this one. Copied from Treekit's `TreeSwitcher`.
  *
- * "Add example map" replaces the prototype's "Reset example": it always
- * adds a new map, so it can never wipe one the user has worked on.
+ * The examples are templates in the gallery (U12), replacing the
+ * prototype's "Reset example": they always add a new map, so they can
+ * never wipe one the user has worked on.
  *
- * "+ New map with tree rules" and "Add example map with tree rules" make
- * decision trees (kind "tree"). The UI calls every kind a map; a tree is a
+ * "+ New map with tree rules" makes a decision tree (kind "tree"). The UI calls every kind a map; a tree is a
  * map with tree rules on (the owner's wording, usability pass U3).
  * A new tree opens its start box's name for typing.
  *
@@ -67,9 +68,7 @@ export function MapSwitcher() {
   const switchMap = useMapStore((s) => s.switchMap);
   const newMap = useMapStore((s) => s.newMap);
   const duplicateMap = useMapStore((s) => s.duplicateMap);
-  const addExampleMap = useMapStore((s) => s.addExampleMap);
   const newTree = useMapStore((s) => s.newTree);
-  const addExampleTree = useMapStore((s) => s.addExampleTree);
   const deleteMap = useMapStore((s) => s.deleteMap);
   const isTree = useMapStore((s) => s.map.kind === "tree");
   const linked = useMapStore((s) => !!s.map.linkedBoard);
@@ -77,7 +76,8 @@ export function MapSwitcher() {
   const [boardkitHere, setBoardkitHere] = useState(false);
   const [linking, setLinking] = useState<LinkPreview | null>(null);
   const [unlinking, setUnlinking] = useState(false);
-  const [templates, setTemplates] = useState(false);
+  const templates = useGallery((s) => s.open);
+  const setTemplates = useGallery((s) => s.setOpen);
   // Empty: only the untouched starter example. Only then is restoring
   // offered, so a backup is never mixed into maps already in use.
   const empty = useMapStore((s) => s.maps.length === 1 && s.maps[0].id === s.starter);
@@ -186,8 +186,6 @@ export function MapSwitcher() {
           <DropdownMenuItem onSelect={() => useTemplates.getState().save(useMapStore.getState().map)}>
             Save this map as a template
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={addExampleMap}>Add example map</DropdownMenuItem>
-          <DropdownMenuItem onSelect={addExampleTree}>Add example map with tree rules</DropdownMenuItem>
           {isTree && !linked && boardkitHere && (
             <DropdownMenuItem onSelect={() => setLinking(linkPreview(useMapStore.getState().map))}>
               Link to Boardkit…
