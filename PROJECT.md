@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.30 (shared store: Boardkit side 3a1 done, 3a2 next)_
+_Last updated: 2026-10-07, v0.0.30 (shared store: Boardkit side 3a done, 3b next)_
 
 ## What it is
 
@@ -653,8 +653,26 @@ PROJECT.md updated, pushed, and say what couldn't be tested.
      "Link to Boardkit" exists (item 5's steps), except that two tabs of
      one app stop overwriting each other
    - Steps: 3a Boardkit side: 3a1 done (Boardkit v0.0.82: version 2 with
-     `status` and `rev`, newer versions open read-only), 3a2 next (`storage`
-     events, `rev`-checked writes); 3b Linkkit side (not started)
+     `status` and `rev`, newer versions open read-only), 3a2 done
+     (Boardkit v0.0.83: `storage` events and `rev`-checked writes; two
+     Boardkit tabs no longer overwrite each other); 3b Linkkit side next
+     (not started)
+   - What 3a2 settled, for 3b to match: Boardkit's three-way merge is pure
+     and tested, in Boardkit's `src/domain/merge.ts` (base = the record as
+     the tab last read or wrote it, mine = the tab now, theirs = what is
+     stored). An item is a card or list, its fields together with where it
+     sits (list, position, trash), or the background; a move is re-applied
+     next to the same neighbour, not at an index. Both changed one item:
+     theirs stays and a toast names it ("“Rent” was just changed in
+     another tab, so that version was kept."). Every Boardkit write reads
+     the stored `rev` first and writes `rev + 1`; a write that changes
+     nothing is skipped, so tabs don't echo saves back. So a Linkkit write
+     to a linked board must also read the stored record, raise its `rev`
+     by one, and merge if `rev` moved; Boardkit tabs then take Linkkit's
+     write in through the `storage` event like any other tab's. For now,
+     taking in another tab's change clears that board's undo history in
+     Boardkit (an undo step restores whole slices); the per-item undo
+     refusal decided under Bridge mapping is queue item 5's cross-app undo
 5. Only plan, don't build: turn the linking work into numbered steps in
    "What's next": the "Link to Boardkit" action, the stricter rules for
    linked trees in rules.ts, the cut badge in Boardkit, and cross-app undo
