@@ -20,7 +20,9 @@ import {
 } from "../../components/ui/dropdown-menu";
 import { backupNeedsAttention, backupStopped } from "../../domain/autoBackup";
 import { useBackupStore } from "../../store/backupStore";
-import { useMapStore } from "../../store/mapStore";
+import { hasBoardList } from "../../store/persistBoard";
+import { linkPreview, useMapStore, type LinkPreview } from "../../store/mapStore";
+import { LinkDialog, UnlinkDialog } from "./BoardLink";
 import { BackupMenuItems } from "./BackupMenuItems";
 import { exportAllMaps, restoreFrom } from "./backupFile";
 import styles from "./MapSwitcher.module.css";
@@ -42,6 +44,9 @@ import { useNow } from "./useNow";
  * reads one back. That is how maps move to a new address (each address
  * has its own localStorage).
  *
+ * "Link to Boardkit…" (trees, where Boardkit's data is) and "Unlink from
+ * Boardkit…" (linked trees) open their questions in `BoardLink.tsx`.
+ *
  * "Delete this map" moves it to the trash (see TrashPanel), so it doesn't
  * ask first.
  *
@@ -61,6 +66,12 @@ export function MapSwitcher() {
   const newTree = useMapStore((s) => s.newTree);
   const addExampleTree = useMapStore((s) => s.addExampleTree);
   const deleteMap = useMapStore((s) => s.deleteMap);
+  const isTree = useMapStore((s) => s.map.kind === "tree");
+  const linked = useMapStore((s) => !!s.map.linkedBoard);
+  // Asked as the menu opens: Boardkit may have been opened since.
+  const [boardkitHere, setBoardkitHere] = useState(false);
+  const [linking, setLinking] = useState<LinkPreview | null>(null);
+  const [unlinking, setUnlinking] = useState(false);
   // Empty: only the untouched starter example. Only then is restoring
   // offered, so a backup is never mixed into maps already in use.
   const empty = useMapStore((s) => s.maps.length === 1 && s.maps[0].id === s.starter);
@@ -112,7 +123,7 @@ export function MapSwitcher() {
         </button>
       )}
 
-      <DropdownMenu>
+      <DropdownMenu onOpenChange={(open) => open && setBoardkitHere(hasBoardList())}>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
@@ -165,6 +176,12 @@ export function MapSwitcher() {
           <DropdownMenuItem onSelect={duplicateMap}>Duplicate this map</DropdownMenuItem>
           <DropdownMenuItem onSelect={addExampleMap}>Add example map</DropdownMenuItem>
           <DropdownMenuItem onSelect={addExampleTree}>Add example tree</DropdownMenuItem>
+          {isTree && !linked && boardkitHere && (
+            <DropdownMenuItem onSelect={() => setLinking(linkPreview(useMapStore.getState().map))}>
+              Link to Boardkit…
+            </DropdownMenuItem>
+          )}
+          {linked && <DropdownMenuItem onSelect={() => setUnlinking(true)}>Unlink from Boardkit…</DropdownMenuItem>}
           {/* No question asked: the map goes to the trash, to restore from there. */}
           <DropdownMenuItem disabled={maps.length <= 1} onSelect={() => deleteMap(mapId)}>
             Delete this map
@@ -190,6 +207,9 @@ export function MapSwitcher() {
           if (file) void restoreFrom(file).then(setReport);
         }}
       />
+
+      <LinkDialog preview={linking} onClose={() => setLinking(null)} />
+      <UnlinkDialog open={unlinking} onClose={() => setUnlinking(false)} />
 
       <AlertDialog open={report !== null} onOpenChange={(open) => !open && setReport(null)}>
         <AlertDialogContent>

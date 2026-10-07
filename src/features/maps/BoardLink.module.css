@@ -1,0 +1,53 @@
+/* "Linked to Boardkit", next to the map's name. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--surface-sunken);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-tight);
+  white-space: nowrap;
+}
+
+.open {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  color: var(--accent);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+}
+
+.open:hover {
+  background: var(--surface-hover);
+  color: var(--accent-hover);
+}
+
+.open:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+/* On a phone the header is tight: the icon says "linked", the link stays. */
+@media (max-width: 480px) {
+  .label {
+    display: none;
+  }
+}
+
+.body p + p {
+  margin-top: var(--space-2);
+}
+
+.problems {
+  margin-top: var(--space-2);
+  padding-left: var(--space-5);
+  list-style: disc;
+}

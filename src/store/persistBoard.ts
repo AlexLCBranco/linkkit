@@ -12,6 +12,10 @@ import { readBoardRecord, type BoardRecord, type BoardRecordRead } from "../doma
  * Linkkit reads both and writes only what a linked tree shares: a board's
  * record (through `nextRecord`, so its `rev` goes up) and a board's name in
  * the list. Every other field of either is written back exactly as read.
+ * Three more writes, each asked for by the user: "Link to Boardkit" adds a
+ * new board (`createBoard`, taken back by `removeBoard` if the link fails),
+ * and "Open in Boardkit" says which board Boardkit opens next
+ * (`openBoardNext`).
  * Failures throw: the caller (`persistMap.ts`) decides what a failed save
  * means.
  */
@@ -83,4 +87,65 @@ export function writeBoardName(boardId: string, name: string): void {
   if (index === -1 || list.boards[index].name === name) return;
   const boards = list.boards.map((b, i) => (i === index ? { ...b, name } : b));
   localStorage.setItem(BOARD_LIST_KEY, JSON.stringify({ ...list, boards }));
+}
+
+/** Whether Boardkit's data is here (its board list reads): only then can a
+    tree be linked ("Link to Boardkit" is offered). */
+export const hasBoardList = (): boolean => storedList() !== null;
+
+/** Whether a board with this id exists: stored, or named in the list. */
+export function boardExists(boardId: string): boolean {
+  return localStorage.getItem(boardKey(boardId)) !== null || loadBoardName(boardId) !== null;
+}
+
+/**
+ * A new board, as "Link to Boardkit" makes one: its record (version 2, `rev`
+ * 1) and its entry at the end of Boardkit's list. Which board Boardkit has
+ * open stays as it is; an open Boardkit tab takes the new board in through
+ * the `storage` event. All or nothing: if either write fails, what was
+ * written is taken back, and it throws.
+ */
+export function createBoard(boardId: string, name: string, record: BoardRecord): void {
+  const list = storedList();
+  if (!list) throw new Error("Boardkit's board list doesn't read");
+  try {
+    writeBoard(boardId, record);
+    localStorage.setItem(BOARD_LIST_KEY, JSON.stringify({ ...list, boards: [...list.boards, { id: boardId, name }] }));
+  } catch (error) {
+    removeBoard(boardId);
+    throw error;
+  }
+}
+
+/**
+ * Takes back a board `createBoard` made: off Boardkit's list (when it is
+ * there), its record removed. Only for a link that failed halfway, before
+ * anyone could have used the board.
+ */
+export function removeBoard(boardId: string): void {
+  try {
+    const list = storedList();
+    if (list?.boards.some((b) => b.id === boardId)) {
+      const boards = list.boards.filter((b) => b.id !== boardId);
+      localStorage.setItem(BOARD_LIST_KEY, JSON.stringify({ ...list, boards }));
+    }
+  } finally {
+    localStorage.removeItem(boardKey(boardId));
+  }
+}
+
+/**
+ * Makes `boardId` the board Boardkit opens next ("Open in Boardkit"): its
+ * `activeBoardId`, which only says which board a Boardkit tab shows when it
+ * starts. Nothing happens when the list doesn't read or lacks the board.
+ * Never throws: at worst Boardkit opens on another board.
+ */
+export function openBoardNext(boardId: string): void {
+  try {
+    const list = storedList();
+    if (!list || list.activeBoardId === boardId || !list.boards.some((b) => b.id === boardId)) return;
+    localStorage.setItem(BOARD_LIST_KEY, JSON.stringify({ ...list, activeBoardId: boardId }));
+  } catch {
+    // Not fatal: Boardkit just opens the board it had open.
+  }
 }

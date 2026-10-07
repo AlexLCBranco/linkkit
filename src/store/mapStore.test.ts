@@ -894,6 +894,45 @@ describe("a linked tree in the store", () => {
     expect(useMapStore.getState().map.nodes[added]).toBeDefined();
   });
 
+  it("unlinks into an ordinary tree, leaving the board in Boardkit", async () => {
+    const { useMapStore } = await linkedStore();
+    useMapStore.getState().moveBox(asNodeId("a"), { x: 5, y: 5 });
+    useMapStore.getState().unlinkFromBoard();
+    const { map, history } = useMapStore.getState();
+    expect(map.linkedBoard).toBeUndefined();
+    expect(history.past).toHaveLength(0);
+    expect(JSON.parse(localStorage.getItem("linkkit:map:m1")!).version).toBe(1);
+    expect(localStorage.getItem("boardkit:board:move")).not.toBeNull();
+    // An ordinary tree again: a step under a card is fine.
+    expect(useMapStore.getState().addNextStep(asNodeId("a"))).not.toBeNull();
+  });
+
+  it("links a tree as a new board, after saying what it will make", async () => {
+    const { useMapStore } = await linkedStore();
+    const { linkPreview } = await import("./mapStore");
+    useMapStore.getState().unlinkFromBoard();
+    expect(linkPreview(useMapStore.getState().map)).toEqual({ kind: "ok", name: "Move?", lists: 2, cards: 1, trashed: 0 });
+    expect(useMapStore.getState().linkToBoard()).toBe(true);
+    const { map } = useMapStore.getState();
+    // "move" is still a board in Boardkit: the start box got a fresh id.
+    expect(map.linkedBoard).toBeDefined();
+    expect(map.linkedBoard).not.toBe("move");
+    const list = JSON.parse(localStorage.getItem("boardkit:registry")!);
+    expect(list.boards.map((b: { id: string }) => b.id)).toEqual(["move", map.linkedBoard]);
+    expect(linkPreview(map)).toEqual({ kind: "unavailable" });
+  });
+
+  it("names the boxes in the way of a link, and offers none without Boardkit", async () => {
+    const { useMapStore } = await linkedStore();
+    const { linkPreview } = await import("./mapStore");
+    useMapStore.getState().unlinkFromBoard();
+    const step = useMapStore.getState().addNextStep(asNodeId("a"))!;
+    useMapStore.getState().renameBox(step, "Deep");
+    expect(linkPreview(useMapStore.getState().map)).toEqual({ kind: "refused", problems: ['"Deep" is 4 levels deep.'] });
+    localStorage.removeItem("boardkit:registry");
+    expect(linkPreview(useMapStore.getState().map)).toEqual({ kind: "unavailable" });
+  });
+
   it("changes nothing while its board can't be written", async () => {
     const { useMapStore, useLinkHold } = await linkedStore();
     useLinkHold.getState().hold(asMapId("m1"), "damaged");

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.35 (step 22 a linked map's deletes go only to Boardkit's trash done; step 23 next)_
+_Last updated: 2026-10-07, v0.0.36 (step 23 the "Link to Boardkit" action done; step 24 next)_
 
 ## What it is
 
@@ -187,6 +187,27 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   trash; what "erase the oldest" erased stays erased. A new box in a
   linked map isn't saved until it has a name, so a box left nameless
   never reaches Boardkit (or its trash)
+- "Link to Boardkit…" (step 23), in the map menu for a tree, shown only
+  where Boardkit's data is (its board list reads: the shared gauntlet
+  site, once Boardkit has been opened there). A tree that doesn't fit a
+  board is refused in a dialog naming each box in the way ("'Walk to
+  work' is 4 levels deep", "has two ways in", "more than 50 cards");
+  nothing is fixed for you. Otherwise a question says what it makes
+  ("It becomes a board in Boardkit with 2 lists and 3 cards") and, when
+  the map's own trash holds boxes, that they will be erased. Link makes
+  the board (Boardkit's record, version 2, `rev` 1), adds it at the end
+  of Boardkit's board list (Boardkit's open board stays; an open Boardkit
+  tab gets the new board live), and stores the map linked, all or
+  nothing: a failed write takes back what was written and says so. The
+  board's id is the start box's; when a board already has that id (a
+  copy of a linked map) the start box gets a new one. Places, colours,
+  labels, collapse and "hide cut" stay; the map takes its start box's
+  name; its undo history is cleared. A linked map shows a "Linked to
+  Boardkit" chip by its name with "Open in Boardkit" (/boardkit in a new
+  tab, opening this board: it sets Boardkit's last open board). "Unlink
+  from Boardkit…" (asks first) makes it an ordinary tree with its own
+  copy; the board stays in Boardkit as an ordinary board. Another
+  Linkkit tab with the map open follows a link or an unlink
 - Click a box: what it needs lights up teal, what breaks without it
   lights up orange (boxes fill, arrows on those paths turn colour and
   thicken), everything else fades, and the status line shows the box's
@@ -496,7 +517,9 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     asks first) back onto the board; `boardProblems`
     and `problemText` name what keeps a tree from being a board ("'Rent'
     has two ways in", "'Walk to work' is 4 levels deep"); `arrangeCards`
-    is the divider rule
+    is the divider rule; `linkTree` (step 23) turns an ordinary tree into
+    a new board plus its linked map (a fresh start id when a board
+    already has its id)
   - `merge.ts` (step 3b2): `mergeMaps(base, mine, theirs)`, two tabs'
     versions of one map made into one (theirs, with this tab's changes
     re-applied item by item; a clash keeps theirs and is named), then
@@ -895,8 +918,22 @@ file is updated too.
     delete; the trash panel for a linked map shows "Open trash in
     Boardkit" instead of "From this map". A restore made in Boardkit
     arrives through the `storage` event and is tidied in
-23. The "Link to Boardkit" action (the switch that makes linking
-    visible). In the map menu, for trees, shown only where Boardkit's
+23. ~~The "Link to Boardkit" action (the switch that makes linking
+    visible)~~ (done, v0.0.36). The owner left the three design questions
+    to Claude ("do whatever u think is best"), so all three
+    recommendations were built: an "Unlink from Boardkit…" action (asks
+    first; the map keeps its copy as an ordinary tree, the board stays);
+    "Open in Boardkit" opens this board (it sets Boardkit's
+    `activeBoardId`, only which board Boardkit shows next); linking
+    erases the map's own trash, which the question says when there is
+    any. Also chosen: a question before linking (what it makes), linking
+    clears undo, the new board goes last in Boardkit's list without
+    becoming Boardkit's open board. Built as described under What works
+    now. Not tested by hand: a real Boardkit beside it (Boardkit's list
+    and board written into storage by hand, at a local address), opening
+    /boardkit (no Boardkit at the dev address; the link's target and the
+    `activeBoardId` write were checked), and two real tabs (unit-tested).
+    The plan as first written: In the map menu, for trees, shown only where Boardkit's
     data is present (`boardkit:registry`). A tree that doesn't fit is
     refused, naming each box in the way (`boardProblems`, built). Else, in
     one go: creates the board record (version 2) from the tree, adds the

@@ -10,6 +10,7 @@ import { ReachStatus } from "../features/map/ReachStatus";
 import { SelectionBar } from "../features/map/SelectionBar";
 import { TidyButton } from "../features/map/TidyButton";
 import { MapSwitcher } from "../features/maps/MapSwitcher";
+import { LinkedChip } from "../features/maps/BoardLink";
 import { LinkHoldBanner } from "../features/maps/LinkHoldBanner";
 import { MissingMapsBanner } from "../features/maps/MissingMapsBanner";
 import { SaveFailedBanner } from "../features/maps/SaveFailedBanner";
@@ -31,6 +32,7 @@ export function App() {
     <div className={styles.app}>
       <header className={styles.header}>
         <MapSwitcher />
+        <LinkedChip />
         <AddBoxButton />
         <TidyButton />
         <HistoryButtons />

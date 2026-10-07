@@ -1,4 +1,4 @@
-import { nextRecord, type BoardRecord } from "../domain/boardRecord";
+import { BOARD_RECORD_VERSION, nextRecord, type BoardContent, type BoardRecord } from "../domain/boardRecord";
 import { linkedTree, problemText, treeToBoard, unlinked, withStartName } from "../domain/bridge";
 import { mergeMaps, sameMap } from "../domain/merge";
 import { readMap, revOf, serializeMap, serializeStored, type MapRead } from "../domain/persistence";
@@ -6,7 +6,7 @@ import { readRegistry, removeMap, serializeRegistry, upsertMap, type Registry } 
 import { readMapTrash, serializeMapTrash, type MapTrash } from "../domain/trash";
 import type { LinkMap, MapId, NodeId, Size } from "../domain/types";
 import { useLinkHold, type HoldReason } from "./linkHold";
-import { boardKey, loadBoard, loadBoardName, writeBoard, writeBoardName } from "./persistBoard";
+import { boardKey, createBoard, loadBoard, loadBoardName, removeBoard, writeBoard, writeBoardName } from "./persistBoard";
 import { useSaveHealth } from "./saveHealth";
 import { useSyncNotice } from "./syncNotice";
 
@@ -222,15 +222,19 @@ type LinkedStored =
     }
   /** The board was deleted in Boardkit. */
   | { readonly kind: "gone" }
+  /** Another tab unlinked the map: its stored record is an ordinary map
+      now (as parsed JSON, for `caughtUp`). */
+  | { readonly kind: "unlinked"; readonly stored: unknown }
   /** The board can't be written (a newer Boardkit's, or damaged). */
   | { readonly kind: "held"; readonly reason: HoldReason };
 
 function storedLinked(mine: LinkMap & { readonly linkedBoard: string }): LinkedStored {
+  const stored = storedRecord(MAP_KEY_PREFIX + mine.id);
+  const read = stored === null ? null : readMap(stored, mine.page);
+  if (read && read.status !== "unreadable" && !read.map.linkedBoard) return { kind: "unlinked", stored };
   const board = loadBoard(mine.linkedBoard);
   if (board.status === "missing") return { kind: "gone" };
   if (board.status !== "ok") return { kind: "held", reason: board.status };
-  const stored = storedRecord(MAP_KEY_PREFIX + mine.id);
-  const read = stored === null ? null : readMap(stored, mine.page);
   const copy = read && read.status !== "unreadable" && read.map.linkedBoard === mine.linkedBoard ? read.map : null;
   const name = loadBoardName(mine.linkedBoard);
   const { map, unplaced } = linkedTree(copy ?? mine, name, board.record.board);
@@ -250,6 +254,10 @@ function caughtUpLinked(id: MapId, mine: LinkMap, now: LinkedStored): LinkMap {
     useLinkHold.getState().release(id);
     useSyncNotice.getState().boardDeleted(mine.name);
     return unlinked(mine);
+  }
+  if (now.kind === "unlinked") {
+    useLinkHold.getState().release(id);
+    return caughtUp(id, unlinked(mine), now.stored);
   }
   if (now.kind === "held") {
     useLinkHold.getState().hold(id, now.reason);
@@ -324,6 +332,38 @@ function saveLinked(map: LinkMap & { readonly linkedBoard: string }): LinkMap {
   if (!ok) unsaved.set(map.id, written);
   else unsaved.delete(map.id);
   return written;
+}
+
+/**
+ * "Link to Boardkit": stores the new board (`createBoard`) and then the map
+ * in its linked form, in place of the ordinary record. The old record stays
+ * as it is until the linked one is stored over it, and if that write fails
+ * the board is taken back, so a failed link leaves everything as it was.
+ * Returns whether it was linked.
+ */
+export function linkStoredMap(linked: LinkMap & { readonly linkedBoard: string }, name: string, board: BoardContent): boolean {
+  const key = MAP_KEY_PREFIX + linked.id;
+  let rev: number;
+  try {
+    rev = revOf(storedRecord(key)) + 1;
+    createBoard(linked.linkedBoard, name, { version: BOARD_RECORD_VERSION, rev: 1, board });
+  } catch {
+    return false;
+  }
+  try {
+    localStorage.setItem(key, JSON.stringify(serializeStored(linked, rev)));
+  } catch {
+    try {
+      removeBoard(linked.linkedBoard);
+    } catch {
+      // Left in Boardkit as an ordinary board: nothing is lost.
+    }
+    return false;
+  }
+  synced.set(linked.id, { rev, map: linked, board: { rev: 1, name } });
+  unsaved.delete(linked.id);
+  writeRegistry(upsertMap(loadRegistry(), { id: linked.id, name: linked.name }));
+  return true;
 }
 
 const mergedListeners: ((id: MapId, from: LinkMap, merged: LinkMap) => void)[] = [];

@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { boardToTree, type LinkedView } from "../domain/bridge";
+import { boardToTree, linkTree, unlinked, type LinkedView } from "../domain/bridge";
 import { asMapId, asNodeId } from "../domain/ids";
-import { moveNode, renameNode } from "../domain/map";
+import { moveNode, renameMap, renameNode } from "../domain/map";
 import { serializeStored } from "../domain/persistence";
 import { moveToParent } from "../domain/tree";
 import type { LinkMap } from "../domain/types";
 import { useLinkHold } from "./linkHold";
 import { memoryStorage } from "./memoryStorage";
-import { catchUpMap, loadMap, onMapMerged, saveMap, takeUnplaced } from "./persistMap";
+import { catchUpMap, linkStoredMap, loadMap, onMapMerged, saveMap, takeUnplaced } from "./persistMap";
 import { useSaveHealth } from "./saveHealth";
 import { useSyncNotice } from "./syncNotice";
 
@@ -224,5 +224,95 @@ describe("another app's save", () => {
     const map = loadMap(MAP_ID, PAGE)!;
     localStorage.setItem(LIST_KEY, JSON.stringify({ version: 1, boards: [{ id: "move", name: "Move?" }], activeBoardId: "x" }));
     expect(catchUpMap(MAP_ID, map).kind).toBe("current");
+  });
+});
+
+describe("linking a tree (Link to Boardkit)", () => {
+  const PLAIN_ID = asMapId("p1");
+  const PLAIN_KEY = "linkkit:map:p1";
+  /** An ordinary tree "Plan": lists l1 (card c1) and l2, stored, with
+      something in its own trash. */
+  function plain(): LinkMap {
+    const tree = { ...unlinked(copy()), id: PLAIN_ID };
+    const renamed = renameNode(renameMap(tree, "Plan map"), id("move"), "Plan");
+    const trashed = { deletedAt: 1, nodes: [{ ...renamed.nodes[id("b")], id: id("old") }], links: [], places: [] };
+    return { ...renamed, trash: [trashed] };
+  }
+  const linking = (map: LinkMap, taken = (boardId: string) => boardId === "move") => {
+    const result = linkTree(map, taken, () => id("fresh"));
+    if (!result.ok || !result.map.linkedBoard) throw new Error("refused");
+    return result as typeof result & { map: LinkMap & { linkedBoard: string } };
+  };
+  const list = () => JSON.parse(localStorage.getItem(LIST_KEY)!) as { boards: { id: string; name: string }[]; activeBoardId: string };
+
+  beforeEach(() => {
+    saveMap(plain());
+  });
+
+  it("stores the new board, adds it to Boardkit's list, and stores the map linked", () => {
+    const result = linking(plain());
+    expect(result.boardId).toBe("fresh");
+    expect(linkStoredMap(result.map, result.name, result.board)).toBe(true);
+    const board = JSON.parse(localStorage.getItem("boardkit:board:fresh")!);
+    expect(board).toMatchObject({ version: 2, rev: 1 });
+    expect(board.board.listOrder).toEqual(["rent", "buy"]);
+    expect(list().boards).toEqual([
+      { id: "move", name: "Move?" },
+      { id: "fresh", name: "Plan" },
+    ]);
+    // Which board Boardkit opens is Boardkit's.
+    expect(list().activeBoardId).toBe("move");
+    const stored = JSON.parse(localStorage.getItem(PLAIN_KEY)!);
+    expect(stored.version).toBe(2);
+    expect(stored.map.linkedBoard).toBe("fresh");
+    expect(stored.map.trash).toEqual([]);
+    // It opens as a linked tree, built from its board.
+    const opened = loadMap(PLAIN_ID, PAGE)!;
+    expect(opened.linkedBoard).toBe("fresh");
+    expect(opened.name).toBe("Plan");
+  });
+
+  it("takes the board back and leaves the map as it was when the map's write fails", () => {
+    const before = localStorage.getItem(PLAIN_KEY);
+    const storage = localStorage;
+    const setItem = storage.setItem.bind(storage);
+    storage.setItem = (k, v) => {
+      if (k === PLAIN_KEY) throw new Error("quota");
+      setItem(k, v);
+    };
+    const result = linking(plain());
+    expect(linkStoredMap(result.map, result.name, result.board)).toBe(false);
+    expect(localStorage.getItem("boardkit:board:fresh")).toBeNull();
+    expect(list().boards.map((b) => b.id)).toEqual(["move"]);
+    expect(localStorage.getItem(PLAIN_KEY)).toBe(before);
+  });
+
+  it("writes nothing when Boardkit's list can't take the board", () => {
+    const storage = localStorage;
+    const setItem = storage.setItem.bind(storage);
+    storage.setItem = (k, v) => {
+      if (k === LIST_KEY) throw new Error("quota");
+      setItem(k, v);
+    };
+    const before = localStorage.getItem(PLAIN_KEY);
+    const result = linking(plain());
+    expect(linkStoredMap(result.map, result.name, result.board)).toBe(false);
+    expect(localStorage.getItem("boardkit:board:fresh")).toBeNull();
+    expect(localStorage.getItem(PLAIN_KEY)).toBe(before);
+  });
+
+  it("an unlink stored by another tab turns this tab's linked map ordinary, not linked again", () => {
+    const result = linking(plain());
+    linkStoredMap(result.map, result.name, result.board);
+    const mine = loadMap(PLAIN_ID, PAGE)!;
+    // The other tab unlinks and stores it as an ordinary tree.
+    const theirs = unlinked(mine);
+    localStorage.setItem(PLAIN_KEY, JSON.stringify(serializeStored(theirs, 3)));
+    const caught = catchUpMap(PLAIN_ID, mine);
+    expect(caught.kind).toBe("merged");
+    expect(caught.kind === "merged" && caught.map.linkedBoard).toBeUndefined();
+    // A save from this tab now keeps it ordinary.
+    saveMap(caught.kind === "merged" ? moveNode(caught.map, id("a"), { x: 1, y: 2 }) : mine);
+    expect(JSON.parse(localStorage.getItem(PLAIN_KEY)!).version).toBe(1);
   });
 });

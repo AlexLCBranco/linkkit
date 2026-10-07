@@ -9,6 +9,7 @@ import {
   boardToTree,
   linkedProblem,
   linkedTree,
+  linkTree,
   problemText,
   treeToBoard,
   unlinked,
@@ -372,5 +373,83 @@ describe("linked maps", () => {
     expect(linkedProblem(deep)).toMatch(/4 levels deep/);
     expect(linkedProblem(copy())).toBeNull();
     expect(linkedProblem(unlinked(deep))).toBeNull();
+  });
+});
+
+describe("linkTree", () => {
+  // Plan -> Rent (cards a, b), Buy (card c); arrow labels, places, a colour.
+  const plain = (): LinkMap => {
+    const map = buildTree("plan", ["rent", "buy", "a", "b", "c"], [
+      ["plan", "rent", "if cheap"],
+      ["plan", "buy"],
+      ["rent", "a"],
+      ["rent", "b", "maybe"],
+      ["buy", "c"],
+    ]);
+    const nodes = Object.fromEntries(
+      Object.values(map.nodes).map((n, i) => [n.id, { ...n, x: 10 * i, y: 7, color: n.id === "a" ? ("teal" as const) : null }]),
+    );
+    const trashed = { id: id("gone"), deletedAt: 1, nodes: [], links: [], order: [] };
+    return { ...map, name: "My plan", nodes, collapsed: [id("buy")], hideCut: true, trash: [trashed as never] };
+  };
+  const fresh = () => id("new-start");
+  const link = (key: string) => key as never;
+
+  it("makes a board from the tree and the linked form of the map", () => {
+    const result = linkTree(plain(), () => false, fresh);
+    if (!result.ok) throw new Error("refused");
+    expect(result.boardId).toBe("plan");
+    expect(result.name).toBe("plan");
+    expect(result.board.listOrder).toEqual(["rent", "buy"]);
+    expect(result.board.cardOrder).toEqual({ rent: ["a", "b"], buy: ["c"] });
+    expect(result.board.lists.rent).toEqual({ id: "rent", title: "rent" });
+    expect(readBoardRecord(nextRecord({ version: 2, rev: 0, board: result.board }, result.board)).status).toBe("ok");
+
+    const map = result.map;
+    expect(map.id).toBe("m1");
+    expect(map.linkedBoard).toBe("plan");
+    // Named after its start box, as every linked map is.
+    expect(map.name).toBe("plan");
+    expect(map.trash).toEqual([]);
+    // Arrows keyed by the box they point into, labels kept.
+    expect(map.links[link("rent")]).toMatchObject({ from: "plan", to: "rent", label: "if cheap" });
+    expect(map.links[link("b")]).toMatchObject({ from: "rent", to: "b", label: "maybe" });
+    expect(map.nodes[id("a")]).toMatchObject({ x: 30, y: 7, color: "teal" });
+    expect(map.collapsed).toEqual(["buy"]);
+    expect(map.hideCut).toBe(true);
+    expect(linkedProblem(map)).toBeNull();
+  });
+
+  it("gives the start box a fresh id when a board already has its id", () => {
+    const result = linkTree(plain(), (boardId) => boardId === "plan", fresh);
+    if (!result.ok) throw new Error("refused");
+    expect(result.boardId).toBe("new-start");
+    expect(result.map.linkedBoard).toBe("new-start");
+    expect(result.map.nodes[id("plan")]).toBeUndefined();
+    expect(result.map.nodes[id("new-start")]).toMatchObject({ name: "plan", x: 0, y: 7 });
+    expect(result.map.links[link("rent")]).toMatchObject({ from: "new-start", label: "if cheap" });
+    expect(result.map.order[id("new-start")]).toEqual(["rent", "buy"]);
+    // Lists and cards keep their ids.
+    expect(Object.keys(result.board.lists)).toEqual(["rent", "buy"]);
+  });
+
+  it("refuses a tree that doesn't fit a board, naming each box, and a linked map", () => {
+    const deep = buildTree("q", ["l", "c", "deep"], [["q", "l"], ["l", "c"], ["c", "deep"]]);
+    expect(linkTree(deep, () => false, fresh)).toEqual({ ok: false, problems: [{ kind: "too-deep", box: "deep", level: 4 }] });
+    expect(linkTree({ ...deep, kind: "connections" }, () => false, fresh).ok).toBe(false);
+    const linked = linkTree(plain(), () => false, fresh);
+    if (!linked.ok) throw new Error("refused");
+    expect(linkTree(linked.map, () => false, fresh).ok).toBe(false);
+  });
+
+  it("refuses a list over Boardkit's limit", () => {
+    const cards = Array.from({ length: 51 }, (_, i) => `c${i}`);
+    const big = buildTree("q", ["l", ...cards], [["q", "l"], ...cards.map((c): [string, string] => ["l", c])]);
+    expect(linkTree(big, () => false, fresh)).toEqual({ ok: false, problems: [{ kind: "list-full", box: "l" }] });
+  });
+
+  it("links a tree that is only its start as a board with no lists", () => {
+    const result = linkTree(buildTree("solo", []), () => false, fresh);
+    expect(result.ok && result.board.listOrder).toEqual([]);
   });
 });

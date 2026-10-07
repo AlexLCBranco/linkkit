@@ -23,13 +23,11 @@ import {
 } from "../../components/ui/dialog";
 import { trashEntryId, type TrashedMap } from "../../domain/trash";
 import type { NodeId, TrashEntry } from "../../domain/types";
+import { BOARDKIT_URL } from "../maps/BoardLink";
 import { useMapStore } from "../../store/mapStore";
 import { ago, boxes, described } from "./ago";
 import styles from "./TrashPanel.module.css";
 
-/** Boardkit on the shared site, where a linked map's board is: linking
-    only happens there, next to Linkkit's /linkkit. */
-const BOARDKIT_URL = "/boardkit/";
 
 const maps = (n: number) => `${n} ${n === 1 ? "map" : "maps"}`;
 

@@ -3,7 +3,7 @@ import { create } from "zustand";
 import { mapsToRestore } from "../domain/backup";
 import { exampleMap, exampleTree } from "../domain/example";
 import * as history from "../domain/history";
-import { createMapId } from "../domain/ids";
+import { createMapId, createNodeId } from "../domain/ids";
 import {
   addLink,
   addNode,
@@ -62,9 +62,18 @@ import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
 import { ARROW_LENGTH_PRESETS, type LinkId, type LinkMap, type MapId, type NodeId, type NodeStatus, type PaletteColor, type Point, type Size } from "../domain/types";
 import { mergeMaps, shareUnchanged } from "../domain/merge";
-import { linkedProblem, treeToBoard, withStartName, type BoardErased } from "../domain/bridge";
+import {
+  boardProblems,
+  linkedProblem,
+  linkTree,
+  problemText,
+  treeToBoard,
+  unlinked,
+  withStartName,
+  type BoardErased,
+} from "../domain/bridge";
 import { useLinkHold } from "./linkHold";
-import { boardIdOfKey, isBoardListKey, loadBoard } from "./persistBoard";
+import { boardExists, boardIdOfKey, hasBoardList, isBoardListKey, loadBoard } from "./persistBoard";
 import { useMissingMaps } from "./missingMaps";
 import { useSyncNotice } from "./syncNotice";
 import {
@@ -82,6 +91,7 @@ import {
   catchUpMap,
   forgetMapDeletedElsewhere,
   isListKey,
+  linkStoredMap,
   mapIdOfKey,
   onMapMerged,
   takeUnplaced,
@@ -341,6 +351,18 @@ export interface MapState {
    * taken away, and the newest restored map opens.
    */
   restoreMaps(maps: readonly LinkMap[]): { readonly added: number; readonly alreadyHere: number };
+  /**
+   * "Link to Boardkit": the open tree becomes a new board in Boardkit, shared
+   * from now on (see `linkPreview` for what the user is asked first). Its
+   * own trash is emptied and its undo history cleared. Returns whether it
+   * was linked; a tree that doesn't fit, or a failed write, changes nothing
+   * (a failed write says so).
+   */
+  linkToBoard(): boolean;
+  /** "Unlink from Boardkit": the open linked tree becomes an ordinary tree
+      with its own copy; the board stays in Boardkit as an ordinary board.
+      Its undo history is cleared. */
+  unlinkFromBoard(): void;
 
   startEditing(editing: Editing): void;
   /** Ends typing. A box still without a name is removed (as in the
@@ -621,6 +643,39 @@ function trashMap(id: MapId): void {
     const blank = blankMap();
     useMapStore.setState((state) => ({ ...open(state, blank, createStored(blank, maps)), trashedMaps }));
   }
+}
+
+const isLinkedMap = (map: LinkMap): map is LinkMap & { readonly linkedBoard: string } => !!map.linkedBoard;
+
+/** What "Link to Boardkit" would do to a map, for the question before it. */
+export type LinkPreview =
+  /** Not offered: not a tree, already linked, or Boardkit's data isn't here
+      (each address has its own storage; linking needs the shared site). */
+  | { readonly kind: "unavailable" }
+  /** The tree doesn't fit a board: each box in the way, in words. */
+  | { readonly kind: "refused"; readonly problems: readonly string[] }
+  | {
+      readonly kind: "ok";
+      readonly name: string;
+      readonly lists: number;
+      readonly cards: number;
+      /** Boxes in the map's own trash, which linking erases. */
+      readonly trashed: number;
+    };
+
+export function linkPreview(map: LinkMap): LinkPreview {
+  if (map.kind !== "tree" || map.linkedBoard || !hasBoardList()) return { kind: "unavailable" };
+  const problems = boardProblems(map);
+  if (problems.length) return { kind: "refused", problems: problems.map((p) => problemText(map, p)) };
+  const result = linkTree(map, () => false, createNodeId);
+  if (!result.ok) return { kind: "refused", problems: result.problems.map((p) => problemText(map, p)) };
+  return {
+    kind: "ok",
+    name: result.name,
+    lists: result.board.listOrder.length,
+    cards: Object.keys(result.board.cards).length,
+    trashed: map.trash.reduce((n, entry) => n + entry.nodes.length, 0),
+  };
 }
 
 /** The undo step a new box and its first name share. */
@@ -984,6 +1039,41 @@ export const useMapStore = create<MapState>()((set, get) => ({
     const newest = add[add.length - 1];
     set((state) => ({ ...open(state, newest, maps), starter: null }));
     return { added: add.length, alreadyHere };
+  },
+
+  linkToBoard: () => {
+    get().stopEditing();
+    flushSave();
+    const s = get();
+    if (s.needsTidy) return false;
+    const result = linkTree(s.map, boardExists, createNodeId);
+    if (!result.ok) return false;
+    if (!isLinkedMap(result.map) || !linkStoredMap(result.map, result.name, result.board)) {
+      useSyncNotice.getState().say("Couldn't link to Boardkit: the browser's storage refused it. Nothing was changed.");
+      return false;
+    }
+    const map = result.map;
+    set({
+      ...forget(s, map),
+      ...touchStarter(s),
+      maps: upsertMap(s.maps, { id: map.id, name: map.name }),
+      history: history.EMPTY_HISTORY,
+      stepKey: null,
+      confirmingDelete: null,
+    });
+    return true;
+  },
+  unlinkFromBoard: () => {
+    get().stopEditing();
+    flushSave();
+    const s = get();
+    if (!s.map.linkedBoard) return;
+    const map = unlinked(s.map);
+    useLinkHold.getState().release(map.id);
+    set({ ...forget(s, map), history: history.EMPTY_HISTORY, stepKey: null, confirmingDelete: null });
+    // Stored at once, so a Boardkit tab's change from now on no longer
+    // reaches this map.
+    saveMap(map);
   },
 
   startEditing: (editing) => set({ editing }),

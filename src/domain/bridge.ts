@@ -453,3 +453,60 @@ export function linkedProblem(map: LinkMap): string | null {
   const [problem] = boardProblems(map);
   return problem ? problemText(map, problem) : null;
 }
+
+/** A board with nothing on it: what "Link to Boardkit" fills from the tree
+    (Boardkit's `createEmptyBoard`). */
+export const EMPTY_BOARD: BoardContent = { lists: {}, cards: {}, listOrder: [], cardOrder: {}, trash: [], trashedLists: [] };
+
+/** `map` with box `from` called `to` everywhere: its arrows, its sibling
+    order, collapse. Nothing else changes. */
+function renamedBox(map: LinkMap, from: NodeId, to: NodeId): LinkMap {
+  const swap = (id: NodeId) => (id === from ? to : id);
+  const nodes: Record<NodeId, MapNode> = {};
+  for (const node of Object.values(map.nodes)) nodes[swap(node.id)] = { ...node, id: swap(node.id) };
+  const links: Record<LinkId, Link> = {};
+  for (const link of Object.values(map.links)) links[link.id] = { ...link, from: swap(link.from), to: swap(link.to) };
+  const order: Record<NodeId, readonly NodeId[]> = {};
+  for (const [parent, kids] of Object.entries(map.order)) order[swap(parent as NodeId)] = kids.map(swap);
+  return { ...map, nodes, links, order, collapsed: map.collapsed.map(swap) };
+}
+
+export type LinkTree =
+  | {
+      readonly ok: true;
+      /** The map in its linked form: `linkedBoard` set, named after its
+          start box, no trash of its own, each arrow keyed by the box it
+          points into. */
+      readonly map: LinkMap;
+      readonly boardId: string;
+      /** The new board's content and its name (for Boardkit's list). */
+      readonly board: BoardContent;
+      readonly name: string;
+    }
+  | { readonly ok: false; readonly problems: readonly BoardProblem[] };
+
+/**
+ * "Link to Boardkit": an ordinary tree turned into a new board plus the
+ * linked map that shares it. The board's id is the start box's, unless a
+ * board already has that id (a duplicate of a linked map keeps its box
+ * ids): then the start box gets `freshId`. Lists and cards keep their
+ * ids, which only need to be unique within one board.
+ *
+ * Places, colours, labels, collapse and "hide cut" all stay; the map's own
+ * trash doesn't (a linked map's deletes live in the board's trash).
+ * Refused, with the reasons, when the tree doesn't fit a board.
+ */
+export function linkTree(map: LinkMap, boardTaken: (id: string) => boolean, freshId: () => NodeId): LinkTree {
+  if (map.linkedBoard) return { ok: false, problems: [{ kind: "not-a-tree" }] };
+  const problems = boardProblems(map);
+  if (problems.length) return { ok: false, problems };
+  let tree = map;
+  const start = startOf(tree)!;
+  if (boardTaken(start)) tree = renamedBox(tree, start, freshId());
+  const boardId = startOf(tree)!;
+  const linking: LinkMap = { ...tree, linkedBoard: boardId, trash: [] };
+  const result = treeToBoard(EMPTY_BOARD, linking, 0);
+  if (!result.ok) return result;
+  const linked = withStartName(linkedTree(linking, result.name, result.board).map);
+  return { ok: true, map: linked, boardId, board: result.board, name: result.name };
+}
