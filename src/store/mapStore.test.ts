@@ -789,14 +789,16 @@ describe("restoring all maps", () => {
 
 describe("a linked tree in the store", () => {
   /** Boardkit's board "Move?" (lists rent with card a, buy), and Linkkit's
-      placed copy of its tree, open. */
-  async function linkedStore() {
+      placed copy of its tree, open. `fullTrash`: the board's trash
+      already holds Boardkit's 200 cards. */
+  async function linkedStore(fullTrash = false) {
+    const old = fullTrash ? Array.from({ length: 200 }, (_, i) => `old${i}`) : [];
     const board = {
       lists: { rent: { id: "rent", title: "Rent" }, buy: { id: "buy", title: "Buy" } },
-      cards: { a: { id: "a", title: "A" } },
+      cards: { a: { id: "a", title: "A" }, ...Object.fromEntries(old.map((k) => [k, { id: k, title: k }])) },
       listOrder: ["rent", "buy"],
       cardOrder: { rent: ["a"], buy: [] },
-      trash: [],
+      trash: old.map((k, i) => ({ cardId: k, listId: "rent", deletedAt: i })),
       trashedLists: [],
     };
     localStorage.setItem("boardkit:board:move", JSON.stringify({ version: 2, rev: 1, board }));
@@ -853,6 +855,43 @@ describe("a linked tree in the store", () => {
     expect(maps.find((m) => m.id === "m1")?.name).toBe("Stay?");
     useMapStore.getState().renameBox(asNodeId("move"), "Go?");
     expect(useMapStore.getState().map.name).toBe("Go?");
+  });
+
+  it("deletes into the board's trash only, with no trash entry of its own", async () => {
+    const { useMapStore } = await linkedStore();
+    useMapStore.getState().deleteBox(asNodeId("a"));
+    const { map, trashWarning } = useMapStore.getState();
+    expect(trashWarning).toBeNull();
+    expect(map.nodes[asNodeId("a")]).toBeUndefined();
+    expect(map.trash).toEqual([]);
+  });
+
+  it("asks first when the board's trash is full, naming the oldest card", async () => {
+    const { useMapStore } = await linkedStore(true);
+    const before = useMapStore.getState().map;
+    useMapStore.getState().deleteBox(asNodeId("a"));
+    const warning = useMapStore.getState().trashWarning;
+    expect(warning?.kind === "board" && warning.action === "delete" && warning.erased.map((e) => e.title)).toEqual(["old0"]);
+    expect(useMapStore.getState().map).toBe(before);
+    useMapStore.getState().confirmTrashWarning();
+    expect(useMapStore.getState().map.nodes[asNodeId("a")]).toBeUndefined();
+    expect(useMapStore.getState().map.trash).toEqual([]);
+  });
+
+  it("asks before an undo that would put a box into the board's full trash", async () => {
+    const { useMapStore } = await linkedStore(true);
+    const added = useMapStore.getState().addNextStep(asNodeId("buy"))!;
+    useMapStore.getState().renameBox(added, "New");
+    useMapStore.getState().stopEditing();
+    const { saveMap } = await import("./persistMap");
+    saveMap(useMapStore.getState().map);
+    const before = useMapStore.getState().map;
+    useMapStore.getState().undo();
+    const warning = useMapStore.getState().trashWarning;
+    expect(warning?.kind === "board" && warning.action).toBe("undo");
+    expect(useMapStore.getState().map).toBe(before);
+    useMapStore.getState().cancelTrashWarning();
+    expect(useMapStore.getState().map.nodes[added]).toBeDefined();
   });
 
   it("changes nothing while its board can't be written", async () => {

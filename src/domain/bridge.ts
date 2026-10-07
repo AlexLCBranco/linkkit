@@ -257,8 +257,33 @@ export function arrangeCards(
   return order;
 }
 
+/** How many deleted cards a board's trash holds (Boardkit's `TRASH_LIMIT`). */
+export const BOARD_TRASH_LIMIT = 200;
+
+/** How many deleted lists a board's trash holds (Boardkit's
+    `LIST_TRASH_LIMIT`). A list counts once; its cards don't count. */
+export const BOARD_LIST_TRASH_LIMIT = 30;
+
+/** Something a full board trash erased for good to make room: a card, or
+    a list with every card in it (`cards`: how many, dividers and notes
+    included, as Boardkit counts them). */
+export interface BoardErased {
+  readonly kind: "card" | "list";
+  readonly title: string;
+  readonly cards: number;
+  readonly deletedAt: number;
+}
+
 export type TreeToBoard =
-  | { readonly ok: true; readonly board: BoardContent; readonly name: string; readonly changed: boolean }
+  | {
+      readonly ok: true;
+      readonly board: BoardContent;
+      readonly name: string;
+      readonly changed: boolean;
+      /** What the trash erased to make room, oldest first; empty while it
+          has room. The store asks before an edit that erases anything. */
+      readonly erased: readonly BoardErased[];
+    }
   | { readonly ok: false; readonly problems: readonly BoardProblem[] };
 
 /**
@@ -271,7 +296,10 @@ export type TreeToBoard =
  * Deleting follows Boardkit: a box gone from the tree goes to the board's
  * trash, never erased. A list goes with its cards (Boardkit keeps a trashed
  * list whole, and they come back together); a card from a list that stays
- * goes on its own. A box back in the tree comes out of the trash.
+ * goes on its own. A box back in the tree comes out of the trash. The
+ * trash keeps Boardkit's limits: past them, the oldest cards or lists are
+ * erased for good, as in Boardkit (`erased` says which, so the store can
+ * ask first).
  *
  * Refused, with the reasons, when the tree doesn't fit a board
  * (`boardProblems`), a box changes between list and card, or a list would
@@ -335,8 +363,26 @@ export function treeToBoard(board: BoardContent, map: LinkMap, deletedAt: number
   }
   if (full.length) return { ok: false, problems: full };
 
+  // A full trash forgets its oldest entries, as Boardkit's does: a card's
+  // record goes, a list goes with every card still in it.
+  const erased: BoardErased[] = [];
+  while (trash.length > BOARD_TRASH_LIMIT) {
+    const { cardId, deletedAt: at } = trash.shift()!;
+    erased.push({ kind: "card", title: cards[cardId]?.title ?? "", cards: 0, deletedAt: at });
+    delete cards[cardId];
+  }
+  while (trashedLists.length > BOARD_LIST_TRASH_LIMIT) {
+    const { listId, deletedAt: at } = trashedLists.shift()!;
+    const inside = cardOrder[listId] ?? [];
+    erased.push({ kind: "list", title: lists[listId]?.title ?? "", cards: inside.length, deletedAt: at });
+    for (const id of inside) delete cards[id];
+    delete lists[listId];
+    delete cardOrder[listId];
+  }
+  erased.sort((a, b) => a.deletedAt - b.deletedAt);
+
   const next: BoardContent = { ...board, lists, cards, listOrder: listIds, cardOrder, trash, trashedLists };
-  return { ok: true, board: next, name: map.nodes[start].name, changed: !sameContent(board, next) };
+  return { ok: true, board: next, name: map.nodes[start].name, changed: !sameContent(board, next), erased };
 }
 
 const sameIds = (a: readonly string[] | undefined, b: readonly string[] | undefined) =>
@@ -366,9 +412,9 @@ function sameContent(a: BoardContent, b: BoardContent): boolean {
  * as Linkkit last stored it. The map keeps its own id and link. `boardName`
  * is the name in Boardkit's board list; when it isn't there, the copy's.
  *
- * The trash stays Linkkit's for now (the copy's, less any box that is back
- * on the map): sending a linked map's deletes to Boardkit's trash only is a
- * later step. `unplaced`: boxes made in Boardkit since, to tidy in.
+ * A linked map has no trash of its own: its deletes wait in the board's
+ * trash, restored from Boardkit. `unplaced`: boxes made in Boardkit since,
+ * to tidy in.
  */
 export function linkedTree(
   copy: LinkMap,
@@ -378,8 +424,7 @@ export function linkedTree(
   const boardId = copy.linkedBoard ?? copy.id;
   const name = boardName ?? copy.nodes[boardId as NodeId]?.name ?? copy.name;
   const built = boardToTree(boardId, name, board, viewOf(copy));
-  const trash = copy.trash.filter((entry) => entry.nodes.every((n) => !built.map.nodes[n.id]));
-  const map: LinkMap = { ...built.map, id: copy.id, trash, ...(copy.linkedBoard ? { linkedBoard: copy.linkedBoard } : {}) };
+  const map: LinkMap = { ...built.map, id: copy.id, trash: [],...(copy.linkedBoard ? { linkedBoard: copy.linkedBoard } : {}) };
   return { map, unplaced: built.unplaced };
 }
 

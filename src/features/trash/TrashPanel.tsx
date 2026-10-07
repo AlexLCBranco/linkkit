@@ -1,4 +1,4 @@
-import { RotateCcw, Trash2, X } from "lucide-react";
+import { ExternalLink, RotateCcw, Trash2, X } from "lucide-react";
 import { useState } from "react";
 
 import {
@@ -27,6 +27,10 @@ import { useMapStore } from "../../store/mapStore";
 import { ago, boxes, described } from "./ago";
 import styles from "./TrashPanel.module.css";
 
+/** Boardkit on the shared site, where a linked map's board is: linking
+    only happens there, next to Linkkit's /linkkit. */
+const BOARDKIT_URL = "/boardkit/";
+
 const maps = (n: number) => `${n} ${n === 1 ? "map" : "maps"}`;
 
 /**
@@ -37,10 +41,12 @@ const maps = (n: number) => `${n} ${n === 1 ? "map" : "maps"}`;
  * other header buttons.
  *
  * "From this map" is the open map's own trash; "Deleted maps" is shared by
- * every map.
+ * every map. A map linked to Boardkit has no trash of its own: its deleted
+ * boxes are in the board's trash, so the panel points there instead.
  */
 export function TrashPanel() {
   const trash = useMapStore((s) => s.map.trash);
+  const linked = useMapStore((s) => s.map.linkedBoard !== undefined);
   const trashedMaps = useMapStore((s) => s.trashedMaps);
   const emptyTrash = useMapStore((s) => s.emptyTrash);
   // Closing the dialog before a restore puts the focus back on the page.
@@ -65,7 +71,21 @@ export function TrashPanel() {
               Deleted boxes and maps wait here until you restore them or delete them for good.
             </DialogDescription>
           </DialogHeader>
+          {linked && (
+            <section className="flex items-center gap-2 rounded-lg px-2 py-1.5">
+              <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+                This map is shared with Boardkit: its deleted boxes are in Boardkit's trash.
+              </p>
+              <Button variant="outline" size="sm" asChild>
+                <a href={BOARDKIT_URL} target="_blank" rel="noopener">
+                  <ExternalLink />
+                  Open trash in Boardkit
+                </a>
+              </Button>
+            </section>
+          )}
           {count === 0 ? (
+            !linked && 
             <p className="py-2 text-sm text-muted-foreground">Nothing here.</p>
           ) : (
             <>

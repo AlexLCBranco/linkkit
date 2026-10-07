@@ -1,7 +1,7 @@
 import { saveActiveMapId, saveMap } from "./persistMap";
 import { useSaveHealth } from "./saveHealth";
 import { flushSave, scheduleSave } from "./saveQueue";
-import { useMapStore } from "./mapStore";
+import { useMapStore, type MapState } from "./mapStore";
 
 /**
  * Saves the open map shortly after every change. Called once from
@@ -25,10 +25,18 @@ export function saveOpenMapNow(): void {
   saveActiveMapId(map.id);
 }
 
+/** Whether a linked map's save waits: a box just added still has no name.
+    Saved now, it would reach Boardkit as an untitled card, and left
+    nameless it would then land in Boardkit's trash, where a box never
+    named doesn't belong. It saves once named (or taken back). */
+const waitsForName = (state: MapState): boolean =>
+  !!state.map.linkedBoard && state.editing?.kind === "box" && state.map.nodes[state.editing.id]?.name === "";
+
 export function initAutoSave(): void {
   useMapStore.subscribe((state, prev) => {
-    if (state.needsTidy) return;
-    if (state.map === prev.map && state.needsTidy === prev.needsTidy) return;
+    if (state.needsTidy || waitsForName(state)) return;
+    const named = waitsForName(prev);
+    if (state.map === prev.map && state.needsTidy === prev.needsTidy && !named) return;
     // The map is read when the save runs, not now, so one write covers a
     // whole burst of edits.
     scheduleSave(() => useMapStore.getState().map);

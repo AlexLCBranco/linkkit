@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { nextRecord, readBoardRecord, type BoardContent, type BoardItem } from "./boardRecord";
 import {
   arrangeCards,
+  BOARD_LIST_TRASH_LIMIT,
+  BOARD_TRASH_LIMIT,
   boardProblems,
   boardToTree,
   linkedProblem,
@@ -205,6 +207,38 @@ describe("treeToBoard", () => {
     expect(list.board.trash).toEqual([]);
   });
 
+  it("erases the oldest trashed cards past Boardkit's limit, and says so", () => {
+    const b = board();
+    const old = Array.from({ length: BOARD_TRASH_LIMIT }, (_, i) => `old${i}`);
+    const cards = { ...b.cards, ...Object.fromEntries(old.map((k) => [k, item(k)])) };
+    const full: BoardContent = { ...b, cards, trash: old.map((k, i) => ({ cardId: k, listId: "rent", deletedAt: i })) };
+    expect(write((m) => m, full).erased).toEqual([]);
+
+    const result = write((m) => deleteBranch(m, id("a")), full);
+    expect(result.erased).toEqual([{ kind: "card", title: "OLD0", cards: 0, deletedAt: 0 }]);
+    expect(result.board.trash).toHaveLength(BOARD_TRASH_LIMIT);
+    expect(result.board.trash.at(-1)?.cardId).toBe("a");
+    expect(result.board.cards.old0).toBeUndefined();
+  });
+
+  it("erases the oldest trashed list with its cards past Boardkit's limit", () => {
+    const b = board();
+    const old = Array.from({ length: BOARD_LIST_TRASH_LIMIT }, (_, i) => `list${i}`);
+    const full: BoardContent = {
+      ...b,
+      lists: { ...b.lists, ...Object.fromEntries(old.map((k) => [k, item(k)])) },
+      cards: { ...b.cards, x: item("x") },
+      cardOrder: { ...b.cardOrder, ...Object.fromEntries(old.map((k) => [k, k === "list0" ? ["x"] : []])) },
+      trashedLists: old.map((k, i) => ({ listId: k, deletedAt: i })),
+    };
+    const result = write((m) => deleteBranch(m, id("rent")), full);
+    expect(result.erased).toEqual([{ kind: "list", title: "LIST0", cards: 1, deletedAt: 0 }]);
+    expect(result.board.lists.list0).toBeUndefined();
+    expect(result.board.cards.x).toBeUndefined();
+    expect(result.board.cardOrder.list0).toBeUndefined();
+    expect(result.board.trashedLists.at(-1)?.listId).toBe("rent");
+  });
+
   it("takes a box back out of the trash when it is in the tree again", () => {
     const trashed = write((m) => deleteBranch(m, id("rent"))).board;
     const back = write((m) => {
@@ -317,10 +351,9 @@ describe("linked maps", () => {
     expect(map.name).toBe("Move?");
   });
 
-  it("keeps the copy's trash, less boxes back on the map", () => {
-    const entry = { deletedAt: 1, nodes: [{ ...copy().nodes[id("a")] }], links: [], places: [] };
+  it("has no trash of its own: the board's trash holds its deletes", () => {
     const gone = { deletedAt: 2, nodes: [{ id: id("zz"), name: "Z", x: 0, y: 0, color: null, status: null }], links: [], places: [] };
-    expect(linkedTree({ ...copy(), trash: [entry, gone] }, null, board()).map.trash).toEqual([gone]);
+    expect(linkedTree({ ...copy(), trash: [gone] }, null, board()).map.trash).toEqual([]);
   });
 
   it("unlinks, and follows the start box's name", () => {

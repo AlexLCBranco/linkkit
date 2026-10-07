@@ -13,6 +13,7 @@ import {
   deleteLink,
   copyFragment,
   deleteNode,
+  deleteNodes,
   duplicateMap,
   fragmentCenter,
   moveNode,
@@ -61,9 +62,9 @@ import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
 import { ARROW_LENGTH_PRESETS, type LinkId, type LinkMap, type MapId, type NodeId, type NodeStatus, type PaletteColor, type Point, type Size } from "../domain/types";
 import { mergeMaps, shareUnchanged } from "../domain/merge";
-import { linkedProblem, withStartName } from "../domain/bridge";
+import { linkedProblem, treeToBoard, withStartName, type BoardErased } from "../domain/bridge";
 import { useLinkHold } from "./linkHold";
-import { boardIdOfKey, isBoardListKey } from "./persistBoard";
+import { boardIdOfKey, isBoardListKey, loadBoard } from "./persistBoard";
 import { useMissingMaps } from "./missingMaps";
 import { useSyncNotice } from "./syncNotice";
 import {
@@ -117,12 +118,17 @@ export interface Dropping {
 }
 
 /** A delete waiting on the "trash is full" warning: what it would erase
-    for good to make room, and the delete itself. */
-export interface TrashWarning {
-  readonly kind: "boxes" | "map";
-  readonly erased: TrashSummary;
-  readonly run: () => void;
-}
+    for good to make room, and the delete itself. `board`: a linked map's
+    edit (a delete, or an undo or redo that takes boxes away) into its
+    Boardkit board's full trash. */
+export type TrashWarning =
+  | { readonly kind: "boxes" | "map"; readonly erased: TrashSummary; readonly run: () => void }
+  | {
+      readonly kind: "board";
+      readonly action: "delete" | "undo" | "redo";
+      readonly erased: readonly BoardErased[];
+      readonly run: () => void;
+    };
 
 /** The map's settings Tidy up follows: which way, and how long the arrows. */
 export type TidySettings = Pick<LinkMap, "direction" | "arrowLength">;
@@ -524,12 +530,52 @@ function withRoomMade(s: MapState, next: LinkMap): Partial<MapState> {
 function trashing(s: MapState, ids: Iterable<NodeId>): Partial<MapState> {
   const gone = [...ids].filter((id) => s.map.nodes[id]);
   if (gone.length === 0) return {};
+  const mapId = s.map.id;
+  if (s.map.linkedBoard) {
+    // A linked map has no trash of its own: saving puts the boxes in the
+    // board's trash (`treeToBoard`), so it's that trash that may be full.
+    const run = () =>
+      useMapStore.setState((st) => (st.map.id === mapId ? commit(st, deleteNodes(st.map, gone)) : {}));
+    const erased = boardErasing(s.map, deleteNodes(s.map, gone));
+    return erased.length ? { trashWarning: { kind: "board", action: "delete", erased, run } } : commit(s, deleteNodes(s.map, gone));
+  }
   const erased = summarize(trashOverflow(s.map, gone.length));
   if (!erased) return commit(s, trashBoxes(s.map, gone, Date.now()));
-  const mapId = s.map.id;
   const run = () =>
     useMapStore.setState((st) => (st.map.id === mapId ? commit(st, trashBoxes(st.map, gone, Date.now())) : {}));
   return { trashWarning: { kind: "boxes", erased, run } };
+}
+
+/**
+ * What `next`, an edit of the linked map `map`, would erase for good from
+ * its board's trash, oldest first: empty when the board's trash has room,
+ * or the edit takes no box away (only then can it put one in the trash).
+ * Read against the board as stored, which the save will write over.
+ */
+function boardErasing(map: LinkMap, next: LinkMap): readonly BoardErased[] {
+  if (!next.linkedBoard || Object.keys(map.nodes).every((id) => next.nodes[id as NodeId])) return [];
+  const stored = loadBoard(next.linkedBoard);
+  if (stored.status !== "ok") return [];
+  const result = treeToBoard(stored.record.board, next, Date.now());
+  return result.ok ? result.erased : [];
+}
+
+/**
+ * An undo or redo step taken, or, in a linked map whose board's trash it
+ * would overfill (undoing an "add" puts the box in that trash), asked about
+ * first. The asked-for step runs only if nothing changed meanwhile.
+ */
+function stepping(
+  s: MapState,
+  step: { readonly map: LinkMap; readonly history: MapState["history"] } | null,
+  action: "undo" | "redo",
+): Partial<MapState> {
+  if (!step) return {};
+  const apply = (st: MapState): Partial<MapState> => ({ ...forget(st, step.map), history: step.history, stepKey: null });
+  const erased = boardErasing(s.map, step.map);
+  if (erased.length === 0) return apply(s);
+  const run = () => useMapStore.setState((st) => (st.map === s.map && st.history === s.history ? apply(st) : {}));
+  return { trashWarning: { kind: "board", action, erased, run } };
 }
 
 /**
@@ -653,18 +699,12 @@ export const useMapStore = create<MapState>()((set, get) => ({
     const before = get().map;
     get().stopEditing();
     if (get().map !== before) return;
-    set((s) => {
-      const step = history.undo(s.history, s.map);
-      return step ? { ...forget(s, step.map), history: step.history, stepKey: null } : {};
-    });
+    set((s) => stepping(s, history.undo(s.history, s.map), "undo"));
   },
   redo: () => {
     if (useLinkHold.getState().held[get().map.id]) return;
     get().stopEditing();
-    set((s) => {
-      const step = history.redo(s.history, s.map);
-      return step ? { ...forget(s, step.map), history: step.history, stepKey: null } : {};
-    });
+    set((s) => stepping(s, history.redo(s.history, s.map), "redo"));
   },
 
   addBox: (at) => {

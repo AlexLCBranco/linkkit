@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.34 (step 21 moving a box to another parent done; step 22 next)_
+_Last updated: 2026-10-07, v0.0.35 (step 22 a linked map's deletes go only to Boardkit's trash done; step 23 next)_
 
 ## What it is
 
@@ -172,6 +172,21 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   file restore leaves a map that is in the trash alone ("already here
   (or in the trash)"). Times in the trash are always in English ("2
   minutes ago"), unlike Treekit's, which follow the browser's language
+- A map linked to Boardkit has no trash of its own (step 22): its deletes
+  go only to the board's trash in Boardkit (a list with its cards, a card
+  on its own), restored from there; a restore arrives live and is tidied
+  in. Boardkit's limits hold (200 cards, 30 lists per board): a delete
+  that would push the oldest out asks first in Boardkit's words ("The
+  trash is full. Boardkit's trash holds 200 cards and 30 lists per board.
+  Deleting this will permanently erase the oldest card in it, 'Old
+  idea', and 2 more"). So does an undo or redo that would put a box in
+  that full trash (undoing an add), with "Undo and erase the oldest".
+  "Recently deleted" says the map's deleted boxes are in Boardkit's trash,
+  with "Open trash in Boardkit" (/boardkit in a new tab; you pick the
+  board there). Undoing a delete takes the box back out of Boardkit's
+  trash; what "erase the oldest" erased stays erased. A new box in a
+  linked map isn't saved until it has a name, so a box left nameless
+  never reaches Boardkit (or its trash)
 - Click a box: what it needs lights up teal, what breaks without it
   lights up orange (boxes fill, arrows on those paths turn colour and
   thicken), everything else fades, and the status line shows the box's
@@ -476,7 +491,9 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     conversion. `boardToTree` builds a linked tree from a board plus
     Linkkit's own `LinkedView` (places, colours, labels, collapse, ...);
     `treeToBoard` writes a tree's titles, statuses, list and card order and
-    deletes (into Boardkit's trash) back onto the board; `boardProblems`
+    deletes (into Boardkit's trash, keeping its limits: past them the
+    oldest cards or lists are erased and listed in `erased`, so the store
+    asks first) back onto the board; `boardProblems`
     and `problemText` name what keeps a tree from being a board ("'Rent'
     has two ways in", "'Walk to work' is 4 levels deep"); `arrangeCards`
     is the divider rule
@@ -749,7 +766,8 @@ PROJECT.md updated, pushed, and say what couldn't be tested.
      second way in). A newer or damaged board opens Linkkit's copy
      read-only with a banner, gone once the board reads again. Not yet: a
      linked map's deletes still also land in Linkkit's own trash; sending
-     them only to Boardkit's trash, with its overflow question, is item 5's.
+     them only to Boardkit's trash, with its overflow question, is item 5's
+     (done in step 22).
      Not tested by hand: a real Boardkit beside it (simulated by writing its
      keys from a second tab) and really full storage (unit-tested)
    - What 3b2 settled (choices made while building, within the OK'd
@@ -856,7 +874,20 @@ file is updated too.
     tested by hand: a linked tree with a real Boardkit beside it (the
     store and the board write are unit-tested), and a real mouse's drag
     in the browser pane (driven by the pane's drag and by pointer events)
-22. A linked map's deletes go only to Boardkit's trash. Today they land
+22. ~~A linked map's deletes go only to Boardkit's trash~~ (done,
+    v0.0.35; design OK'd by the owner 2026-10-07 as proposed). Built as
+    described under What works now. Choices made while building: an undo
+    or redo that would overfill the board's trash asks too (undoing an
+    "add" trashes the card in Boardkit); a linked map holds its save while
+    a new box is still nameless (before, it reached Boardkit as an untitled
+    card and, left nameless, landed in Boardkit's trash); one delete that
+    erases several things names the oldest "and N more"; "Open trash in
+    Boardkit" opens /boardkit without choosing the board (Boardkit has no
+    links to a board, and which board it shows is Boardkit's own setting).
+    Older linked records' Linkkit trash entries are dropped as they open
+    (those boxes are already in the board's trash). Not tested by hand: a
+    real Boardkit beside it (board written into storage by hand). The
+    plan as first written: today they land
     in both: `treeToBoard` already trashes them on the board, and Linkkit
     also adds its own trash entry. Then: no Linkkit trash entry for a
     linked map; Boardkit's limits (200 cards, 30 lists per board) and its
