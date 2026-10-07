@@ -44,7 +44,12 @@ export function readBackup(data: unknown, fallbackPage: Size): BackupRead {
   for (const entry of file.maps as unknown[]) {
     const read = readMap(entry, fallbackPage);
     if (read.status === "unreadable") damaged++;
-    else if (!maps.some((m) => m.id === read.map.id)) maps.push(read.map);
+    // A map comes back from a file as an ordinary map, never linked (a
+    // file never holds a linked one; this guards one edited by hand).
+    else if (!maps.some((m) => m.id === read.map.id)) {
+      const { linkedBoard: _, ...map } = read.map;
+      maps.push(map);
+    }
   }
   return { status: "ok", maps, damaged };
 }

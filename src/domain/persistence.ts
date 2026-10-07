@@ -54,6 +54,34 @@ export interface PersistedMap {
   readonly map: LinkMap;
 }
 
+/**
+ * A linked tree's stored record (shared store, bridge step 3): version 2,
+ * the map with its `linkedBoard`. The map is Linkkit's own parts (places,
+ * colours, labels, collapse, ...) plus a copy of the shared parts as
+ * Linkkit last saw them. The copy is never the truth while the board can be
+ * read: the tree is built from the board each time it opens. It is what
+ * Linkkit keeps when the board is deleted in Boardkit, or can't be read
+ * (decided by the owner, 2026-10-07).
+ *
+ * A new version on purpose: an older Linkkit calls it unreadable rather
+ * than open the copy as an ordinary tree and save over the link.
+ */
+export const LINKED_SCHEMA_VERSION = 2;
+
+export interface PersistedLinkedMap {
+  readonly version: typeof LINKED_SCHEMA_VERSION;
+  readonly rev: number;
+  readonly map: LinkMap & { readonly linkedBoard: string };
+}
+
+/** What `linkkit:map:<id>` stores: a linked tree as version 2, any other
+    map as version 1. */
+export function serializeStored(map: LinkMap, rev: number): PersistedMap | PersistedLinkedMap {
+  const plain = serializeMap(map, rev);
+  if (!map.linkedBoard) return plain;
+  return { version: LINKED_SCHEMA_VERSION, rev, map: { ...plain.map, linkedBoard: map.linkedBoard } };
+}
+
 /** A stored record's `rev`, or 0 when it has none (saved before there was
     one) or it isn't a record. */
 export function revOf(data: unknown): number {
@@ -64,7 +92,8 @@ export function revOf(data: unknown): number {
 export function serializeMap(map: LinkMap, rev?: number): PersistedMap {
   const { id, name, kind, page, direction, arrowLength, nodes, links, order, hideCut, collapsed, trash } = map;
   // Copies out exactly the content fields, so nothing else that happens to
-  // ride along on the object can leak into storage.
+  // ride along on the object can leak into storage. Never `linkedBoard`:
+  // an exported map is an ordinary tree (see `serializeStored`).
   return {
     version: SCHEMA_VERSION,
     ...(rev === undefined ? {} : { rev }),
@@ -113,11 +142,18 @@ const isSize = (value: number) => Number.isFinite(value) && value > 0;
  * "repairing" it would destroy what that version wrote).
  */
 export function readMap(data: unknown, fallbackPage: Size): MapRead {
-  if (!isObject(data) || data.version !== SCHEMA_VERSION || !isObject(data.map)) return { status: "unreadable" };
+  if (!isObject(data) || !isObject(data.map)) return { status: "unreadable" };
   const raw = data.map;
   if (typeof raw.id !== "string" || !raw.id) return { status: "unreadable" };
   if (!MAP_KINDS.includes(raw.kind as MapKind)) return { status: "unreadable" };
   const kind = raw.kind as MapKind;
+  // Version 2 is a linked tree, and only that (see `PersistedLinkedMap`).
+  const linked = data.version === LINKED_SCHEMA_VERSION;
+  if (!linked && data.version !== SCHEMA_VERSION) return { status: "unreadable" };
+  if (linked && (kind !== "tree" || typeof raw.linkedBoard !== "string" || !raw.linkedBoard)) {
+    return { status: "unreadable" };
+  }
+  const link = linked ? { linkedBoard: raw.linkedBoard as string } : {};
 
   let fixes = 0;
   const fix = <T>(value: T): T => {
@@ -203,6 +239,7 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
     hideCut,
     collapsed,
     trash: readTrash(raw.trash, nodes, kind, fix),
+    ...link,
   };
   for (const [key, link] of Object.entries(rawLinks)) {
     if (!isObject(link) || typeof link.from !== "string" || typeof link.to !== "string") {

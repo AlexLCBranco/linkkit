@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { exampleMap, EXAMPLE_MAP_NAME, exampleTree } from "./example";
-import { readMap, serializeMap } from "./persistence";
+import { readMap, serializeMap, serializeStored } from "./persistence";
+import { BACKUP_FORMAT, BACKUP_VERSION, readBackup } from "./backup";
+import { duplicateMap } from "./map";
+import type { MapId } from "./types";
 import { build, buildTree } from "./testMaps";
 
 const fallbackPage = { width: 980, height: 560 };
@@ -119,5 +122,30 @@ describe("readMap (damaged tree)", () => {
     expect(read.map.order).toEqual({ job: ["yes", "other"], yes: ["no"] });
     // Read again, it is whole.
     expect(readMap(roundTrip(serializeMap(read.map)), fallbackPage)).toEqual({ status: "ok", map: read.map });
+  });
+});
+
+describe("linked trees", () => {
+  const linked = { ...buildTree("s", ["a"], [["s", "a"]]), linkedBoard: "s" };
+
+  it("are stored as version 2 with their board, other maps as version 1", () => {
+    const stored = roundTrip(serializeStored(linked, 3));
+    expect(stored).toMatchObject({ version: 2, rev: 3, map: { linkedBoard: "s" } });
+    expect(readMap(stored, fallbackPage)).toEqual({ status: "ok", map: linked });
+    expect(roundTrip(serializeStored(build(["a"]), 3))).toMatchObject({ version: 1, rev: 3 });
+  });
+
+  it("are exported, duplicated and restored from a file as ordinary trees", () => {
+    expect(roundTrip(serializeMap(linked)).map.linkedBoard).toBeUndefined();
+    expect(duplicateMap(linked, "m2" as MapId, "Copy").linkedBoard).toBeUndefined();
+    const file = { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: "", maps: [roundTrip(serializeStored(linked, 1))] };
+    const read = readBackup(file, fallbackPage);
+    expect(read.status === "ok" && read.maps.length === 1 && !("linkedBoard" in read.maps[0])).toBe(true);
+  });
+
+  it("call version 2 unreadable unless it is a tree with a board", () => {
+    const stored = roundTrip(serializeStored(linked, 1));
+    expect(readMap({ ...stored, map: { ...stored.map, linkedBoard: "" } }, fallbackPage).status).toBe("unreadable");
+    expect(readMap({ ...stored, map: { ...stored.map, kind: "connections" } }, fallbackPage).status).toBe("unreadable");
   });
 });

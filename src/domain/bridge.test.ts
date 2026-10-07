@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import { nextRecord, readBoardRecord, type BoardContent, type BoardItem } from "./boardRecord";
-import { arrangeCards, boardProblems, boardToTree, problemText, treeToBoard, viewOf, type LinkedView } from "./bridge";
+import {
+  arrangeCards,
+  boardProblems,
+  boardToTree,
+  linkedProblem,
+  linkedTree,
+  problemText,
+  treeToBoard,
+  unlinked,
+  viewOf,
+  withStartName,
+  type LinkedView,
+} from "./bridge";
 import { asNodeId } from "./ids";
 import { addNextStep, deleteBranch } from "./tree";
 import { buildTree } from "./testMaps";
@@ -276,3 +288,56 @@ describe("boardProblems", () => {
 function ids(...names: string[]): NodeId[] {
   return names.map(asNodeId);
 }
+
+describe("linked maps", () => {
+  /** The board's tree as Linkkit stored it: its own id, linked, placed. */
+  function copy(b = board()): LinkMap {
+    const map = tree(b);
+    const nodes = Object.fromEntries(Object.values(map.nodes).map((n, i) => [n.id, { ...n, x: 10 * i, y: 5 }]));
+    return { ...map, id: "m1" as LinkMap["id"], nodes, linkedBoard: "move" };
+  }
+
+  it("builds the tree from the board, with the copy's own parts", () => {
+    const base = copy();
+    const stored: LinkMap = { ...base, nodes: { ...base.nodes, [id("a")]: { ...base.nodes[id("a")], name: "old", color: "red" } } };
+    const changed = board();
+    const { map, unplaced } = linkedTree(stored, "Moving?", { ...changed, cards: { ...changed.cards, a: item("a", { title: "A2" }) } });
+    expect(map.id).toBe("m1");
+    expect(map.linkedBoard).toBe("move");
+    expect(map.name).toBe("Moving?");
+    expect(map.nodes[id("a")]).toMatchObject({ name: "A2", color: "red", x: stored.nodes[id("a")].x });
+    expect(unplaced).toEqual([]);
+  });
+
+  it("names boxes made in Boardkit as unplaced, and takes the copy's name when the list has none", () => {
+    const b = board();
+    const more: BoardContent = { ...b, cards: { ...b.cards, d: item("d") }, cardOrder: { ...b.cardOrder, buy: ["c", "d", "note"] } };
+    const { map, unplaced } = linkedTree(copy(), null, more);
+    expect(unplaced).toEqual([id("d")]);
+    expect(map.name).toBe("Move?");
+  });
+
+  it("keeps the copy's trash, less boxes back on the map", () => {
+    const entry = { deletedAt: 1, nodes: [{ ...copy().nodes[id("a")] }], links: [], places: [] };
+    const gone = { deletedAt: 2, nodes: [{ id: id("zz"), name: "Z", x: 0, y: 0, color: null, status: null }], links: [], places: [] };
+    expect(linkedTree({ ...copy(), trash: [entry, gone] }, null, board()).map.trash).toEqual([gone]);
+  });
+
+  it("unlinks, and follows the start box's name", () => {
+    const linked = copy();
+    expect(unlinked(linked).linkedBoard).toBeUndefined();
+    const plain = unlinked(linked);
+    expect(unlinked(plain)).toBe(plain);
+    const renamed = { ...linked, nodes: { ...linked.nodes, [id("move")]: { ...linked.nodes[id("move")], name: "Stay?" } } };
+    expect(withStartName(renamed).name).toBe("Stay?");
+    expect(withStartName(linked)).toBe(linked);
+    expect(withStartName({ ...plain, name: "Other" }).name).toBe("Other");
+  });
+
+  it("refuses a linked tree that doesn't fit a board, in words", () => {
+    const deep = addNextStep(copy(), id("a"), { x: 0, y: 0 })!.map;
+    expect(linkedProblem(deep)).toMatch(/4 levels deep/);
+    expect(linkedProblem(copy())).toBeNull();
+    expect(linkedProblem(unlinked(deep))).toBeNull();
+  });
+});

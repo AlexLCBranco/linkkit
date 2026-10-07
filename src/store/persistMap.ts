@@ -1,8 +1,12 @@
+import { nextRecord, type BoardRecord } from "../domain/boardRecord";
+import { linkedTree, problemText, treeToBoard, unlinked, withStartName } from "../domain/bridge";
 import { mergeMaps, sameMap } from "../domain/merge";
-import { readMap, revOf, serializeMap, type MapRead } from "../domain/persistence";
+import { readMap, revOf, serializeMap, serializeStored, type MapRead } from "../domain/persistence";
 import { readRegistry, removeMap, serializeRegistry, upsertMap, type Registry } from "../domain/registry";
 import { readMapTrash, serializeMapTrash, type MapTrash } from "../domain/trash";
-import type { LinkMap, MapId, Size } from "../domain/types";
+import type { LinkMap, MapId, NodeId, Size } from "../domain/types";
+import { useLinkHold, type HoldReason } from "./linkHold";
+import { boardKey, loadBoard, loadBoardName, writeBoard, writeBoardName } from "./persistBoard";
 import { useSaveHealth } from "./saveHealth";
 import { useSyncNotice } from "./syncNotice";
 
@@ -134,7 +138,26 @@ const unsaved = new Map<MapId, LinkMap>();
  * `map` is `null` when what was read wasn't a clean copy (it was
  * repaired): never skipped as unchanged, and merged as if from empty.
  */
-const synced = new Map<MapId, { readonly rev: number; readonly map: LinkMap | null }>();
+const synced = new Map<MapId, Synced>();
+
+interface Synced {
+  readonly rev: number;
+  readonly map: LinkMap | null;
+  /** Linked maps: the board's `rev` and name (in Boardkit's list) as this
+      tab last read or wrote them. For a linked map `map` is the tree the
+      board made then, so it compares like for like with the next one. */
+  readonly board?: { readonly rev: number; readonly name: string | null };
+}
+
+/** Linked maps opened with boxes Linkkit has no place for yet (made in
+    Boardkit): the store tidies them in before showing the map. */
+const unplacedOnLoad = new Set<MapId>();
+
+/** Whether `loadMap` just opened map `id` with boxes to tidy in (asked
+    once: the answer is forgotten). */
+export function takeUnplaced(id: MapId): boolean {
+  return unplacedOnLoad.delete(id);
+}
 
 /** Maps another tab erased while this one had them: never written again
     this session, or a late save would bring an erased map back. */
@@ -174,6 +197,135 @@ function caughtUp(id: MapId, mine: LinkMap, stored: unknown): LinkMap {
   return map;
 }
 
+/*
+ * Linked trees (shared store, bridge step 3). The shared parts live in
+ * Boardkit's board record (`persistBoard.ts`), Linkkit's own parts (and a
+ * copy of the shared ones) in `linkkit:map:<id>`. Two records, two `rev`s,
+ * one merge: the tree the board makes now, over the stored copy, is
+ * "theirs", whoever changed either record (a Boardkit tab, another Linkkit
+ * tab), and `mergeMaps` re-applies this tab's changes on top.
+ */
+
+/** What is stored for a linked map now. */
+type LinkedStored =
+  /** The tree the board makes, with the stored copy's own parts (this
+      tab's map when there is no readable copy). */
+  | {
+      readonly kind: "tree";
+      readonly map: LinkMap;
+      readonly unplaced: readonly NodeId[];
+      /** The stored copy as read, if any, and its `rev`. */
+      readonly copy: LinkMap | null;
+      readonly rev: number;
+      readonly record: BoardRecord;
+      readonly name: string | null;
+    }
+  /** The board was deleted in Boardkit. */
+  | { readonly kind: "gone" }
+  /** The board can't be written (a newer Boardkit's, or damaged). */
+  | { readonly kind: "held"; readonly reason: HoldReason };
+
+function storedLinked(mine: LinkMap & { readonly linkedBoard: string }): LinkedStored {
+  const board = loadBoard(mine.linkedBoard);
+  if (board.status === "missing") return { kind: "gone" };
+  if (board.status !== "ok") return { kind: "held", reason: board.status };
+  const stored = storedRecord(MAP_KEY_PREFIX + mine.id);
+  const read = stored === null ? null : readMap(stored, mine.page);
+  const copy = read && read.status !== "unreadable" && read.map.linkedBoard === mine.linkedBoard ? read.map : null;
+  const name = loadBoardName(mine.linkedBoard);
+  const { map, unplaced } = linkedTree(copy ?? mine, name, board.record.board);
+  return { kind: "tree", map, unplaced, copy, rev: revOf(stored), record: board.record, name };
+}
+
+const isLinked = (map: LinkMap): map is LinkMap & { readonly linkedBoard: string } => !!map.linkedBoard;
+
+/**
+ * `caughtUp` for a linked map: when either record changed since this tab
+ * last read or wrote them, the tree they make now with this tab's changes
+ * re-applied. A deleted board leaves `mine` as an ordinary tree (the user
+ * is told); a board Linkkit can't write holds the map read-only.
+ */
+function caughtUpLinked(id: MapId, mine: LinkMap, now: LinkedStored): LinkMap {
+  if (now.kind === "gone") {
+    useLinkHold.getState().release(id);
+    useSyncNotice.getState().boardDeleted(mine.name);
+    return unlinked(mine);
+  }
+  if (now.kind === "held") {
+    useLinkHold.getState().hold(id, now.reason);
+    return mine;
+  }
+  useLinkHold.getState().release(id);
+  const base = synced.get(id);
+  if (base?.board && base.rev === now.rev && base.board.rev === now.record.rev && base.board.name === now.name) {
+    return mine;
+  }
+  const { map, conflicts } = base?.map ? mergeMaps(base.map, mine, now.map) : { map: mine, conflicts: [] };
+  synced.set(id, { rev: now.rev, map: now.map, board: { rev: now.record.rev, name: now.name } });
+  useSyncNotice.getState().conflicted(conflicts);
+  return withStartName(map);
+}
+
+/**
+ * Saves a linked map: the shared part first (the board record, then its
+ * name in Boardkit's list), Linkkit's part second, each only when it
+ * changed. If the shared write fails, Linkkit's part isn't written either:
+ * the change waits in memory, behind the usual banner, and its retry goes
+ * through the same `rev` check. If Linkkit's part fails after the shared
+ * one stored, Boardkit is already right; a box new to the board just has
+ * no place stored, and is tidied in on the next open.
+ *
+ * Returns what was stored (or kept to retry): the tree the board now
+ * makes, which an ordinary save then writes when the board was deleted.
+ */
+function saveLinked(map: LinkMap & { readonly linkedBoard: string }): LinkMap {
+  const key = MAP_KEY_PREFIX + map.id;
+  const sharedKey = boardKey(map.linkedBoard);
+  let written: LinkMap = map;
+  // The key whose write is under way: still set if anything throws.
+  let failing: string | null = key;
+  try {
+    const now = storedLinked(map);
+    written = caughtUpLinked(map.id, map, now);
+    if (now.kind === "tree") {
+      const result = treeToBoard(now.record.board, written, Date.now());
+      if (!result.ok) {
+        // An edit merged with another app's (a list over Boardkit's limit):
+        // the board as stored stays.
+        useSyncNotice.getState().say(`${problemText(written, result.problems[0])} The version in Boardkit was kept.`);
+        written = now.map;
+      } else {
+        let record = now.record;
+        failing = sharedKey;
+        if (result.changed) {
+          record = nextRecord(now.record, result.board);
+          writeBoard(map.linkedBoard, record);
+        }
+        if (now.name !== null && result.name !== now.name) writeBoardName(map.linkedBoard, result.name);
+        const derived = linkedTree(written, result.name, record.board).map;
+        failing = key;
+        let rev = now.rev;
+        if (!now.copy || !sameMap(derived, now.copy)) {
+          rev = now.rev + 1;
+          localStorage.setItem(key, JSON.stringify(serializeStored(derived, rev)));
+        }
+        synced.set(map.id, { rev, map: derived, board: { rev: record.rev, name: now.name === null ? null : result.name } });
+        written = derived;
+      }
+    }
+    failing = null;
+  } catch {
+    // See the module comment: failing to save is not fatal.
+  }
+  const ok = failing === null;
+  // A shared write that stored clears its banner even if Linkkit's failed.
+  useSaveHealth.getState().report(sharedKey, failing !== sharedKey, () => saveMap(unsaved.get(map.id) ?? written));
+  useSaveHealth.getState().report(key, failing !== key, () => saveMap(unsaved.get(map.id) ?? written));
+  if (!ok) unsaved.set(map.id, written);
+  else unsaved.delete(map.id);
+  return written;
+}
+
 const mergedListeners: ((id: MapId, from: LinkMap, merged: LinkMap) => void)[] = [];
 
 /** Tells `listener` when a save merged in another tab's save: `from` is
@@ -197,8 +349,19 @@ export function onMapMerged(listener: (id: MapId, from: LinkMap, merged: LinkMap
  * map just taken from another tab) is skipped, so tabs don't echo each
  * other's saves back and forth.
  */
-export function saveMap(map: LinkMap): void {
-  if (deletedElsewhere.has(map.id)) return;
+export function saveMap(toSave: LinkMap): void {
+  if (deletedElsewhere.has(toSave.id)) return;
+  let map = toSave;
+  if (isLinked(map)) {
+    const written = saveLinked(map);
+    if (!sameMap(written, map)) for (const listener of mergedListeners) listener(map.id, map, written);
+    if (isLinked(written)) {
+      if (!unsaved.has(map.id)) writeRegistry(upsertMap(loadRegistry(), { id: map.id, name: written.name }));
+      return;
+    }
+    // Its board was deleted in Boardkit: an ordinary tree from now on.
+    map = written;
+  }
   const key = MAP_KEY_PREFIX + map.id;
   let written = map;
   let ok = true;
@@ -254,7 +417,12 @@ export function catchUpMap(id: MapId, mine: LinkMap): CatchUp {
   } catch {
     return { kind: "current" };
   }
-  const map = caughtUp(id, mine, stored);
+  let map: LinkMap;
+  try {
+    map = isLinked(mine) ? caughtUpLinked(id, mine, storedLinked(mine)) : caughtUp(id, mine, stored);
+  } catch {
+    return { kind: "current" };
+  }
   if (map === mine) return { kind: "current" };
   // A save still failing keeps its retry copy up to date too.
   if (unsaved.has(id)) unsaved.set(id, map);
@@ -382,7 +550,9 @@ export function loadMap(id: MapId, fallbackPage: Size): LinkMap | null {
   if (pending) {
     let map = pending;
     try {
-      map = caughtUp(id, pending, storedRecord(MAP_KEY_PREFIX + id));
+      map = isLinked(pending)
+        ? caughtUpLinked(id, pending, storedLinked(pending))
+        : caughtUp(id, pending, storedRecord(MAP_KEY_PREFIX + id));
     } catch {
       // Unreadable storage: the unsaved copy is all there is.
     }
@@ -400,7 +570,7 @@ export function loadMap(id: MapId, fallbackPage: Size): LinkMap | null {
       // Not JSON: unreadable, below.
     }
     if (read.status !== "unreadable") synced.set(id, { rev, map: read.status === "ok" ? read.map : null });
-    if (read.status === "ok") return read.map;
+    if (read.status === "ok") return opened(read.map);
 
     const asideKey = `${DAMAGED_KEY_PREFIX}${id}:${Date.now()}`;
     // Say where the original is only if it really got there. With storage
@@ -415,8 +585,33 @@ export function loadMap(id: MapId, fallbackPage: Size): LinkMap | null {
         ? `Linkkit: a saved map was damaged and has been repaired (${read.fixes} fixes). ${where}`
         : `Linkkit: a saved map could not be read. ${where}`,
     );
-    return read.status === "repaired" ? read.map : null;
+    return read.status === "repaired" ? opened(read.map) : null;
   } catch {
     return null;
   }
+}
+
+/** A map just read from storage, as it opens: a linked one is built from
+    its board (`openLinked`), any other is as read. */
+const opened = (map: LinkMap): LinkMap => (isLinked(map) ? openLinked(map) : map);
+
+/**
+ * A linked map as it opens, from Linkkit's stored `copy`: the tree its
+ * board makes. Boxes made in Boardkit since are tidied in before it shows
+ * (`takeUnplaced`); otherwise, when Boardkit changed anything, the copy is
+ * refreshed at once. A deleted board leaves the copy as an ordinary tree,
+ * stored as one; a board Linkkit can't write opens the copy read-only.
+ */
+function openLinked(copy: LinkMap & { readonly linkedBoard: string }): LinkMap {
+  const now = storedLinked(copy);
+  if (now.kind !== "tree") {
+    const map = caughtUpLinked(copy.id, copy, now);
+    if (now.kind === "gone") saveMap(map);
+    return map;
+  }
+  useLinkHold.getState().release(copy.id);
+  synced.set(copy.id, { rev: now.rev, map: now.map, board: { rev: now.record.rev, name: now.name } });
+  if (now.unplaced.length > 0) unplacedOnLoad.add(copy.id);
+  else if (!sameMap(now.map, copy)) saveMap(now.map);
+  return now.map;
 }

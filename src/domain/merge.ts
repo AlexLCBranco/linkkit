@@ -88,6 +88,7 @@ const CONTENT_KEYS = [
   "hideCut",
   "collapsed",
   "trash",
+  "linkedBoard",
 ] as const satisfies readonly (keyof LinkMap)[];
 
 /** Whether two maps hold the same saved content. */

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.31 (shared store: 3b2 two tabs done, 3b3 next)_
+_Last updated: 2026-10-07, v0.0.32 (shared store: 3b3 linked map storage done; queue item 5 next)_
 
 ## What it is
 
@@ -691,10 +691,31 @@ PROJECT.md updated, pushed, and say what couldn't be tested.
      wired in yet); ~~3b2: two Linkkit tabs stop overwriting each
      other~~ (done, v0.0.31: `rev` on `linkkit:map:` records, a three-way
      merge of maps in `domain/merge.ts`, reload on `storage` events; the
-     same merge then serves linked maps); 3b3 next: linked map storage (`linkedBoard`, the slim record,
-     opening builds the tree from the board and tidies in unplaced boxes,
-     shared part written first with the `rev` check, failed saves, a board
-     deleted in Boardkit leaves an unlinked copy)
+     same merge then serves linked maps); ~~3b3: linked map storage~~ (done, v0.0.32). The shared store is
+     built; next is queue item 5 (plan only)
+   - What 3b3 settled: the owner decided (2026-10-07) that a linked map's
+     record also keeps a backup copy of the shared parts (names, order,
+     statuses), refreshed whenever Linkkit opens or saves the map, used
+     only when the board is deleted, damaged or from a newer Boardkit
+     (without it, a board deleted while no Linkkit tab was open would leave
+     nothing). So a linked tree's `linkkit:map:<id>` is version 2: the
+     whole map plus `linkedBoard` (an older Linkkit calls it unreadable
+     rather than save over the link); every other map stays version 1.
+     Exports, backups, duplicates and file restores are always ordinary
+     unlinked trees. Boardkit's keys are touched only in
+     `store/persistBoard.ts`. One merge for both records: the tree the
+     board makes now, over the stored copy, is "theirs" (`linkedTree` in
+     `domain/bridge.ts`). Opening tidies in boxes made in Boardkit (no undo
+     step); while open, Boardkit's saves and board renames arrive live,
+     new boxes tidied in. Linked trees save at once. Renaming the map
+     renames the start box and the board in Boardkit's list. Edits that
+     break a board's shape are refused with a toast (a step under a card, a
+     second way in). A newer or damaged board opens Linkkit's copy
+     read-only with a banner, gone once the board reads again. Not yet: a
+     linked map's deletes still also land in Linkkit's own trash; sending
+     them only to Boardkit's trash, with its overflow question, is item 5's.
+     Not tested by hand: a real Boardkit beside it (simulated by writing its
+     keys from a second tab) and really full storage (unit-tested)
    - What 3b2 settled (choices made while building, within the OK'd
      design): `rev` was added to version 1 records without a new version
      number, because an older Linkkit tab still open after a deploy calls

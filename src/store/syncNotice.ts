@@ -14,6 +14,10 @@ interface SyncNotice {
   readonly message: { readonly seq: number; readonly text: string } | null;
   conflicted: (conflicts: readonly MergeConflict[]) => void;
   mapDeleted: (name: string) => void;
+  /** A linked tree whose board was deleted in Boardkit: kept unlinked. */
+  boardDeleted: (name: string) => void;
+  /** Any other message (an edit a linked tree refuses, and why). */
+  say: (text: string) => void;
   dismiss: () => void;
 }
 
@@ -38,6 +42,9 @@ export const useSyncNotice = create<SyncNotice>((set, get) => {
       if (conflicts.length > 0) say(conflictText(conflicts));
     },
     mapDeleted: (name) => say(`${quoted(name)} was deleted in another tab.`),
+    boardDeleted: (name) =>
+      say(`${quoted(name)} was deleted in Boardkit, so Linkkit kept its copy as an ordinary tree.`),
+    say,
     dismiss: () => set({ message: null }),
   };
 });

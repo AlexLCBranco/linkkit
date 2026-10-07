@@ -362,3 +362,52 @@ function sameContent(a: BoardContent, b: BoardContent): boolean {
     a.trashedLists.every((e, i) => e === b.trashedLists[i])
   );
 }
+
+/**
+ * A linked map as it opens (or as another app's save is taken in): the
+ * tree its board makes, with Linkkit's own parts taken from `copy`, the map
+ * as Linkkit last stored it. The map keeps its own id and link. `boardName`
+ * is the name in Boardkit's board list; when it isn't there, the copy's.
+ *
+ * The trash stays Linkkit's for now (the copy's, less any box that is back
+ * on the map): sending a linked map's deletes to Boardkit's trash only is a
+ * later step. `unplaced`: boxes made in Boardkit since, to tidy in.
+ */
+export function linkedTree(
+  copy: LinkMap,
+  boardName: string | null,
+  board: BoardContent,
+): { map: LinkMap; unplaced: NodeId[] } {
+  const boardId = copy.linkedBoard ?? copy.id;
+  const name = boardName ?? copy.nodes[boardId as NodeId]?.name ?? copy.name;
+  const built = boardToTree(boardId, name, board, viewOf(copy));
+  const trash = copy.trash.filter((entry) => entry.nodes.every((n) => !built.map.nodes[n.id]));
+  const map: LinkMap = { ...built.map, id: copy.id, trash, ...(copy.linkedBoard ? { linkedBoard: copy.linkedBoard } : {}) };
+  return { map, unplaced: built.unplaced };
+}
+
+/** The map as an ordinary tree, no longer linked (its board was deleted
+    in Boardkit). The same object when it wasn't linked. */
+export function unlinked(map: LinkMap): LinkMap {
+  if (map.linkedBoard === undefined) return map;
+  const { linkedBoard: _, ...rest } = map;
+  return rest;
+}
+
+/** A linked map's name is its start box's (the board's name): one name
+    that can't drift. The same object when it already is, or not linked. */
+export function withStartName(map: LinkMap): LinkMap {
+  const start = map.linkedBoard ? map.nodes[map.linkedBoard as NodeId] : undefined;
+  return start && start.name && start.name !== map.name ? { ...map, name: start.name } : map;
+}
+
+/**
+ * Why `map` can't be a linked tree's next state, in words, or `null` when
+ * it can (or isn't linked). An edit that breaks the board's shape (a third
+ * level under a card, a second way into a box) is refused with this.
+ */
+export function linkedProblem(map: LinkMap): string | null {
+  if (!map.linkedBoard) return null;
+  const [problem] = boardProblems(map);
+  return problem ? problemText(map, problem) : null;
+}

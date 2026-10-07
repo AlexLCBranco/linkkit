@@ -48,11 +48,14 @@ import {
   type MapTrash,
   type TrashSummary,
 } from "../domain/trash";
-import { addNextStep, branchesOf, createTree } from "../domain/tree";
+import { addNextStep, branchesOf, createTree, startOf } from "../domain/tree";
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
 import { ARROW_LENGTH_PRESETS, type LinkId, type LinkMap, type MapId, type NodeId, type NodeStatus, type PaletteColor, type Point, type Size } from "../domain/types";
 import { mergeMaps, shareUnchanged } from "../domain/merge";
+import { linkedProblem, withStartName } from "../domain/bridge";
+import { useLinkHold } from "./linkHold";
+import { boardIdOfKey, isBoardListKey } from "./persistBoard";
 import { useMissingMaps } from "./missingMaps";
 import { useSyncNotice } from "./syncNotice";
 import {
@@ -72,6 +75,7 @@ import {
   isListKey,
   mapIdOfKey,
   onMapMerged,
+  takeUnplaced,
   unlistStoredMap,
 } from "./persistMap";
 import { cancelSave, flushSave } from "./saveQueue";
@@ -363,7 +367,8 @@ function initialState(): Pick<MapState, "map" | "needsTidy" | "maps" | "starter"
   if (starter !== remembered) saveStarterId(starter);
   return {
     map,
-    needsTidy: saved === null,
+    // A linked tree with boxes made in Boardkit tidies them in first.
+    needsTidy: saved === null || takeUnplaced(map.id),
     maps: upsertMap(maps, { id: map.id, name: map.name }),
     starter,
     trashedMaps: loadMapTrash(),
@@ -383,7 +388,7 @@ function touchStarter(s: MapState): Partial<MapState> {
  * was just deleted), and the incoming one's picked back up. Selection,
  * typing and a half-drawn arrow never carry across maps.
  */
-function open(s: MapState, map: LinkMap, maps: Registry, needsTidy = false): Partial<MapState> {
+function open(s: MapState, map: LinkMap, maps: Registry, needsTidy = takeUnplaced(map.id)): Partial<MapState> {
   // An example still waiting for its first tidy becomes "the map open
   // last" only once it is tidied and saved: see autoSave.ts.
   if (!needsTidy) saveActiveMapId(map.id);
@@ -441,15 +446,30 @@ function forget(s: MapState, map: LinkMap): Pick<MapState, "map" | "selected" | 
  * or open that the edit deleted is let go. An edit with the same `key` as
  * the latest step joins it (see `stepKey`).
  */
-function commit(s: MapState, next: LinkMap, key: string | null = null): Partial<MapState> {
-  if (next === s.map) return {};
+function commit(s: MapState, edited: LinkMap, key: string | null = null): Partial<MapState> {
+  if (edited === s.map || refused(s, edited)) return {};
+  // A linked tree's name is its start box's: renaming one renames both.
+  const next = withStartName(edited);
   const join = key !== null && key === s.stepKey;
   return {
     ...forget(s, next),
     ...touchStarter(s),
+    ...(next.name !== s.map.name ? { maps: upsertMap(s.maps, { id: next.id, name: next.name }) } : {}),
     history: join ? history.amendLast(s.history, s.map, next) : history.record(s.history, s.map, next),
     stepKey: key,
   };
+}
+
+/**
+ * Whether a linked tree refuses an edit: every edit while its board can't
+ * be written (`useLinkHold`, the banner says why), and one that breaks a
+ * board's shape, saying why (a step under a card, a second way in).
+ */
+function refused(s: MapState, next: LinkMap): boolean {
+  if (useLinkHold.getState().held[s.map.id]) return true;
+  const problem = linkedProblem(next);
+  if (problem) useSyncNotice.getState().say(`Not in a tree shared with Boardkit: ${problem}`);
+  return problem !== null;
 }
 
 /**
@@ -595,6 +615,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
   // being named, then redoing, would bring it back without a name. If
   // finishing takes that nameless box away, that is the whole undo.
   undo: () => {
+    if (useLinkHold.getState().held[get().map.id]) return;
     const before = get().map;
     get().stopEditing();
     if (get().map !== before) return;
@@ -604,6 +625,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
     });
   },
   redo: () => {
+    if (useLinkHold.getState().held[get().map.id]) return;
     get().stopEditing();
     set((s) => {
       const step = history.redo(s.history, s.map);
@@ -629,7 +651,11 @@ export const useMapStore = create<MapState>()((set, get) => ({
   nudgeBoxes: (positions) =>
     set((s) => {
       const next = moveNodes(s.map, positions);
-      return next === s.map ? {} : { map: next, history: history.amendLast(s.history, s.map, next) };
+      if (next === s.map) return {};
+      // With no step to join (boxes from another app, tidied in), the room
+      // made is not something to undo.
+      if (s.history.past.length === 0) return { map: next };
+      return { map: next, history: history.amendLast(s.history, s.map, next) };
     }),
   setBoxColor: (id, color) => set((s) => commit(s, setNodeColor(s.map, id, color))),
   deleteBox: (id) => get().deleteBoxes([id]),
@@ -746,6 +772,13 @@ export const useMapStore = create<MapState>()((set, get) => ({
     const open = setCollapsed(map, [from], false);
     const added = addNextStep(open, from, at ?? { x: parent.x + offset.x, y: parent.y + offset.y });
     if (!added) return null;
+    // The only way a new step breaks a board: it would sit under a card.
+    if (linkedProblem(added.map)) {
+      const name = parent.name || "Untitled";
+      useSyncNotice.getState().say(`Not in a tree shared with Boardkit: “${name}” is a card, and cards have no next steps.`);
+      return null;
+    }
+    if (useLinkHold.getState().held[map.id]) return null;
     set((s) => ({
       ...commit(s, added.map, newBoxKey(added.nodeId)),
       editing: { kind: "box", id: added.nodeId },
@@ -822,6 +855,9 @@ export const useMapStore = create<MapState>()((set, get) => ({
   },
   renameMap: (name) =>
     set((s) => {
+      // A linked tree's name is its start box's (the board's): an edit.
+      const start = s.map.linkedBoard ? startOf(s.map) : null;
+      if (start) return cleanName(name) ? commit(s, renameNode(s.map, start, name)) : {};
       const map = renameMap(s.map, name);
       return map === s.map ? {} : { map, maps: upsertMap(s.maps, { id: map.id, name: map.name }), ...touchStarter(s) };
     }),
@@ -900,8 +936,11 @@ function adoptMap(map: LinkMap): void {
   useMapStore.setState((s) => {
     const next = shareUnchanged(s.map, map);
     if (next === s.map) return {};
+    // Boxes made in Boardkit come with no place: the tree tidies them in.
+    const arrived = !!next.linkedBoard && Object.keys(next.nodes).some((id) => !s.map.nodes[id as NodeId]);
     return {
       ...forget(s, next),
+      settleRequest: s.settleRequest + (arrived ? 1 : 0),
       maps: upsertMap(s.maps, { id: next.id, name: next.name }),
       history: history.EMPTY_HISTORY,
       stepKey: null,
@@ -983,6 +1022,15 @@ export function initOtherTabs(): void {
       return;
     }
     const id = mapIdOfKey(event.key);
-    if (id) pullMap(id, event.newValue === null);
+    if (id) {
+      pullMap(id, event.newValue === null);
+      return;
+    }
+    // Boardkit (on the shared site) saved the open linked tree's board, or
+    // its list, which holds the board's name.
+    const { map } = useMapStore.getState();
+    if (map.linkedBoard && (isBoardListKey(event.key) || boardIdOfKey(event.key) === map.linkedBoard)) {
+      pullMap(map.id, false);
+    }
   });
 }

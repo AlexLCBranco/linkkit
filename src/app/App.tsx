@@ -10,6 +10,7 @@ import { ReachStatus } from "../features/map/ReachStatus";
 import { SelectionBar } from "../features/map/SelectionBar";
 import { TidyButton } from "../features/map/TidyButton";
 import { MapSwitcher } from "../features/maps/MapSwitcher";
+import { LinkHoldBanner } from "../features/maps/LinkHoldBanner";
 import { MissingMapsBanner } from "../features/maps/MissingMapsBanner";
 import { SaveFailedBanner } from "../features/maps/SaveFailedBanner";
 import { SyncToast } from "../features/maps/SyncToast";
@@ -42,6 +43,7 @@ export function App() {
       </header>
       <SaveFailedBanner />
       <MissingMapsBanner />
+      <LinkHoldBanner />
       <div className={styles.status} aria-live="polite">
         <ReachStatus />
       </div>

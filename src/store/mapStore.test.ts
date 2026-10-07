@@ -760,3 +760,71 @@ describe("restoring all maps", () => {
     expect((await freshStore()).getState().starter).toBeNull();
   });
 });
+
+describe("a linked tree in the store", () => {
+  /** Boardkit's board "Move?" (lists rent with card a, buy), and Linkkit's
+      placed copy of its tree, open. */
+  async function linkedStore() {
+    const board = {
+      lists: { rent: { id: "rent", title: "Rent" }, buy: { id: "buy", title: "Buy" } },
+      cards: { a: { id: "a", title: "A" } },
+      listOrder: ["rent", "buy"],
+      cardOrder: { rent: ["a"], buy: [] },
+      trash: [],
+      trashedLists: [],
+    };
+    localStorage.setItem("boardkit:board:move", JSON.stringify({ version: 2, rev: 1, board }));
+    localStorage.setItem(
+      "boardkit:registry",
+      JSON.stringify({ version: 1, boards: [{ id: "move", name: "Move?" }], activeBoardId: "move" }),
+    );
+    const { boardToTree } = await import("../domain/bridge");
+    const { serializeStored } = await import("../domain/persistence");
+    const view = { page: PAGE, direction: "TB" as const, arrowLength: 47, hideCut: false, collapsed: [], places: {}, colors: {}, labels: {} };
+    const tree = boardToTree("move", "Move?", board, view).map;
+    const nodes = Object.fromEntries(Object.values(tree.nodes).map((n, i) => [n.id, { ...n, x: 100 * (i + 1), y: 50 }]));
+    const copy = { ...tree, id: asMapId("m1"), nodes, linkedBoard: "move" };
+    localStorage.setItem("linkkit:map:m1", JSON.stringify(serializeStored(copy, 1)));
+    localStorage.setItem("linkkit:active", "m1");
+    const useMapStore = await freshStore();
+    const { useSyncNotice } = await import("./syncNotice");
+    const { useLinkHold } = await import("./linkHold");
+    return { useMapStore, useSyncNotice, useLinkHold };
+  }
+
+  it("opens from the board and refuses a step under a card, saying why", async () => {
+    const { useMapStore, useSyncNotice } = await linkedStore();
+    expect(useMapStore.getState().map.linkedBoard).toBe("move");
+    expect(useMapStore.getState().needsTidy).toBe(false);
+    expect(useMapStore.getState().addNextStep(asNodeId("a"))).toBeNull();
+    expect(useSyncNotice.getState().message?.text).toMatch(/shared with Boardkit: “A” is a card/);
+    expect(useMapStore.getState().addNextStep(asNodeId("buy"))).not.toBeNull();
+  });
+
+  it("refuses a second way into a card", async () => {
+    const { useMapStore } = await linkedStore();
+    const before = useMapStore.getState().map;
+    useMapStore.getState().connect(asNodeId("buy"), asNodeId("a"));
+    expect(useMapStore.getState().map).toBe(before);
+  });
+
+  it("renames the map and its start box together", async () => {
+    const { useMapStore } = await linkedStore();
+    useMapStore.getState().renameMap("Stay?");
+    const { map, maps } = useMapStore.getState();
+    expect(map.name).toBe("Stay?");
+    expect(map.nodes[asNodeId("move")].name).toBe("Stay?");
+    expect(maps.find((m) => m.id === "m1")?.name).toBe("Stay?");
+    useMapStore.getState().renameBox(asNodeId("move"), "Go?");
+    expect(useMapStore.getState().map.name).toBe("Go?");
+  });
+
+  it("changes nothing while its board can't be written", async () => {
+    const { useMapStore, useLinkHold } = await linkedStore();
+    useLinkHold.getState().hold(asMapId("m1"), "damaged");
+    const before = useMapStore.getState().map;
+    useMapStore.getState().renameBox(asNodeId("a"), "Nope");
+    useMapStore.getState().moveBox(asNodeId("a"), { x: 1, y: 1 });
+    expect(useMapStore.getState().map).toBe(before);
+  });
+});

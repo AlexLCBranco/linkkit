@@ -32,6 +32,9 @@ export function initAutoSave(): void {
     // The map is read when the save runs, not now, so one write covers a
     // whole burst of edits.
     scheduleSave(() => useMapStore.getState().map);
+    // A tree shared with Boardkit saves at once, so a Boardkit tab open
+    // beside it sees each change as it happens.
+    if (state.map.linkedBoard) flushSave();
     saveActiveMapId(state.map.id);
   });
 

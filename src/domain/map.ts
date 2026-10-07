@@ -121,8 +121,10 @@ export function renameMap(map: LinkMap, name: string): LinkMap {
 /** A copy of the whole map under a new id and name. Box and arrow ids stay
     the same: they only need to be unique within one map. */
 export function duplicateMap(map: LinkMap, id: MapId, name: string): LinkMap {
-  // The copy starts with an empty trash: what was deleted stays with the original.
-  return { ...map, id, name: cleanName(name) || map.name, trash: [] };
+  // The copy starts with an empty trash: what was deleted stays with the
+  // original. It is never linked: a board is shared with one map only.
+  const { linkedBoard: _, ...unlinked } = map;
+  return { ...unlinked, id, name: cleanName(name) || map.name, trash: [] };
 }
 
 export const setDirection = (map: LinkMap, direction: LayoutDirection): LinkMap =>

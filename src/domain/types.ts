@@ -134,6 +134,12 @@ export interface LinkMap {
       `domain/trash.ts`). Saved and undone with the map, like Boardkit's
       per-board trash. */
   readonly trash: readonly TrashEntry[];
+  /** Linked trees only (shared store, bridge step 3): the Boardkit board
+      this tree is shared with; its id is the start box's. While linked,
+      the board holds the shared parts (names, statuses, which box leads to
+      which, sibling order); the rest is Linkkit's own (`LinkedView` in
+      bridge.ts). Absent on every other map. */
+  readonly linkedBoard?: string;
 }
 
 /** Where a deleted box sat among a box's next steps (trees only), so a
