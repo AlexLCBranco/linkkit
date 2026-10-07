@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.30 (shared store: Boardkit side 3a done, 3b next)_
+_Last updated: 2026-10-07, v0.0.30 (shared store: 3b1 conversion done, 3b2 next)_
 
 ## What it is
 
@@ -421,6 +421,17 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     `emptyTrash`, `trashOverflow` (what a delete would erase), and the
     deleted-maps list (`withTrashedMap`, `mapTrashOverflow`, its saved
     shape under `linkkit:trash:maps`)
+  - `boardRecord.ts` and `bridge.ts` (shared store step 3b1; not used by
+    the app yet): Boardkit's saved board as Linkkit reads it
+    (`readBoardRecord`: ok / newer / damaged, strict, every field Linkkit
+    doesn't use kept as it is; `nextRecord` raises `rev`), and the
+    conversion. `boardToTree` builds a linked tree from a board plus
+    Linkkit's own `LinkedView` (places, colours, labels, collapse, ...);
+    `treeToBoard` writes a tree's titles, statuses, list and card order and
+    deletes (into Boardkit's trash) back onto the board; `boardProblems`
+    and `problemText` name what keeps a tree from being a board ("'Rent'
+    has two ways in", "'Walk to work' is 4 levels deep"); `arrangeCards`
+    is the divider rule
   - `persistence.ts` and `registry.ts`: saving a map with a version
     number and repairing a damaged save (an unknown `kind` can't be
     read; arrows every kind refuses are dropped: a missing end, a box
@@ -655,8 +666,27 @@ PROJECT.md updated, pushed, and say what couldn't be tested.
    - Steps: 3a Boardkit side: 3a1 done (Boardkit v0.0.82: version 2 with
      `status` and `rev`, newer versions open read-only), 3a2 done
      (Boardkit v0.0.83: `storage` events and `rev`-checked writes; two
-     Boardkit tabs no longer overwrite each other); 3b Linkkit side next
-     (not started)
+     Boardkit tabs no longer overwrite each other); 3b Linkkit side, split
+     in three (each its own chat): ~~3b1 the conversion~~ (done: pure
+     `domain/boardRecord.ts` and `domain/bridge.ts` with tests, nothing
+     wired in yet); 3b2 next: two Linkkit tabs stop overwriting each
+     other (`rev` on `linkkit:map:` records, a three-way merge of maps in
+     `domain/`, reload on `storage` events; the same merge then serves
+     linked maps); 3b3: linked map storage (`linkedBoard`, the slim record,
+     opening builds the tree from the board and tidies in unplaced boxes,
+     shared part written first with the `rev` check, failed saves, a board
+     deleted in Boardkit leaves an unlinked copy)
+   - What 3b1 settled: the start box's id is the board's id, and the
+     arrow into a box has that box's id (one way in each, so it's unique;
+     labels are kept by it). Linkkit reads Boardkit's record strictly:
+     anything not clean is "damaged" and never written by Linkkit (Boardkit
+     repairs it when opened there). A list Linkkit would fill past
+     Boardkit's 50 cards is refused. Two cards swapped next to each other
+     count as the lower one moved up (matters only for which side of a
+     hidden divider it lands). A box Linkkit puts back in a linked tree
+     comes out of Boardkit's trash. Not done yet: the trash overflow
+     question for linked deletes (Boardkit's limits), left for item 5's
+     steps along with every other linked-map action
    - What 3a2 settled, for 3b to match: Boardkit's three-way merge is pure
      and tested, in Boardkit's `src/domain/merge.ts` (base = the record as
      the tab last read or wrote it, mine = the tab now, theirs = what is
