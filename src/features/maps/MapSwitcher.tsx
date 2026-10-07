@@ -36,7 +36,9 @@ import { useNow } from "./useNow";
  * "Add example map" replaces the prototype's "Reset example": it always
  * adds a new map, so it can never wipe one the user has worked on.
  *
- * "+ New tree" and "Add example tree" make decision trees (kind "tree").
+ * "+ New map with tree rules" and "Add example map with tree rules" make
+ * decision trees (kind "tree"). The UI calls every kind a map; a tree is a
+ * map with tree rules on (the owner's wording, usability pass U3).
  * A new tree opens its start box's name for typing.
  *
  * "Export all maps" downloads every map as one file; on an empty Linkkit
@@ -172,10 +174,10 @@ export function MapSwitcher() {
           >
             + New map
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => (newTreeAfterClose.current = true)}>+ New tree</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => (newTreeAfterClose.current = true)}>+ New map with tree rules</DropdownMenuItem>
           <DropdownMenuItem onSelect={duplicateMap}>Duplicate this map</DropdownMenuItem>
           <DropdownMenuItem onSelect={addExampleMap}>Add example map</DropdownMenuItem>
-          <DropdownMenuItem onSelect={addExampleTree}>Add example tree</DropdownMenuItem>
+          <DropdownMenuItem onSelect={addExampleTree}>Add example map with tree rules</DropdownMenuItem>
           {isTree && !linked && boardkitHere && (
             <DropdownMenuItem onSelect={() => setLinking(linkPreview(useMapStore.getState().map))}>
               Link to Boardkit…

@@ -18,11 +18,11 @@ export function LinkHoldBanner() {
   return (
     <div className={styles.banner} role="status">
       <div className={styles.text}>
-        <p className={styles.title}>This tree can't be changed right now</p>
+        <p className={styles.title}>This map can't be changed right now</p>
         <p className={styles.body}>
           {reason === "newer"
             ? "It's shared with a Boardkit board saved by a newer version of Boardkit. Reload this page to get the newest Linkkit, then change it."
-            : "It's shared with a Boardkit board that is damaged. Open that board in Boardkit, which repairs it; this tree then opens as usual."}{" "}
+            : "It's shared with a Boardkit board that is damaged. Open that board in Boardkit, which repairs it; this map then opens as usual."}{" "}
           Until then you see Linkkit's last copy.
         </p>
       </div>

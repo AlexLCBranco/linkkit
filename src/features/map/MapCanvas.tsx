@@ -53,7 +53,7 @@ const edgeTypes = { link: LinkEdgeView };
 const CENTER_ORIGIN: NodeOrigin = [0.5, 0.5];
 const NO_DATA = {};
 /** Double-clicking a tree's paper adds nothing: the hint says how instead. */
-const PAPER_REFUSAL = "In a tree every box needs a parent: use a box’s + button, or drag its dot onto the paper.";
+const PAPER_REFUSAL = "With tree rules on, every box needs a parent: use a box’s + button, or drag its dot onto the paper.";
 /** The page before the screen is first measured. */
 const FILL = { width: "100%", height: "100%" };
 

@@ -289,7 +289,7 @@ export const canAddNextStep = (map: LinkMap, id: NodeId): boolean => rulesOf(map
 export function nextStepRefusal(map: LinkMap, id: NodeId): string | null {
   const node = map.nodes[id];
   if (!node || canAddNextStep(map, id)) return null;
-  if (map.kind !== "tree") return "Only a tree's boxes have next steps.";
+  if (map.kind !== "tree") return "Next steps need tree rules on.";
   return `“${node.name || "Untitled"}” is a card, and cards can't have next steps in Boardkit.`;
 }
 
@@ -304,7 +304,7 @@ export function moveRefusalText(map: LinkMap, id: NodeId, parent: NodeId, reason
     case "missing":
       return "That box is gone.";
     case "not-tree":
-      return "Only a tree's boxes have next steps.";
+      return "Next steps need tree rules on.";
     case "start":
       return `${name(id)} is the start: it can't go under another box.`;
     case "self":
@@ -349,7 +349,7 @@ export function linkRefusalText(map: LinkMap, from: NodeId, to: NodeId, reason: 
     in a tree it is a box's only way in, and every box needs a parent. */
 export function linkDeleteRefusal(map: LinkMap, id: LinkId): string | null {
   if (!map.links[id] || canDeleteLink(map, id)) return null;
-  return "In a tree every box needs a parent: drag the box to a new parent, or delete the box.";
+  return "With tree rules on, every box needs a parent: drag the box to a new parent, or delete the box.";
 }
 
 /** Why the box `id` may not be deleted, in words (`null` when it may). */

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.40 (usability pass U2: dragging a box to a new parent shows clearly)_
+_Last updated: 2026-10-07, v0.0.41 (usability pass U3: one name, a map with tree rules on or off)_
 
 ## What it is
 
@@ -1050,6 +1050,14 @@ One commit per item. Short entries only.
   own parent the chip says "Already under …" and letting go puts it back;
   after a move the moved box is picked, so its new path lights up. Linked
   trees still sync through the same `moveToParent`
+- ~~U3. Naming~~ (done, v0.0.41). The UI calls everything a map; a tree
+  is "a map with tree rules on" (owner's decision). UI text only: storage
+  keys, `kind: "tree"` and code names unchanged. Menu: "+ New map with
+  tree rules", "Add example map with tree rules"; a new one is "Untitled
+  map"; the hint line starts "Tree rules on." (linked: "Tree rules on,
+  shared with Boardkit."); dialogs, banners, the linked chip and refusal
+  messages say "map" / "with tree rules on". This file still says "tree"
+  for short
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 

@@ -42,7 +42,7 @@ export function LinkDialog({ preview, onClose }: { preview: LinkPreview | null; 
         {preview?.kind === "refused" ? (
           <>
             <AlertDialogHeader>
-              <AlertDialogTitle>This tree can't be a Boardkit board yet</AlertDialogTitle>
+              <AlertDialogTitle>This map can't be a Boardkit board yet</AlertDialogTitle>
               <AlertDialogDescription asChild>
                 <div>
                   <p>
@@ -101,7 +101,7 @@ export function UnlinkDialog({ open, onClose }: { open: boolean; onClose: () => 
         <AlertDialogHeader>
           <AlertDialogTitle>Unlink “{name}” from Boardkit?</AlertDialogTitle>
           <AlertDialogDescription>
-            This map becomes an ordinary tree with its own copy, and the board stays in Boardkit as an ordinary board.
+            This map keeps its own copy, with tree rules still on, and the board stays in Boardkit as an ordinary board.
             From then on, changes in one no longer show in the other.
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -119,7 +119,7 @@ export function LinkedChip() {
   if (!boardId) return null;
 
   return (
-    <span className={styles.chip} title="This tree is shared with a Boardkit board: a change in either app shows in both">
+    <span className={styles.chip} title="This map is shared with a Boardkit board: a change in either app shows in both">
       <Link2 size={14} aria-hidden />
       <span className={styles.label}>Linked to Boardkit</span>
       <a

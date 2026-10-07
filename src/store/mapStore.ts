@@ -517,7 +517,6 @@ function createStored(map: LinkMap, maps: Registry): Registry {
 
 const blankMap = (): LinkMap => createMap(createMapId(), UNTITLED_MAP, newPageSize());
 
-const UNTITLED_TREE = "Untitled tree";
 
 /** The selection as `selected` and `group`: two or more boxes are a
     group, one is just selected. */
@@ -544,7 +543,7 @@ function forget(s: MapState, map: LinkMap): Pick<MapState, "map" | "selected" | 
 }
 
 /** A tree has no copy and paste: a pasted box would arrive with no way in. */
-const PASTE_REFUSAL = "Copy and paste are off in a tree: a pasted box would have no parent. Drag a box to move it.";
+const PASTE_REFUSAL = "With tree rules on, copy and paste are off: a pasted box would have no parent. Drag a box to move it.";
 const STATUS_REFUSAL = (map: LinkMap, id: NodeId) =>
   `“${map.nodes[id]?.name || "Untitled"}” is the start, the question itself: it has no keep / maybe / cut.`;
 
@@ -585,7 +584,7 @@ function commit(s: MapState, edited: LinkMap, key: string | null = null): Partia
 function refused(s: MapState, next: LinkMap): boolean {
   if (useLinkHold.getState().held[s.map.id]) return true;
   const problem = linkedProblem(next);
-  if (problem) useSyncNotice.getState().say(`Not in a tree shared with Boardkit: ${problem}`);
+  if (problem) useSyncNotice.getState().say(`Not in a map shared with Boardkit: ${problem}`);
   return problem !== null;
 }
 
@@ -1013,7 +1012,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
     // The last guard: a linked tree that was already out of a board's shape.
     const problem = linkedProblem(added.map);
     if (problem) {
-      useSyncNotice.getState().say(`Not in a tree shared with Boardkit: ${problem}`);
+      useSyncNotice.getState().say(`Not in a map shared with Boardkit: ${problem}`);
       return null;
     }
     if (useLinkHold.getState().held[map.id]) return null;
@@ -1112,7 +1111,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
   newTree: () => {
     get().stopEditing();
     flushSave();
-    const { map, startId } = createTree(createMapId(), UNTITLED_TREE, newPageSize());
+    const { map, startId } = createTree(createMapId(), UNTITLED_MAP, newPageSize());
     // Saved at once, like a new map; the first tidy centres the start box,
     // then its name opens for typing (select-all, so typing replaces
     // "Start", and leaving it empty keeps "Start").

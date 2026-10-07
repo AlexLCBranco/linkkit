@@ -171,7 +171,7 @@ export function boardProblems(map: LinkMap): BoardProblem[] {
 /** A problem in words, for the message that refuses the link or the
     change ("'Rent' has two ways in"). */
 export function problemText(map: LinkMap, problem: BoardProblem): string {
-  if (problem.kind === "not-a-tree") return "Only a tree with one start can be a board.";
+  if (problem.kind === "not-a-tree") return "Only a map with tree rules on and one start can be a board.";
   const name = `"${map.nodes[problem.box]?.name || "Untitled"}"`;
   switch (problem.kind) {
     case "two-ways-in":

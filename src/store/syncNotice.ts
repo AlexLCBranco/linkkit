@@ -43,7 +43,7 @@ export const useSyncNotice = create<SyncNotice>((set, get) => {
     },
     mapDeleted: (name) => say(`${quoted(name)} was deleted in another tab.`),
     boardDeleted: (name) =>
-      say(`${quoted(name)} was deleted in Boardkit, so Linkkit kept its copy as an ordinary tree.`),
+      say(`${quoted(name)} was deleted in Boardkit, so Linkkit kept its copy as an ordinary map, tree rules still on.`),
     say,
     dismiss: () => set({ message: null }),
   };
