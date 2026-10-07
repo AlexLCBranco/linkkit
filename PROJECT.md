@@ -455,11 +455,23 @@ turning a connections map into a tree.
       Treekit, so it stays Linkkit's own view state when maps are shared
       (see Bridge mapping, Decided); a box with another parent still
       showing stays; Tidy up lays out only what shows)
-    - e. Repairing a damaged tree. Proposed, waiting for the owner's OK:
-      several starts: keep the oldest, the others become its next steps;
-      a loose box: becomes a next step of the start; a loop: drop the
-      arrow that closes it (as Tidy up already picks one). The original
-      is kept aside, as now
+    - e. Repairing a damaged tree. Detailed design given to the owner on
+      2026-10-07, WAITING FOR THE OWNER'S OK (ask again before building).
+      As a tree opens (and when one is restored from a file), `readMap`
+      repairs its shape with a new `repairTree` in `domain/tree.ts`. No
+      box is ever deleted, only arrows dropped or added, in this order:
+      1) the start is the oldest box with no way in (if every box has one,
+      a tree that is all loop, the oldest box); 2) arrows into the start
+      are dropped; 3) each loop loses the arrow that closes it (the one
+      Tidy up already sets aside; its label goes with it); 4) every other
+      box with no way in (a second start with its branch, or a lone box)
+      becomes a next step of the start, last in its sibling order. Each
+      fix counts as a repair, so the original is kept aside
+      (`linkkit:damaged:*`) and the console says so, as today. Boxes keep
+      their places (no automatic tidy). Statuses, collapse and sibling
+      order are cleaned against the repaired arrows. No visible message
+      in the app (console only, as for connections maps); offered the
+      owner a banner if wanted
 
 15. ~~Selecting several boxes: the marquee, moving them together, copy /
     paste / duplicate / delete / colour~~ (done; asked for by the owner
@@ -478,6 +490,29 @@ turning a connections map into a tree.
     deleted boxes and branches with their arrows, and deleted maps, with
     an overflow warning like Boardkit's. Linked maps later send deletes
     to Boardkit's trash instead
+
+### The owner's queue (given 2026-10-06, work in this order)
+
+The owner asked for these in order, each in its own chat. Before building
+any step whose design isn't approved here, stop, give a short design
+summary and wait for the OK. After each step: build, tests and lint pass,
+PROJECT.md updated, pushed, and say what couldn't be tested.
+
+1. ~~Backup reminder dot~~ (done, step 19)
+2. Tree mode 14b-14e, one design summary per step, each checked against
+   the Decided section and the field mapping: ~~14a2 sibling order~~,
+   ~~14b~~, ~~14c~~, ~~14d~~ (done); 14e is next (design above, waiting
+   for the OK)
+3. Step 18, Linkkit's trash (design needed): deleted boxes and branches
+   with their arrows, plus whole maps; warns before overflow like
+   Boardkit's
+4. The shared store (bridge step 3), needs the most care: before any
+   code, give the owner the design, including how existing Boardkit
+   boards and Linkkit maps are migrated, and how a failed save behaves in
+   each app
+5. Only plan, don't build: turn the linking work into numbered steps in
+   "What's next": the "Link to Boardkit" action, the stricter rules for
+   linked trees in rules.ts, the cut badge in Boardkit, and cross-app undo
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 
