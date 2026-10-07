@@ -14,6 +14,9 @@ interface InlineEditableProps {
   readonly ariaLabel: string;
   readonly placeholder?: string;
   readonly className?: string;
+  /** Several lines pasted (one line pastes as usual): the pasted text and
+      the typed text either side of it. Typing ends with it. */
+  readonly onPasteLines?: (text: string, before: string, after: string) => void;
 }
 
 /**
@@ -55,6 +58,7 @@ function EditField({
   ariaLabel,
   placeholder,
   className,
+  onPasteLines,
 }: Omit<InlineEditableProps, "editing">) {
   const [draft, setDraft] = useState(value);
   // Set once the edit has ended, so the blur that follows Enter/Esc (as the
@@ -90,6 +94,15 @@ function EditField({
         cols={1}
         placeholder={placeholder}
         onChange={(event) => setDraft(event.target.value)}
+        onPaste={(event) => {
+          const text = event.clipboardData.getData("text/plain");
+          if (!onPasteLines || text.split("\n").filter((line) => line.trim()).length < 2) return;
+          event.preventDefault();
+          const field = event.currentTarget;
+          finishedRef.current = true;
+          onPasteLines(text, draft.slice(0, field.selectionStart), draft.slice(field.selectionEnd));
+          onDone(true);
+        }}
         onBlur={() => finish(true)}
         onKeyDown={(event) => {
           // Keep every key local: canvas shortcuts (Delete = delete the box)

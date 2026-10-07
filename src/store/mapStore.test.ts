@@ -697,6 +697,42 @@ describe("map store (arrows)", () => {
   });
 });
 
+describe("map store (pasting an outline)", () => {
+  it("builds a tree from a pasted outline in one undo step, joined to the new step's own", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().newTree();
+    useMapStore.getState().placeAll(new Map());
+    const before = useMapStore.getState().map;
+    const start = Object.keys(before.nodes)[0] as NodeId;
+    useMapStore.getState().startEditing({ kind: "box", id: start });
+    const outline = ["Party", "  Food", "    Cake", "    Chips", "  Music", "    Playlist"].join("\n");
+    useMapStore.getState().pasteOutline(start, outline, "", "");
+    const { map, editing } = useMapStore.getState();
+    expect(editing).toBeNull();
+    expect(Object.values(map.nodes).map((n) => n.name).sort()).toEqual(["Cake", "Chips", "Food", "Music", "Party", "Playlist"]);
+    const parent = (name: string) => {
+      const id = Object.values(map.nodes).find((n) => n.name === name)!.id;
+      const link = Object.values(map.links).find((l) => l.to === id);
+      return link ? map.nodes[link.from].name : null;
+    };
+    expect([parent("Food"), parent("Cake"), parent("Playlist"), parent("Party")]).toEqual(["Party", "Food", "Music", null]);
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.nodes).toEqual(before.nodes);
+  });
+
+  it("joins the typed text either side of the first line", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().placeAll(new Map());
+    const id = useMapStore.getState().addBox({ x: 300, y: 200 });
+    useMapStore.getState().pasteOutline(id, "party\nFood", "Big ", "!");
+    expect(useMapStore.getState().map.nodes[id].name).toBe("Big party!");
+    // The add, the name and the pasted box are one step.
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.nodes[id]).toBeUndefined();
+    expect(Object.values(useMapStore.getState().map.nodes).some((n) => n.name === "Food")).toBe(false);
+  });
+});
+
 describe("map store (several boxes)", () => {
   async function exampleStore() {
     const useMapStore = await freshStore();

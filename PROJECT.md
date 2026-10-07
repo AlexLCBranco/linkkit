@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.42 (usability pass U4: blank boxes stay)_
+_Last updated: 2026-10-07, v0.0.43 (usability pass U5: paste an outline)_
 
 ## What it is
 
@@ -1068,6 +1068,21 @@ One commit per item. Short entries only.
   it; a blank one would show as an empty row in its board menu), so a
   linked map's start box can't be emptied: the old name stays. Nothing
   Boardkit needs
+- ~~U5. Paste an outline~~ (done, v0.0.43). Pasting two or more lines
+  while typing a box's name: the first line goes into the name (joined
+  with what was typed around it), each other line becomes a new box
+  (`domain/outline.ts`). A tab or 2+ more spaces than the line above
+  makes a child of it; lines back out to the line they line up with; no
+  indent is a sibling of the box. Bullets (-, *, +, •, 1., 1)) and blank
+  lines are dropped. With tree rules on, children are next steps; lines
+  level with the first go under the box's parent (under the start itself
+  when pasting into the start); a linked map keeps three levels (too deep
+  goes under the deepest box allowed). In a connections map a child gets
+  an arrow from the box above it ("needs"); level lines stand alone.
+  Typing ends, the map re-tidies, all one undo step (with a new box's own
+  "add"). Single-line paste is unchanged. Choice made: a connections map
+  re-tidies as a whole after an outline paste (new boxes need places;
+  undo restores the old layout)
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 

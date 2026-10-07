@@ -82,6 +82,7 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   const startEditing = useMapStore((s) => s.startEditing);
   const stopEditing = useMapStore((s) => s.stopEditing);
   const renameBox = useMapStore((s) => s.renameBox);
+  const pasteOutline = useMapStore((s) => s.pasteOutline);
   const deleteBox = useMapStore((s) => s.deleteBox);
   const setBoxColor = useMapStore((s) => s.setBoxColor);
   const addNextStep = useMapStore((s) => s.addNextStep);
@@ -129,6 +130,8 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
         value={node.name}
         editing={isEditing}
         onCommit={(name) => renameBox(nodeId, name)}
+        // Several lines pasted: an outline, one box per line.
+        onPasteLines={(text, before, after) => pasteOutline(nodeId, text, before, after)}
         // Esc on a box just added takes it back; left blank otherwise, it stays.
         onDone={(committed) => stopEditing(!committed)}
         placeholder={isEditing ? "Type a name" : "Untitled"}

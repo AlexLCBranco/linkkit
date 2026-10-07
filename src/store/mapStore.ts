@@ -33,6 +33,7 @@ import {
   type MapFragment,
   setPage,
 } from "../domain/map";
+import { parseOutline, pasteOutline } from "../domain/outline";
 import { defaultPageSize } from "../domain/page";
 import {
   boxDeleteRefusal,
@@ -272,6 +273,12 @@ export interface MapState {
   /** An empty name leaves the box blank, except a linked map's start
       (the board's name). */
   renameBox(id: NodeId, name: string): void;
+  /** Several lines pasted while typing box `id`'s name (`before` and
+      `after` are the typed text either side of the paste): the first line
+      goes into the name, each other line becomes a new box, placed by its
+      indentation (`domain/outline.ts`), and the map re-tidies. Typing ends.
+      One undo step (joined to the box's own "add" step when it is new). */
+  pasteOutline(id: NodeId, text: string, before: string, after: string): void;
   /** Moves a box. Moves with the same `gesture` (one drag) are one undo
       step. */
   moveBox(id: NodeId, to: Point, gesture?: string): void;
@@ -859,6 +866,20 @@ export const useMapStore = create<MapState>()((set, get) => ({
     // rename is a step of its own.
     set((s) => commit(s, renameNode(s.map, id, name), s.stepKey === newBoxKey(id) ? s.stepKey : null));
   },
+  pasteOutline: (id, text, before, after) =>
+    set((s) => {
+      const lines = parseOutline(text);
+      const node = s.map.nodes[id];
+      if (!node || lines.length < 2) return {};
+      const offset = NEXT_STEP_OFFSET[s.map.direction];
+      const at = { x: node.x + offset.x, y: node.y + offset.y };
+      const name = cleanName(before + lines[0].text + after);
+      // A folded box opens, so what is pasted under it shows.
+      const open = setCollapsed(s.map, [id], false);
+      const pasted = pasteOutline(open, id, name, lines.slice(1), at, createNodeId);
+      const key = s.stepKey === newBoxKey(id) ? s.stepKey : null;
+      return { ...commit(s, pasted.map, key), editing: null, settleRequest: s.settleRequest + 1 };
+    }),
   moveBox: (id, to, gesture) => set((s) => commit(s, moveNode(s.map, id, to), gesture ?? null)),
   nudgeBoxes: (positions) =>
     set((s) => {
