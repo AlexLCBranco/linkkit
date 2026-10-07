@@ -71,6 +71,11 @@ export const TIDY_GLIDE_MS = 220;
     one a drop spot reaches, and the narrowest a gap's spot gets. */
 export const DROP_SLOTS = { reach: 32, minGap: 24 };
 
+/** An outline pasted into a map without tree rules: how far from the box
+    pasted into its block of new boxes starts, how far it steps out while
+    that spot is taken, and the clear space kept round other boxes. */
+export const PASTE_BLOCK = { gap: 48, step: 24, clearance: 16 };
+
 /** A template's thumbnail ("New from template"): every box drawn this size
     and this round, the gaps between them, and the margin round the whole. */
 export const TEMPLATE_THUMB = { box: { width: 90, height: 34 }, radius: 8, rowGap: 40, columnGap: 18, padding: 12 };

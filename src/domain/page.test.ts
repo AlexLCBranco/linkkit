@@ -10,6 +10,7 @@ import {
   defaultPageSize,
   freeSpot,
   keepOnPage,
+  placeBlockBeside,
   pageSize,
   placeOnPage,
   visibleCenter,
@@ -138,5 +139,38 @@ describe("clampGroupMove", () => {
     // Right: the second box's right side may reach 290 (moves 120 at most).
     // Up: the first box's top may reach 10 (moves -30 at most).
     expect(clampGroupMove(group, { x: 500, y: -500 }, page, insets)).toEqual({ x: 120, y: -30 });
+  });
+});
+
+describe("placeBlockBeside", () => {
+  const size = { width: 100, height: 40 };
+  const block = {
+    positions: new Map([
+      [asNodeId("n1"), { x: 0, y: 20 }],
+      [asNodeId("n2"), { x: 0, y: 100 }],
+    ]),
+    bounds: { left: -50, top: 0, right: 50, bottom: 120 },
+    loopLinks: new Set<never>(),
+  };
+  const options = { gap: 30, step: 20, clearance: 8 };
+
+  it("top-down: centred below the box when that is free", () => {
+    const placed = placeBlockBeside(block, { center: { x: 100, y: 100 }, size }, [], options);
+    // Top 30 under the box's bottom (120), centred on it.
+    expect(placed.get(asNodeId("n1"))).toEqual({ x: 100, y: 170 });
+    expect(placed.get(asNodeId("n2"))).toEqual({ x: 100, y: 250 });
+  });
+
+  it("left-right: to the right of the box, middles level", () => {
+    const placed = placeBlockBeside(block, { center: { x: 100, y: 100 }, size }, [], options, "LR");
+    // Left edge 30 past the box's right edge (150); block middle (60) at 100.
+    expect(placed.get(asNodeId("n1"))).toEqual({ x: 230, y: 60 });
+  });
+
+  it("steps clear of other boxes, never moving them", () => {
+    const other = { center: { x: 100, y: 200 }, size };
+    const placed = placeBlockBeside(block, { center: { x: 100, y: 100 }, size }, [other], options);
+    // Below is taken; to the right is free.
+    expect(placed.get(asNodeId("n1"))).toEqual({ x: 230, y: 60 });
   });
 });

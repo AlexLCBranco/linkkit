@@ -16,7 +16,7 @@ import { placeLabels } from "../../domain/labels";
 import { layoutMap } from "../../domain/layout";
 import { shownMap } from "../../domain/shown";
 import { boxesIn, marqueeSelection, rectBetween, type Rect } from "../../domain/marquee";
-import { boxBounds, clampToPage, keepOnPage, pageSize, placeOnPage } from "../../domain/page";
+import { boxBounds, clampToPage, keepOnPage, pageSize, placeBlockBeside, placeOnPage } from "../../domain/page";
 import type { ArrowLength, LayoutDirection, LinkId, LinkMap, NodeId, Point, Size } from "../../domain/types";
 import { selectionOf, useMapStore } from "../../store/mapStore";
 import { useViewStore } from "../../store/viewStore";
@@ -36,6 +36,7 @@ import {
   MAP_LAYOUT,
   PAGE_INSETS,
   PAGE_MARGIN,
+  PASTE_BLOCK,
   TIDY_GLIDE_MS,
   TWIN_OFFSET,
 } from "./layoutConfig";
@@ -284,6 +285,33 @@ function MapCanvasInner() {
     s.nudgeBoxes(placed.positions);
     startGlide(from, shownMap(useMapStore.getState().map).nodes);
   }, [settleRequest, allMeasured, screen, needsTidy, sizes, startGlide]);
+
+  // An outline pasted into a map without tree rules: only the new boxes
+  // are laid out, as a block beside the box they were pasted into, in free
+  // space; nothing else moves. Joined to the paste's undo step
+  // (`nudgeBoxes`), and the boxes glide there.
+  const placeRequest = useMapStore((s) => s.placeRequest);
+  const placed = useRef(placeRequest);
+  useEffect(() => {
+    if (!placeRequest || placeRequest === placed.current || !allMeasured || !screen || needsTidy) return;
+    placed.current = placeRequest;
+    const s = useMapStore.getState();
+    const anchor = s.map.nodes[placeRequest.anchor];
+    const ids = new Set(placeRequest.ids.filter((id) => s.map.nodes[id]));
+    if (!anchor || ids.size === 0) return;
+    const block: LinkMap = {
+      ...s.map,
+      nodes: Object.fromEntries([...ids].map((id) => [id, s.map.nodes[id]])),
+      links: Object.fromEntries(Object.values(s.map.links).filter((l) => ids.has(l.from) && ids.has(l.to)).map((l) => [l.id, l])),
+    };
+    const layout = layoutMap(block, sizes, tidyOptions(block, labelSizesRef.current, s.map.arrowLength, s.map.direction));
+    const box = (id: NodeId) => ({ center: s.map.nodes[id], size: sizes.get(id) ?? MAP_LAYOUT.fallbackSize });
+    const others = (Object.keys(shownMap(s.map).nodes) as NodeId[]).filter((id) => !ids.has(id) && id !== anchor.id).map(box);
+    const positions = placeBlockBeside(layout, box(anchor.id), others, PASTE_BLOCK, s.map.direction);
+    const from = new Map<NodeId, Point>([...ids].map((id) => [id, { x: s.map.nodes[id].x, y: s.map.nodes[id].y }]));
+    s.nudgeBoxes(positions);
+    startGlide(from, shownMap(useMapStore.getState().map).nodes);
+  }, [placeRequest, allMeasured, screen, needsTidy, sizes, startGlide]);
 
   const at = useCallback((id: NodeId): Point => glide.shown?.get(id) ?? map.nodes[id], [glide.shown, map.nodes]);
 

@@ -228,6 +228,11 @@ export interface MapState {
       measured, and the boxes glide to make room. That tidy joins the latest
       undo step, so adding a step and making room for it undo together. */
   readonly settleRequest: number;
+  /** Boxes just pasted as an outline into a map without tree rules: the
+      canvas lays out only them, as a small block in free space beside
+      `anchor` (the box pasted into), moving nothing else; joined to the
+      paste's undo step. A new object for each paste. */
+  readonly placeRequest: { readonly ids: readonly NodeId[]; readonly anchor: NodeId } | null;
   /** Tree boxes whose delete takes other boxes with them, waiting for the
       user to confirm (`count` boxes in all). */
   readonly confirmingDelete: { readonly ids: readonly NodeId[]; readonly count: number } | null;
@@ -276,7 +281,8 @@ export interface MapState {
   /** Several lines pasted while typing box `id`'s name (`before` and
       `after` are the typed text either side of the paste): the first line
       goes into the name, each other line becomes a new box, placed by its
-      indentation (`domain/outline.ts`), and the map re-tidies. Typing ends.
+      indentation (`domain/outline.ts`). A tree re-tidies; any other map
+      gets the new boxes as a block beside the box (`placeRequest`). Typing ends.
       One undo step (joined to the box's own "add" step when it is new). */
   pasteOutline(id: NodeId, text: string, before: string, after: string): void;
   /** Moves a box. Moves with the same `gesture` (one drag) are one undo
@@ -516,6 +522,7 @@ function open(s: MapState, map: LinkMap, maps: Registry, needsTidy = takeUnplace
     relinking: null,
     confirmingDelete: null,
     editAfterTidy: null,
+    placeRequest: null,
   };
 }
 
@@ -799,6 +806,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
   stepKey: null,
   histories: {},
   settleRequest: 0,
+  placeRequest: null,
   confirmingDelete: null,
   editAfterTidy: null,
   trashWarning: null,
@@ -881,7 +889,11 @@ export const useMapStore = create<MapState>()((set, get) => ({
       const open = setCollapsed(s.map, [id], false);
       const pasted = pasteOutline(open, id, name, lines.slice(1), at, createNodeId);
       const key = s.stepKey === newBoxKey(id) ? s.stepKey : null;
-      return { ...commit(s, pasted.map, key), editing: null, settleRequest: s.settleRequest + 1 };
+      const done = { ...commit(s, pasted.map, key), editing: null };
+      // A tree re-tidies as it grows; any other map keeps its layout, and
+      // only the new boxes are placed, beside the box.
+      if (s.map.kind === "tree") return { ...done, settleRequest: s.settleRequest + 1 };
+      return pasted.added.length ? { ...done, placeRequest: { ids: pasted.added, anchor: id } } : done;
     }),
   moveBox: (id, to, gesture) => set((s) => commit(s, moveNode(s.map, id, to), gesture ?? null)),
   nudgeBoxes: (positions) =>

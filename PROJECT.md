@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.44 (usability pass U0-U7 done; U7 is a report)_
+_Last updated: 2026-10-07, v0.0.45 (U8: an outline pasted without tree rules moves nothing else)_
 
 ## What it is
 
@@ -1104,6 +1104,12 @@ One commit per item. Short entries only.
   tree rules; "Duplicate this map" copies everything), export PNG / SVG /
   Mermaid (only "Export all maps" as JSON), import Mermaid, zoom (the
   camera is locked by design; the page scrolls)
+- ~~U8. Outline paste without tree rules~~ (done, v0.0.45; replaces U5's
+  whole-map re-tidy, owner's call). Only the new boxes are laid out, as a
+  small tidy block in free space beside the box pasted into (below it,
+  centred, top-down; to its right left-right; the other side, then
+  further out, while taken: `placeBlockBeside` in `page.ts`). Nothing
+  else moves; still one undo step
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 

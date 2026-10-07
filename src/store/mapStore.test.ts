@@ -720,6 +720,29 @@ describe("map store (pasting an outline)", () => {
     expect(useMapStore.getState().map.nodes).toEqual(before.nodes);
   });
 
+  it("without tree rules, asks to place only the new boxes; their placing joins the paste's undo step", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().placeAll(new Map());
+    const before = useMapStore.getState().map;
+    const [anchor] = Object.keys(before.nodes) as NodeId[];
+    const settle = useMapStore.getState().settleRequest;
+    useMapStore.getState().pasteOutline(anchor, ["Party", "  Food", "  Music"].join("\n"), "", "");
+    const s = useMapStore.getState();
+    expect(s.settleRequest).toBe(settle);
+    expect(s.placeRequest?.anchor).toBe(anchor);
+    expect(s.placeRequest?.ids).toHaveLength(2);
+    const [food, music] = s.placeRequest!.ids;
+    // What the canvas does: moves only the new boxes, joined to the paste.
+    useMapStore.getState().nudgeBoxes(new Map([[food, { x: 900, y: 50 }], [music, { x: 1000, y: 50 }]]));
+    const after = useMapStore.getState().map;
+    for (const id of Object.keys(before.nodes) as NodeId[]) {
+      if (id !== anchor) expect(after.nodes[id]).toBe(before.nodes[id]);
+    }
+    expect(after.nodes[food]).toMatchObject({ x: 900, y: 50 });
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.nodes).toEqual(before.nodes);
+  });
+
   it("joins the typed text either side of the first line", async () => {
     const useMapStore = await freshStore();
     useMapStore.getState().placeAll(new Map());

@@ -1,5 +1,5 @@
 import type { Bounds, MapLayout } from "./layout";
-import type { LinkMap, NodeId, Point, Size } from "./types";
+import type { LayoutDirection, LinkMap, NodeId, Point, Size } from "./types";
 
 /**
  * The page: the sheet the boxes live on. It is the screen (the area the
@@ -215,4 +215,52 @@ export function freeSpot(
     if (!overlaps(spot)) return spot;
   }
   return at;
+}
+
+/**
+ * A laid-out block of new boxes (`block`, e.g. an outline just pasted)
+ * moved into free space beside `anchor`, the box they came from, without
+ * moving anything else: where the map grows (`direction`), so the arrows
+ * from the box run straight into the block: below it, centred, top-down;
+ * to its right, middles level, left-right. Else the other side. Each side
+ * steps further out until the block, kept `clearance` clear, overlaps no
+ * box in `others`. Gives up after a few dozen steps and uses the first
+ * spot.
+ */
+export function placeBlockBeside(
+  block: MapLayout,
+  anchor: { readonly center: Point; readonly size: Size },
+  others: Iterable<{ readonly center: Point; readonly size: Size }>,
+  options: { readonly gap: number; readonly step: number; readonly clearance: number },
+  direction: LayoutDirection = "TB",
+): Map<NodeId, Point> {
+  const b = block.bounds;
+  const width = b.right - b.left;
+  const height = b.bottom - b.top;
+  const boxes = [...others];
+  const a = { left: anchor.center.x - anchor.size.width / 2, top: anchor.center.y - anchor.size.height / 2 };
+  const free = (left: number, top: number) =>
+    boxes.every((o) => {
+      const ol = o.center.x - o.size.width / 2;
+      const ot = o.center.y - o.size.height / 2;
+      const c = options.clearance;
+      return left + width + c <= ol || ol + o.size.width + c <= left || top + height + c <= ot || ot + o.size.height + c <= top;
+    });
+  const right = { left: a.left + anchor.size.width + options.gap, top: anchor.center.y - height / 2 };
+  const below = { left: anchor.center.x - width / 2, top: a.top + anchor.size.height + options.gap };
+  const [first, second] = direction === "TB" ? [below, right] : [right, below];
+  const out = (s: typeof first, i: number) =>
+    s === below ? { left: s.left, top: s.top + i * options.step } : { left: s.left + i * options.step, top: s.top };
+  let spot = first;
+  search: for (let i = 0; i < 60; i++) {
+    for (const s of [out(first, i), out(second, i)]) {
+      if (free(s.left, s.top)) {
+        spot = s;
+        break search;
+      }
+    }
+  }
+  const dx = spot.left - b.left;
+  const dy = spot.top - b.top;
+  return new Map([...block.positions].map(([id, p]) => [id, { x: p.x + dx, y: p.y + dy }]));
 }
