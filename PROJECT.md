@@ -499,6 +499,41 @@ turning a connections map into a tree.
     an overflow warning like Boardkit's. Linked maps later send deletes
     to Boardkit's trash instead
 
+    Proposed design (2026-10-07, AWAITING the owner's OK, not built):
+    - Two parts. Deleted boxes: each map keeps its own trash inside the
+      map (`map.trash`), like Boardkit's per-board trash, so it travels
+      with exports and backups. Deleted maps: a list `linkkit:trash:maps`
+      (id, name, when); the map's saved record stays under its own key
+      until erased, so restoring just puts it back in the map list
+    - One delete = one trash entry: the boxes it removed (whole: name,
+      colour, status, place), every arrow touching them (labels too) and
+      their spots in sibling order. Shown as "'Rent' and 4 more · 2 days
+      ago". Goes there: deleting a box or branch (toolbar, menu, Delete
+      key), a selection, and Cut. Not trashed: deleting one arrow on its
+      own (undo only; arrows aren't items in Boardkit either), and a new
+      box left without a name
+    - Restore: boxes go back to their old spots with their arrows to any
+      box still there (arrows the rules now refuse are left out); in a
+      tree they rejoin their parent at their old place in its order. A
+      tree branch whose parent is gone becomes a next step of the start
+      (14e's repair rule); a tree then re-tidies (same undo step)
+    - Limits and overflow, Boardkit's way: 200 boxes per map's trash
+      (whole oldest entries go), 30 deleted maps. A delete that would push
+      something out asks first, naming it ("will erase 'Rent' and 3 more
+      boxes, deleted 5 days ago"): Cancel / "Delete and erase the oldest"
+    - Deleting a map no longer says "for good" and no longer asks (it can
+      be restored). The last map still can't be deleted
+    - UI: Treekit's trash button in the header (icon + count) opens
+      "Recently deleted": "From this map" and "Deleted maps", each row with
+      Restore and "Delete for good"; "Empty trash" asks first (it erases
+      deleted maps, which undo can't bring back)
+    - Undo: deleting, restoring and erasing boxes are ordinary undo steps
+      of that map (as in Boardkit, where emptying the trash is undoable
+      too). Map trash actions aren't undoable, like the map list today
+    - "Export all maps" and automatic backups carry each map's box trash;
+      deleted maps are left out. Older saved maps open with an empty
+      trash; an unreadable trash entry is dropped without failing the map
+
 ### The owner's queue (given 2026-10-06, work in this order)
 
 The owner asked for these in order, each in its own chat. Before building
