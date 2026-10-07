@@ -580,7 +580,12 @@ PROJECT.md updated, pushed, and say what couldn't be tested.
    code, give the owner the design, including how existing Boardkit
    boards and Linkkit maps are migrated, and how a failed save behaves in
    each app
-   Design (2026-10-07, AWAITING the owner's OK; nothing built yet):
+   Design (2026-10-07, OK'd by the owner "as described", including both
+   recommendations: shared data inside Boardkit's board record, and "Link
+   to Boardkit" creates a new board only, linking an existing board is
+   later; nothing built yet). Next: 3a, then 3b, each in its own chat.
+   3a is built in the Boardkit repo (`../Projects/boardkit`, following its
+   own CLAUDE.md), then PROJECT.md here is updated too:
    - What it rests on: sharing works only where both apps share one
      address, the gauntlet site (gauntlet-home.vercel.app/linkkit and
      /boardkit share one localStorage). At linkkit-lake / boardkit-iota
@@ -647,6 +652,7 @@ PROJECT.md updated, pushed, and say what couldn't be tested.
      writes, `storage` events, failed saves). Nothing visible changes until
      "Link to Boardkit" exists (item 5's steps), except that two tabs of
      one app stop overwriting each other
+   - Steps: 3a Boardkit side (not started), 3b Linkkit side (not started)
 5. Only plan, don't build: turn the linking work into numbered steps in
    "What's next": the "Link to Boardkit" action, the stricter rules for
    linked trees in rules.ts, the cut badge in Boardkit, and cross-app undo
