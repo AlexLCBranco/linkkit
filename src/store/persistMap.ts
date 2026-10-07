@@ -1,5 +1,6 @@
 import { readMap, serializeMap, type MapRead } from "../domain/persistence";
 import { readRegistry, removeMap, serializeRegistry, upsertMap, type Registry } from "../domain/registry";
+import { readMapTrash, serializeMapTrash, type MapTrash } from "../domain/trash";
 import type { LinkMap, MapId, Size } from "../domain/types";
 import { useSaveHealth } from "./saveHealth";
 
@@ -13,6 +14,7 @@ import { useSaveHealth } from "./saveHealth";
  *   linkkit:starter    the example a first-ever visit opened, while it is
  *                      still untouched (see `loadStarterId`)
  *   linkkit:damaged:…  a damaged map's original text, kept aside
+ *   linkkit:trash:maps the deleted maps (their own keys stay until erased)
  *
  * (`linkkit:align` belongs to `viewStore.ts`.) Every key starts with
  * "linkkit:" because the shared gauntlet site gives Linkkit and Boardkit
@@ -28,6 +30,7 @@ const REGISTRY_KEY = "linkkit:registry";
 const ACTIVE_KEY = "linkkit:active";
 const DAMAGED_KEY_PREFIX = "linkkit:damaged:";
 const STARTER_KEY = "linkkit:starter";
+const MAP_TRASH_KEY = "linkkit:trash:maps";
 
 /** What the list shows for a stored map that cannot be read at all. */
 const DAMAGED_MAP_NAME = "Damaged map";
@@ -92,8 +95,12 @@ export function loadRegistry(onMissing?: (missing: Registry) => void): Registry 
       }
     }
     const stored = new Set(storedMapIds());
-    let reconciled: Registry = registry.filter((m) => stored.has(m.id));
+    // A deleted map's record stays stored until erased: not one to list
+    // (not even when a retried save listed it again).
+    const trashed = new Set<string>(loadMapTrash().map((m) => m.id));
+    let reconciled: Registry = registry.filter((m) => stored.has(m.id) && !trashed.has(m.id));
     const missing = registry.filter((m) => !stored.has(m.id));
+    for (const id of trashed) stored.delete(id as MapId);
     if (missing.length > 0) onMissing?.(missing);
     for (const id of stored) {
       if (reconciled.some((m) => m.id === id)) continue;
@@ -145,6 +152,35 @@ export function deleteStoredMap(id: MapId): void {
   unsaved.delete(id);
   useSaveHealth.getState().forget(MAP_KEY_PREFIX + id);
   writeRegistry(removeMap(loadRegistry(), id));
+}
+
+/** Takes a map off the list, keeping its stored record (it went to the
+    trash). The list is written first: if the trash's own list then fails
+    to save, the map comes back on the next visit rather than being lost. */
+export function unlistStoredMap(id: MapId): void {
+  unsaved.delete(id);
+  writeRegistry(removeMap(loadRegistry(), id));
+}
+
+/** The deleted maps, oldest first. One whose record is gone is dropped. */
+export function loadMapTrash(): MapTrash {
+  try {
+    const raw = localStorage.getItem(MAP_TRASH_KEY);
+    if (raw === null) return [];
+    let trash: MapTrash;
+    try {
+      trash = readMapTrash(JSON.parse(raw));
+    } catch {
+      return [];
+    }
+    return trash.filter((m) => localStorage.getItem(MAP_KEY_PREFIX + m.id) !== null);
+  } catch {
+    return [];
+  }
+}
+
+export function saveMapTrash(trash: MapTrash): void {
+  tryWrite(MAP_TRASH_KEY, JSON.stringify(serializeMapTrash(trash)));
 }
 
 export function loadActiveMapId(): MapId | null {

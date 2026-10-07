@@ -12,6 +12,8 @@ import { TidyButton } from "../features/map/TidyButton";
 import { MapSwitcher } from "../features/maps/MapSwitcher";
 import { MissingMapsBanner } from "../features/maps/MissingMapsBanner";
 import { SaveFailedBanner } from "../features/maps/SaveFailedBanner";
+import { TrashFullDialog } from "../features/trash/TrashFullDialog";
+import { TrashPanel } from "../features/trash/TrashPanel";
 import { useMapStore } from "../store/mapStore";
 import styles from "./App.module.css";
 import { VersionBadge } from "./VersionBadge";
@@ -34,6 +36,8 @@ export function App() {
         <ArrowLengthPanel />
         <AlignPanel />
         <HideCutToggle />
+        <div className={styles.spacer} />
+        <TrashPanel />
       </header>
       <SaveFailedBanner />
       <MissingMapsBanner />
@@ -47,6 +51,7 @@ export function App() {
         <SelectionBar />
       </main>
       <DeleteBranchDialog />
+      <TrashFullDialog />
       <VersionBadge />
     </div>
   );

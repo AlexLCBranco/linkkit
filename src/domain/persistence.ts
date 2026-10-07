@@ -13,6 +13,8 @@ import type {
   PaletteColor,
   SiblingOrder,
   Size,
+  TrashEntry,
+  TrashPlace,
 } from "./types";
 import { clampArrowLength } from "./map";
 import { isOrdered, normalizeOrder, sameOrder } from "./order";
@@ -44,7 +46,7 @@ export interface PersistedMap {
 }
 
 export function serializeMap(map: LinkMap): PersistedMap {
-  const { id, name, kind, page, direction, arrowLength, nodes, links, order, hideCut, collapsed } = map;
+  const { id, name, kind, page, direction, arrowLength, nodes, links, order, hideCut, collapsed, trash } = map;
   // Copies out exactly the content fields, so nothing else that happens to
   // ride along on the object can leak into storage.
   return {
@@ -61,6 +63,7 @@ export function serializeMap(map: LinkMap): PersistedMap {
       order,
       hideCut,
       collapsed,
+      trash,
     },
   };
 }
@@ -145,23 +148,7 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
       continue;
     }
     if (node.id !== key) fix(null);
-    const id = key as NodeId;
-    const nodeName = typeof node.name === "string" ? node.name : fix("");
-    const x = typeof node.x === "number" && Number.isFinite(node.x) ? node.x : fix(0);
-    const y = typeof node.y === "number" && Number.isFinite(node.y) ? node.y : fix(0);
-    const color =
-      node.color === null || PALETTE_COLORS.includes(node.color as PaletteColor)
-        ? (node.color as PaletteColor | null)
-        : fix(null);
-    // Saves from before statuses existed have none: not damage. Only a
-    // tree's boxes have one.
-    const status =
-      node.status === undefined || node.status === null
-        ? null
-        : kind === "tree" && NODE_STATUSES.includes(node.status as NodeStatus)
-          ? (node.status as NodeStatus)
-          : fix(null);
-    nodes[id] = { id, name: nodeName, x, y, color, status };
+    nodes[key as NodeId] = readNode(key as NodeId, node, kind, fix);
   }
 
   // Arrows: each one is checked with the arrows kept so far, so an exact
@@ -198,6 +185,7 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
     order: {},
     hideCut,
     collapsed,
+    trash: readTrash(raw.trash, nodes, kind, fix),
   };
   for (const [key, link] of Object.entries(rawLinks)) {
     if (!isObject(link) || typeof link.from !== "string" || typeof link.to !== "string") {
@@ -241,6 +229,89 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
   }
 
   return fixes === 0 ? { status: "ok", map: read } : { status: "repaired", map: read, fixes };
+}
+
+/** One box, with defaults for fields of the wrong type (each a fix). */
+function readNode(id: NodeId, node: Record<string, unknown>, kind: MapKind, fix: <T>(value: T) => T): MapNode {
+  const name = typeof node.name === "string" ? node.name : fix("");
+  const x = typeof node.x === "number" && Number.isFinite(node.x) ? node.x : fix(0);
+  const y = typeof node.y === "number" && Number.isFinite(node.y) ? node.y : fix(0);
+  const color =
+    node.color === null || PALETTE_COLORS.includes(node.color as PaletteColor)
+      ? (node.color as PaletteColor | null)
+      : fix(null);
+  // Saves from before statuses existed have none: not damage. Only a
+  // tree's boxes have one.
+  const status =
+    node.status === undefined || node.status === null
+      ? null
+      : kind === "tree" && NODE_STATUSES.includes(node.status as NodeStatus)
+        ? (node.status as NodeStatus)
+        : fix(null);
+  return { id, name, x, y, color, status };
+}
+
+/**
+ * The map's trash. Saves from before the trash existed have none: not
+ * damage. An entry that isn't whole and well formed is dropped (one fix):
+ * a half entry could not be put back as it was. So is one holding a box
+ * that is on the map, or in an earlier entry (a box is in one place only).
+ */
+function readTrash(
+  raw: unknown,
+  onMap: Readonly<Record<NodeId, MapNode>>,
+  kind: MapKind,
+  fix: <T>(value: T) => T,
+): TrashEntry[] {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) return fix([]);
+  const seen = new Set<string>(Object.keys(onMap));
+  const trash: TrashEntry[] = [];
+  for (const entry of raw as unknown[]) {
+    const read = readTrashEntry(entry, seen, kind);
+    if (!read) {
+      fix(null);
+      continue;
+    }
+    for (const node of read.nodes) seen.add(node.id);
+    trash.push(read);
+  }
+  return trash;
+}
+
+function readTrashEntry(raw: unknown, seen: ReadonlySet<string>, kind: MapKind): TrashEntry | null {
+  if (!isObject(raw) || typeof raw.deletedAt !== "number" || !Number.isFinite(raw.deletedAt)) return null;
+  if (!Array.isArray(raw.nodes) || raw.nodes.length === 0 || !Array.isArray(raw.links)) return null;
+  // Strict: any default a box would need makes the entry damaged.
+  let bad = false;
+  const strict = <T>(value: T): T => {
+    bad = true;
+    return value;
+  };
+  const nodes: MapNode[] = [];
+  for (const node of raw.nodes as unknown[]) {
+    if (!isObject(node) || typeof node.id !== "string" || !node.id || seen.has(node.id)) return null;
+    if (nodes.some((n) => n.id === node.id)) return null;
+    nodes.push(readNode(node.id as NodeId, node, kind, strict));
+  }
+  const ids = new Set<string>(nodes.map((n) => n.id));
+  const links: Link[] = [];
+  for (const link of raw.links as unknown[]) {
+    if (!isObject(link)) return null;
+    const { id, from, to, label } = link;
+    if (typeof id !== "string" || typeof from !== "string" || typeof to !== "string" || typeof label !== "string") return null;
+    if (!ids.has(from) && !ids.has(to)) return null;
+    links.push({ id: id as LinkId, from: from as NodeId, to: to as NodeId, label });
+  }
+  const rawPlaces = raw.places === undefined ? [] : raw.places;
+  if (!Array.isArray(rawPlaces)) return null;
+  const places: TrashPlace[] = [];
+  for (const place of rawPlaces as unknown[]) {
+    if (!isObject(place) || typeof place.parent !== "string" || typeof place.child !== "string") return null;
+    if (typeof place.index !== "number" || !Number.isInteger(place.index) || place.index < 0) return null;
+    places.push({ parent: place.parent as NodeId, child: place.child as NodeId, index: place.index });
+  }
+  return bad ? null : { deletedAt: raw.deletedAt, nodes, links, places };
 }
 
 /** The saved order's well-formed entries (lists of ids); anything else is

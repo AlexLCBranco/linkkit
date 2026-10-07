@@ -311,7 +311,7 @@ describe("several maps", () => {
     expect(useMapStore.getState().map.name).toBe("Home network");
   });
 
-  it("deletes the open map for good and opens the newest one left, never the last map", async () => {
+  it("moves the open map to the trash and opens the newest one left, never the last map", async () => {
     const { useMapStore, first } = await storeWithOneMap();
     useMapStore.getState().deleteMap(first.id);
     expect(useMapStore.getState().map.id).toBe(first.id);
@@ -328,7 +328,91 @@ describe("several maps", () => {
 
     useMapStore.getState().deleteMap(first.id);
     expect(useMapStore.getState().maps.map((m) => m.id)).toEqual([second]);
-    expect(loadMap(first.id, PAGE)).toBeNull();
+    // Kept in the trash: off the list, even after a reload, until erased.
+    expect(useMapStore.getState().trashedMaps.map((m) => m.name)).toEqual(["Untitled map", "First"]);
+    expect(loadMap(first.id, PAGE)).toEqual(first);
+    expect(loadRegistry().map((m) => m.id)).toEqual([second]);
+    const reloaded = (await freshStore()).getState();
+    expect(reloaded.maps.map((m) => m.id)).toEqual([second]);
+    expect(reloaded.trashedMaps).toHaveLength(2);
+  });
+
+  it("restores a deleted map as the newest, and erases one for good", async () => {
+    const { useMapStore, first } = await storeWithOneMap();
+    useMapStore.getState().newMap();
+    const second = useMapStore.getState().map.id;
+    const kept = useMapStore.getState().addBox({ x: 300, y: 200 });
+    useMapStore.getState().renameBox(kept, "Kept");
+    useMapStore.getState().deleteMap(second);
+    expect(useMapStore.getState().map.id).toBe(first.id);
+
+    useMapStore.getState().restoreMap(second);
+    let s = useMapStore.getState();
+    expect(s.map.id).toBe(second);
+    expect(Object.values(s.map.nodes).map((n) => n.name)).toEqual(["Kept"]);
+    expect(s.maps.map((m) => m.id)).toEqual([first.id, second]);
+    expect(s.trashedMaps).toEqual([]);
+
+    useMapStore.getState().deleteMap(second);
+    useMapStore.getState().eraseMap(second);
+    s = useMapStore.getState();
+    expect(s.trashedMaps).toEqual([]);
+    expect(loadMap(second, PAGE)).toBeNull();
+  });
+
+  it("asks before a map delete would erase the oldest deleted map", async () => {
+    const { useMapStore, first } = await storeWithOneMap();
+    for (let i = 0; i < 30; i++) {
+      useMapStore.getState().newMap();
+      useMapStore.getState().deleteMap(useMapStore.getState().map.id);
+    }
+    const oldest = useMapStore.getState().trashedMaps[0];
+    useMapStore.getState().newMap();
+    const last = useMapStore.getState().map.id;
+    useMapStore.getState().deleteMap(last);
+    expect(useMapStore.getState().trashWarning).toMatchObject({ kind: "map", erased: { name: "Untitled map" } });
+    expect(useMapStore.getState().map.id).toBe(last);
+    useMapStore.getState().confirmTrashWarning();
+    const s = useMapStore.getState();
+    expect(s.map.id).toBe(first.id);
+    expect(s.trashedMaps).toHaveLength(30);
+    expect(s.trashedMaps.some((m) => m.id === oldest.id)).toBe(false);
+    expect(loadMap(oldest.id, PAGE)).toBeNull();
+  });
+
+  it("deletes boxes into the trash, restores them, and undoes both", async () => {
+    const { useMapStore } = await storeWithOneMap();
+    const before = useMapStore.getState().map;
+    useMapStore.getState().deleteBox(asNodeId("a"));
+    let s = useMapStore.getState();
+    expect(Object.keys(s.map.nodes)).toEqual(["b"]);
+    expect(s.map.trash).toHaveLength(1);
+    useMapStore.getState().restoreBoxes(asNodeId("a"));
+    s = useMapStore.getState();
+    expect(s.map.nodes).toEqual(before.nodes);
+    expect(s.map.links).toEqual(before.links);
+    expect(s.map.trash).toEqual([]);
+    expect(s.selected).toBe("a");
+    useMapStore.getState().undo();
+    expect(Object.keys(useMapStore.getState().map.nodes)).toEqual(["b"]);
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map).toEqual(before);
+  });
+
+  it("empties the trash: this map's boxes (undoable) and every deleted map", async () => {
+    const { useMapStore, first } = await storeWithOneMap();
+    useMapStore.getState().newMap();
+    const second = useMapStore.getState().map.id;
+    useMapStore.getState().deleteMap(second);
+    useMapStore.getState().deleteBox(asNodeId("a"));
+    useMapStore.getState().emptyTrash();
+    const s = useMapStore.getState();
+    expect(s.map.id).toBe(first.id);
+    expect(s.map.trash).toEqual([]);
+    expect(s.trashedMaps).toEqual([]);
+    expect(loadMap(second, PAGE)).toBeNull();
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.trash).toHaveLength(1);
   });
 
   it("drops a map from the list when it can no longer be read", async () => {
@@ -480,8 +564,24 @@ describe("map store (tree)", () => {
     expect(useMapStore.getState().map).toBe(before);
     useMapStore.getState().confirmDelete();
     expect(Object.keys(useMapStore.getState().map.nodes)).toHaveLength(3);
+    expect(useMapStore.getState().map.trash[0].nodes).toHaveLength(6);
     useMapStore.getState().undo();
     expect(useMapStore.getState().map).toEqual(before);
+  });
+
+  it("restores a deleted branch to its place, and re-tidies", async () => {
+    const useMapStore = await treeStore();
+    const before = useMapStore.getState().map;
+    const yes = named(useMapStore, "Yes, take it");
+    useMapStore.getState().deleteBox(yes);
+    useMapStore.getState().confirmDelete();
+    const settle = useMapStore.getState().settleRequest;
+    useMapStore.getState().restoreBoxes(yes);
+    const s = useMapStore.getState();
+    expect(s.map.nodes).toEqual(before.nodes);
+    expect(s.map.links).toEqual(before.links);
+    expect(s.map.order).toEqual(before.order);
+    expect(s.settleRequest).toBe(settle + 1);
   });
 
   it("deletes a lone box at once, and never the start", async () => {

@@ -5,7 +5,6 @@ import { InlineEditable } from "../../components/InlineEditable";
 import {
   AlertDialog,
   AlertDialogAction,
-  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
@@ -43,7 +42,10 @@ import { useNow } from "./useNow";
  * reads one back. That is how maps move to a new address (each address
  * has its own localStorage).
  *
- * The menu and the confirm dialog are shadcn/ui: supporting chrome, not the
+ * "Delete this map" moves it to the trash (see TrashPanel), so it doesn't
+ * ask first.
+ *
+ * The menu and the report dialog are shadcn/ui: supporting chrome, not the
  * page, which is where CLAUDE.md draws the line. Their colours still come
  * from tokens.css through the bridge in global.css.
  */
@@ -87,7 +89,6 @@ export function MapSwitcher() {
   // Set by "New tree": the tree is made once the menu has closed, so the
   // start box's name field can take the focus.
   const newTreeAfterClose = useRef(false);
-  const [confirmingDelete, setConfirmingDelete] = useState(false);
   // Stored oldest-first; listed newest-first, so the latest map is always at
   // the top however many have piled up.
   const newestFirst = useMemo(() => [...maps].reverse(), [maps]);
@@ -164,8 +165,9 @@ export function MapSwitcher() {
           <DropdownMenuItem onSelect={duplicateMap}>Duplicate this map</DropdownMenuItem>
           <DropdownMenuItem onSelect={addExampleMap}>Add example map</DropdownMenuItem>
           <DropdownMenuItem onSelect={addExampleTree}>Add example tree</DropdownMenuItem>
-          <DropdownMenuItem disabled={maps.length <= 1} onSelect={() => setConfirmingDelete(true)}>
-            Delete this map…
+          {/* No question asked: the map goes to the trash, to restore from there. */}
+          <DropdownMenuItem disabled={maps.length <= 1} onSelect={() => deleteMap(mapId)}>
+            Delete this map
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onSelect={exportAllMaps}>Export all maps</DropdownMenuItem>
@@ -197,21 +199,6 @@ export function MapSwitcher() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogAction>OK</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete “{name}”?</AlertDialogTitle>
-            <AlertDialogDescription>The whole map is deleted for good. This can’t be undone.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={() => deleteMap(mapId)}>
-              Delete map
-            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -34,3 +34,7 @@
     padding: var(--space-2) var(--space-3);
   }
 }
+
+.spacer {
+  flex: 1;
+}

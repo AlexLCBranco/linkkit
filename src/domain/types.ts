@@ -130,4 +130,26 @@ export interface LinkMap {
       map when boxes are shared (as Boardkit keeps `collapsedLists` outside
       its lists). Saved and undoable, since it changes the layout. */
   readonly collapsed: readonly NodeId[];
+  /** Deleted boxes waiting to be restored or erased, oldest first (see
+      `domain/trash.ts`). Saved and undone with the map, like Boardkit's
+      per-board trash. */
+  readonly trash: readonly TrashEntry[];
+}
+
+/** Where a deleted box sat among a box's next steps (trees only), so a
+    restore puts it back in the same place. */
+export interface TrashPlace {
+  readonly parent: NodeId;
+  readonly child: NodeId;
+  readonly index: number;
+}
+
+/** One delete in the trash: the boxes it took, every arrow that touched
+    them, and (trees) their places among next steps. Known by its first
+    box's id (`trashEntryId` in trash.ts). */
+export interface TrashEntry {
+  readonly deletedAt: number;
+  readonly nodes: readonly MapNode[];
+  readonly links: readonly Link[];
+  readonly places: readonly TrashPlace[];
 }

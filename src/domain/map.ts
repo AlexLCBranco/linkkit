@@ -38,6 +38,7 @@ export function createMap(id: MapId, name: string, page: Size, kind: MapKind = "
     order: {},
     hideCut: false,
     collapsed: [],
+    trash: [],
   };
 }
 
@@ -120,7 +121,8 @@ export function renameMap(map: LinkMap, name: string): LinkMap {
 /** A copy of the whole map under a new id and name. Box and arrow ids stay
     the same: they only need to be unique within one map. */
 export function duplicateMap(map: LinkMap, id: MapId, name: string): LinkMap {
-  return { ...map, id, name: cleanName(name) || map.name };
+  // The copy starts with an empty trash: what was deleted stays with the original.
+  return { ...map, id, name: cleanName(name) || map.name, trash: [] };
 }
 
 export const setDirection = (map: LinkMap, direction: LayoutDirection): LinkMap =>

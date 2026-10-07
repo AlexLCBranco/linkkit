@@ -51,8 +51,8 @@ export function DeleteBranchDialog() {
           <AlertDialogDescription>
             The {others === 1 ? "box" : "boxes"} after {several ? "them" : "it"} can only be reached through{" "}
             {several ? "them" : "it"}, so{" "}
-            {others === 1 ? "it goes" : "they go"} too. A box that another step also leads to stays. Undo brings them
-            all back.
+            {others === 1 ? "it goes" : "they go"} too. A box that another step also leads to stays. They wait in the
+            trash, and undo brings them all back.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

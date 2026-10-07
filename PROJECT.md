@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.29 (repairing a damaged tree, step 14e)_
+_Last updated: 2026-10-07, v0.0.30 (a trash for deleted boxes and maps, step 18)_
 
 ## What it is
 
@@ -58,8 +58,8 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   (named "… (copy)", then "(copy 2)" …), "Add example map" (a fresh,
   tidied Microsoft 365 example added next to the others; it never
   replaces one, unlike the prototype's "Reset example") and "Delete this
-  map…" (asks first; deleted for good; greyed out when only one map is
-  left; then the newest map left opens). Each map keeps its own undo
+  map" (no question: it goes to the trash, see below; greyed out when only
+  one map is left; then the newest map left opens). Each map keeps its own undo
   history for the session, so switching away and back still undoes.
   Renaming a map is not an undo step. A reload opens the map that was
   open last
@@ -127,8 +127,9 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   until they are. It offers "Export all maps" (the file holds the open
   map as it is on screen) and "Try again" (after room has been made,
   retries every save that failed, maps that aren't open included, then
-  saves the open map). Linkkit has no trash to empty, so the banner
-  suggests deleting maps no longer needed. Switching maps meanwhile is
+  saves the open map). The banner suggests deleting maps no longer
+  needed and emptying the trash (a deleted map keeps its storage until
+  then). Switching maps meanwhile is
   safe: a map whose save failed reopens with its real content (kept in
   memory until it saves). A new map joins the saved list only once its
   own content is stored, so a failed first save never leaves the list
@@ -139,6 +140,26 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   the list as Linkkit opens, and a banner names it instead of it
   vanishing silently. The banner offers "Restore from a file…" (an
   exported file; maps already here are left alone) and "Dismiss"
+- A trash (step 18), for every map. Deleting boxes (a box, a tree branch,
+  a selection, Cut) puts them in the map's own trash as one entry, with
+  their arrows, labels, colour, keep / maybe / cut and place; deleting a
+  map puts the whole map there. The trash button at the right of the
+  header (with a count) opens "Recently deleted": "From this map" ('“Rent”
+  and 4 more boxes · 2 days ago') and "Deleted maps", each row with
+  Restore and "Delete for good", and "Empty trash" (asks first). Restored
+  boxes go back where they were and end up selected; in a tree they
+  rejoin their parent in their old place (a folded parent opens), a
+  branch whose parent is gone hangs off the start, and the tree
+  re-tidies. A restored map comes back as the newest and opens. The
+  trash holds 200 boxes per map and 30 maps; a delete that would push
+  the oldest out asks first, naming it ("The trash is full … Delete and
+  erase the oldest"). Deleting, restoring and erasing boxes are undo
+  steps; map trash actions aren't. Not trashed: one arrow deleted on its
+  own (undo only) and a new box left without a name. "Export all maps"
+  and automatic backups carry each map's box trash, not deleted maps; a
+  file restore leaves a map that is in the trash alone ("already here
+  (or in the trash)"). Times in the trash are always in English ("2
+  minutes ago"), unlike Treekit's, which follow the browser's language
 - Click a box: what it needs lights up teal, what breaks without it
   lights up orange (boxes fill, arrows on those paths turn colour and
   thicken), everything else fades, and the status line shows the box's
@@ -394,6 +415,12 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   - `glide.ts`: the easing of Tidy up's glide
   - `history.ts`: undo steps (each stores only what changed; a drag
     joined into one step)
+  - `trash.ts`: the trash. `trashBoxes` (delete into one entry, with
+    the arrows and sibling places), `restoreFromTrash` (put back, arrows
+    re-checked, a tree repaired by `repairTree`), `forgetTrashEntry`,
+    `emptyTrash`, `trashOverflow` (what a delete would erase), and the
+    deleted-maps list (`withTrashedMap`, `mapTrashOverflow`, its saved
+    shape under `linkkit:trash:maps`)
   - `persistence.ts` and `registry.ts`: saving a map with a version
     number and repairing a damaged save (an unknown `kind` can't be
     read; arrows every kind refuses are dropped: a missing end, a box
@@ -490,7 +517,8 @@ turning a connections map into a tree.
     for by the owner ahead of 14b, so 14b is still next. Later, not now:
     a data store shared with Boardkit, and a canvas holding live pieces
     of these apps)
-18. A trash for Linkkit, before the bridge's shared store (bridge step
+18. ~~A trash for Linkkit~~ (done, v0.0.30; OK'd by the owner on
+    2026-10-07 as proposed below), before the bridge's shared store (bridge step
     3): the bridge decisions below promise that nothing is erased except
     by emptying the trash or confirming its overflow warning, and step 3
     is when deletes start crossing between the apps. Ported from
@@ -499,7 +527,7 @@ turning a connections map into a tree.
     an overflow warning like Boardkit's. Linked maps later send deletes
     to Boardkit's trash instead
 
-    Proposed design (2026-10-07, AWAITING the owner's OK, not built):
+    Design (2026-10-07, OK'd by the owner and built as written):
     - Two parts. Deleted boxes: each map keeps its own trash inside the
       map (`map.trash`), like Boardkit's per-board trash, so it travels
       with exports and backups. Deleted maps: a list `linkkit:trash:maps`
@@ -545,9 +573,9 @@ PROJECT.md updated, pushed, and say what couldn't be tested.
 2. Tree mode 14b-14e, one design summary per step, each checked against
    the Decided section and the field mapping: ~~14a2 sibling order~~,
    ~~14b~~, ~~14c~~, ~~14d~~, ~~14e~~ (done)
-3. Step 18, Linkkit's trash (design needed): deleted boxes and branches
+3. ~~Step 18, Linkkit's trash: deleted boxes and branches
    with their arrows, plus whole maps; warns before overflow like
-   Boardkit's
+   Boardkit's~~ (done)
 4. The shared store (bridge step 3), needs the most care: before any
    code, give the owner the design, including how existing Boardkit
    boards and Linkkit maps are migrated, and how a failed save behaves in
@@ -572,7 +600,8 @@ new fields land on the right side. Checked against both apps' code
   `linkkit:active`, `linkkit:starter`, `linkkit:damaged:*`,
   `linkkit:align`. Not saved: selection, undo history, clipboard
 - Siblings have NO stored order: left-to-right comes from Tidy up
-- Deleting is for good (no trash)
+- Deleting goes to a trash (step 18): boxes into the map's own
+  `map.trash`, maps into `linkkit:trash:maps`
 
 **Boardkit today:**
 - Board (`BoardState`): `lists`, `cards` (flat records like Linkkit's),
@@ -616,6 +645,7 @@ Linkkit-only (content Boardkit has no place for):
 | `map.kind`, and every connections map | only trees can be linked |
 | the link to a board (new map field, not built) | which board a map is linked to |
 | a second way into a box | refused in a linked map; fine in unlinked trees |
+| `map.trash`, `linkkit:trash:maps` (step 18) | unlinked maps only; a linked map's deletes go to Boardkit's trash |
 
 Boardkit-only content (Linkkit keeps it untouched and doesn't show it):
 
@@ -703,7 +733,7 @@ box's parent, and back. Where it doesn't fit:
   from Treekit's, so the rule above (nothing erased except by emptying
   the trash or confirming the overflow warning) holds in both apps and
   for every map. This overrides "trash" in CLAUDE.md's not-in-this-build
-  list. Not built yet. Treekit's trash is narrower than this needs: it
+  list. Built for unlinked maps in step 18 (v0.0.30). Treekit's trash is narrower than this needs: it
   holds only whole deleted trees (a deleted branch or node is gone for
   good, undo aside) and forgets the oldest past 10 without asking. So
   the port must take deleted boxes and branches (with their arrows) and

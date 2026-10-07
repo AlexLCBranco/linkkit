@@ -53,7 +53,7 @@ export async function restoreFrom(file: File): Promise<{ title: string; text: st
   }
   const { added, alreadyHere } = useMapStore.getState().restoreMaps(read.maps);
   const notes = [
-    alreadyHere > 0 && `${plural(alreadyHere, "map")} already here ${alreadyHere === 1 ? "was" : "were"} left as ${alreadyHere === 1 ? "it was" : "they were"}.`,
+    alreadyHere > 0 && `${plural(alreadyHere, "map")} already here (or in the trash) ${alreadyHere === 1 ? "was" : "were"} left as ${alreadyHere === 1 ? "it was" : "they were"}.`,
     read.damaged > 0 && `${plural(read.damaged, "map")} in the file couldn’t be read.`,
   ].filter(Boolean);
   return {

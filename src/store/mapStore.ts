@@ -13,7 +13,6 @@ import {
   deleteLink,
   copyFragment,
   deleteNode,
-  deleteNodes,
   duplicateMap,
   fragmentCenter,
   moveNode,
@@ -35,7 +34,21 @@ import {
 import { defaultPageSize } from "../domain/page";
 import { canCollapse, canDeleteLink, canPaste, canSetStatus } from "../domain/rules";
 import { shownMap } from "../domain/shown";
-import { addNextStep, branchesOf, createTree, deleteBranches } from "../domain/tree";
+import {
+  emptyTrash,
+  forgetTrashEntry,
+  mapTrashOverflow,
+  restoreFromTrash,
+  summarize,
+  trashBoxes,
+  trashEntryId,
+  trashOverflow,
+  withTrashedMap,
+  withoutTrashedMap,
+  type MapTrash,
+  type TrashSummary,
+} from "../domain/trash";
+import { addNextStep, branchesOf, createTree } from "../domain/tree";
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
 import { ARROW_LENGTH_PRESETS, type LinkId, type LinkMap, type MapId, type NodeId, type NodeStatus, type PaletteColor, type Point, type Size } from "../domain/types";
@@ -44,11 +57,14 @@ import {
   deleteStoredMap,
   loadActiveMapId,
   loadMap,
+  loadMapTrash,
   loadRegistry,
   loadStarterId,
   saveActiveMapId,
   saveMap,
+  saveMapTrash,
   saveStarterId,
+  unlistStoredMap,
 } from "./persistMap";
 import { cancelSave, flushSave } from "./saveQueue";
 
@@ -62,6 +78,14 @@ export interface Connecting {
   readonly at: Point;
   /** The box under the pointer, if the rules allow an arrow to it. */
   readonly target: NodeId | null;
+}
+
+/** A delete waiting on the "trash is full" warning: what it would erase
+    for good to make room, and the delete itself. */
+export interface TrashWarning {
+  readonly kind: "boxes" | "map";
+  readonly erased: TrashSummary;
+  readonly run: () => void;
 }
 
 /** The map's settings Tidy up follows: which way, and how long the arrows. */
@@ -138,6 +162,11 @@ export interface MapState {
   /** The undo histories of the other maps opened this session, parked
       while another map is open. */
   readonly histories: Readonly<Record<MapId, history.History>>;
+  /** Deleted maps, oldest first, until restored or erased. */
+  readonly trashedMaps: MapTrash;
+  /** A delete that would push the oldest thing out of a full trash,
+      waiting for the user's yes (Boardkit's warning). */
+  readonly trashWarning: TrashWarning | null;
 
   /** Puts every box where Tidy up (or Align) said, and records the page
       size and settings Tidy up used, in one change. Changes with the same
@@ -172,7 +201,7 @@ export interface MapState {
   nudgeBoxes(positions: ReadonlyMap<NodeId, Point>): void;
   /** `null` clears the colour. */
   setBoxColor(id: NodeId, color: PaletteColor | null): void;
-  /** Deletes a box and every arrow touching it. In a tree, also every box
+  /** Deletes a box and every arrow touching it, into the trash. In a tree, also every box
       only reachable through it (asking first, through `confirmingDelete`,
       when that is more than the box itself); the start is never deleted. */
   deleteBox(id: NodeId): void;
@@ -207,6 +236,21 @@ export interface MapState {
   duplicateBoxes(ids: readonly NodeId[]): void;
   confirmDelete(): void;
   cancelDelete(): void;
+  /** Runs the delete the "trash is full" warning held back, erasing the
+      oldest to make room. */
+  confirmTrashWarning(): void;
+  cancelTrashWarning(): void;
+  /** Puts a deleted box (or branch, or group) back, as one undo step; the
+      boxes put back end up selected. */
+  restoreBoxes(entryId: NodeId): void;
+  /** Erases one trash entry for good (undoable, as in Boardkit). */
+  forgetBoxes(entryId: NodeId): void;
+  /** Erases the open map's trash (undoable) and every deleted map (not). */
+  emptyTrash(): void;
+  /** Puts a deleted map back in the list (as the newest) and opens it. */
+  restoreMap(id: MapId): void;
+  /** Erases a deleted map for good. */
+  eraseMap(id: MapId): void;
   /** Tree: adds a next step after `from` (at `at`, or just after it),
       opens its name for typing and re-tidies the tree. */
   addNextStep(from: NodeId, at?: Point): NodeId | null;
@@ -238,7 +282,8 @@ export interface MapState {
       content, and the name is right there to click and change back. An
       empty name is ignored. */
   renameMap(name: string): void;
-  /** Deletes a map for good. The last map can't be deleted. */
+  /** Moves a map to the trash (asking first only when that would erase the
+      oldest deleted map). The last map can't be deleted. */
   deleteMap(id: MapId): void;
   /**
    * Adds the maps from a backup that aren't here yet (matched by id: one
@@ -297,7 +342,7 @@ export function mapsForExport(): LinkMap[] {
 
 /** The map that was open last (else the newest saved one), or the example
     if there is none. */
-function initialState(): Pick<MapState, "map" | "needsTidy" | "maps" | "starter"> {
+function initialState(): Pick<MapState, "map" | "needsTidy" | "maps" | "starter" | "trashedMaps"> {
   // Maps the list names but storage lost are reported, not just dropped.
   const registry = loadRegistry((missing) => useMissingMaps.getState().setMissing(missing.map((m) => m.name)));
   const id = loadActiveMapId();
@@ -308,7 +353,13 @@ function initialState(): Pick<MapState, "map" | "needsTidy" | "maps" | "starter"
   const remembered = loadStarterId();
   const starter = saved === null ? map.id : remembered !== null && maps.some((m) => m.id === remembered) ? remembered : null;
   if (starter !== remembered) saveStarterId(starter);
-  return { map, needsTidy: saved === null, maps: upsertMap(maps, { id: map.id, name: map.name }), starter };
+  return {
+    map,
+    needsTidy: saved === null,
+    maps: upsertMap(maps, { id: map.id, name: map.name }),
+    starter,
+    trashedMaps: loadMapTrash(),
+  };
 }
 
 /** Any change to the starter example makes it the user's own map. */
@@ -405,6 +456,65 @@ function withRoomMade(s: MapState, next: LinkMap): Partial<MapState> {
   return { ...commit(s, next), settleRequest: s.settleRequest + (before !== after ? 1 : 0) };
 }
 
+/**
+ * Deletes boxes into the trash as one undo step, or, when that would push
+ * the oldest deleted boxes out of a full trash, asks first (`trashWarning`).
+ */
+function trashing(s: MapState, ids: Iterable<NodeId>): Partial<MapState> {
+  const gone = [...ids].filter((id) => s.map.nodes[id]);
+  if (gone.length === 0) return {};
+  const erased = summarize(trashOverflow(s.map, gone.length));
+  if (!erased) return commit(s, trashBoxes(s.map, gone, Date.now()));
+  const mapId = s.map.id;
+  const run = () =>
+    useMapStore.setState((st) => (st.map.id === mapId ? commit(st, trashBoxes(st.map, gone, Date.now())) : {}));
+  return { trashWarning: { kind: "boxes", erased, run } };
+}
+
+/**
+ * Moves a map to the trash: off the list, its stored record kept (saved
+ * once more first, so its latest edits go with it). The open map is
+ * replaced by the newest other one. An example never tidied was never
+ * saved, and was never the user's: it just goes.
+ */
+function trashMap(id: MapId): void {
+  const s = useMapStore.getState();
+  if (s.maps.length <= 1 || !s.maps.some((m) => m.id === id)) return;
+  const isOpen = id === s.map.id;
+  if (isOpen) {
+    s.stopEditing();
+    // Its pending save must not list it again after it leaves the list.
+    cancelSave();
+  }
+  const map = isOpen ? (useMapStore.getState().needsTidy ? null : useMapStore.getState().map) : loadMap(id, newPageSize());
+  let trashedMaps = s.trashedMaps;
+  if (map) {
+    saveMap(map);
+    const name = s.maps.find((m) => m.id === id)?.name ?? map.name;
+    const added = withTrashedMap(trashedMaps, { id, name, boxes: Object.keys(map.nodes).length, deletedAt: Date.now() });
+    for (const old of added.erased) deleteStoredMap(old.id);
+    trashedMaps = added.trash;
+    unlistStoredMap(id);
+    saveMapTrash(trashedMaps);
+  } else {
+    deleteStoredMap(id);
+  }
+  const left = removeMap(s.maps, id);
+  if (!isOpen) {
+    const { [id]: _, ...histories } = s.histories;
+    useMapStore.setState({ maps: left, histories, trashedMaps });
+    return;
+  }
+  const { map: next, maps } = loadNewest(left);
+  // `open` parks the outgoing history only for maps still listed, so the
+  // deleted map's history is dropped here rather than kept around.
+  if (next) useMapStore.setState((state) => ({ ...open(state, next, maps), trashedMaps }));
+  else {
+    const blank = blankMap();
+    useMapStore.setState((state) => ({ ...open(state, blank, createStored(blank, maps)), trashedMaps }));
+  }
+}
+
 /** The undo step a new box and its first name share. */
 const newBoxKey = (id: NodeId) => `new:${id}`;
 
@@ -437,6 +547,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
   settleRequest: 0,
   confirmingDelete: null,
   editAfterTidy: null,
+  trashWarning: null,
 
   // The example's first tidy places boxes that were never shown anywhere
   // else: not something to undo back to.
@@ -515,14 +626,14 @@ export const useMapStore = create<MapState>()((set, get) => ({
   deleteBox: (id) => get().deleteBoxes([id]),
   deleteBoxes: (ids) =>
     set((s) => {
-      if (s.map.kind !== "tree") return commit(s, deleteNodes(s.map, ids));
+      if (s.map.kind !== "tree") return trashing(s, ids);
       // A tree asks first when the delete takes boxes after these along.
       const branch = branchesOf(s.map, ids);
       const picked = ids.filter((id) => branch.has(id));
       if (picked.length === 0) return {};
       return branch.size > picked.length
         ? { confirmingDelete: { ids: picked, count: branch.size } }
-        : commit(s, deleteBranches(s.map, picked));
+        : trashing(s, branch);
     }),
   moveBoxes: (positions, gesture) => set((s) => commit(s, moveNodes(s.map, positions), gesture ?? null)),
   setBoxesColor: (ids, color) => set((s) => commit(s, setNodesColor(s.map, ids, color))),
@@ -566,9 +677,56 @@ export const useMapStore = create<MapState>()((set, get) => ({
   duplicateBoxes: (ids) => set((s) => pasteInto(s, copyFragment(s.map, ids), { x: PASTE_STEP, y: PASTE_STEP })),
   confirmDelete: () =>
     set((s) =>
-      s.confirmingDelete ? { ...commit(s, deleteBranches(s.map, s.confirmingDelete.ids)), confirmingDelete: null } : {},
+      s.confirmingDelete ? { ...trashing(s, branchesOf(s.map, s.confirmingDelete.ids)), confirmingDelete: null } : {},
     ),
   cancelDelete: () => set({ confirmingDelete: null }),
+  confirmTrashWarning: () => {
+    const pending = get().trashWarning;
+    set({ trashWarning: null });
+    pending?.run();
+  },
+  cancelTrashWarning: () => set({ trashWarning: null }),
+  restoreBoxes: (entryId) =>
+    set((s) => {
+      const next = restoreFromTrash(s.map, entryId);
+      if (next === s.map) return {};
+      const back = (s.map.trash.find((e) => trashEntryId(e) === entryId)?.nodes ?? []).map((n) => n.id);
+      const shown = shownMap(next);
+      return {
+        ...commit(s, next),
+        ...selecting(back.filter((id) => shown.nodes[id])),
+        settleRequest: s.settleRequest + (next.kind === "tree" ? 1 : 0),
+      };
+    }),
+  forgetBoxes: (entryId) => set((s) => commit(s, forgetTrashEntry(s.map, entryId))),
+  emptyTrash: () => {
+    for (const m of get().trashedMaps) deleteStoredMap(m.id);
+    saveMapTrash([]);
+    set((s) => ({ ...commit(s, emptyTrash(s.map)), trashedMaps: [] }));
+  },
+  restoreMap: (id) => {
+    if (!get().trashedMaps.some((m) => m.id === id)) return;
+    get().stopEditing();
+    flushSave();
+    const trashedMaps = withoutTrashedMap(get().trashedMaps, id);
+    saveMapTrash(trashedMaps);
+    const map = loadMap(id, newPageSize());
+    if (!map) {
+      // Unreadable (`loadMap` has copied it aside): nothing to put back.
+      deleteStoredMap(id);
+      set({ trashedMaps });
+      return;
+    }
+    // Saved again, which lists it at the end, as the newest map.
+    set((state) => ({ ...open(state, map, createStored(map, state.maps)), trashedMaps }));
+  },
+  eraseMap: (id) => {
+    if (!get().trashedMaps.some((m) => m.id === id)) return;
+    deleteStoredMap(id);
+    const trashedMaps = withoutTrashedMap(get().trashedMaps, id);
+    saveMapTrash(trashedMaps);
+    set({ trashedMaps });
+  },
   addNextStep: (from, at) => {
     get().stopEditing();
     const { map } = get();
@@ -661,30 +819,17 @@ export const useMapStore = create<MapState>()((set, get) => ({
   deleteMap: (id) => {
     const s = get();
     if (s.maps.length <= 1 || !s.maps.some((m) => m.id === id)) return;
-    if (id !== s.map.id) {
-      deleteStoredMap(id);
-      const { [id]: _, ...histories } = s.histories;
-      set({ maps: removeMap(s.maps, id), histories });
-      return;
-    }
-    // The open map: its pending save must not bring it back.
-    get().stopEditing();
-    cancelSave();
-    deleteStoredMap(id);
-    const { map: next, maps } = loadNewest(removeMap(s.maps, id));
-    // `open` parks the outgoing history only for maps still listed, so the
-    // deleted map's history is dropped here rather than kept around.
-    if (next) set((state) => open(state, next, maps));
-    else {
-      const blank = blankMap();
-      set((state) => open(state, blank, createStored(blank, maps)));
-    }
+    const erased = mapTrashOverflow(s.trashedMaps);
+    if (!erased) return trashMap(id);
+    const summary = { name: erased.name, boxes: erased.boxes, deletedAt: erased.deletedAt };
+    set({ trashWarning: { kind: "map", erased: summary, run: () => trashMap(id) } });
   },
   restoreMaps: (incoming) => {
     get().stopEditing();
     flushSave();
     const s = get();
-    const { add, alreadyHere } = mapsToRestore(s.maps, incoming);
+    // A deleted map counts as here: it is in the trash, to restore from there.
+    const { add, alreadyHere } = mapsToRestore([...s.maps, ...s.trashedMaps], incoming);
     if (add.length === 0) return { added: 0, alreadyHere };
     let maps = s.maps;
     for (const map of add) maps = createStored(map, maps);
