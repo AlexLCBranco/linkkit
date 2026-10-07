@@ -4,7 +4,8 @@ import { asNodeId } from "./ids";
 import { setHideCut, setNodesStatus } from "./map";
 import { readMap, serializeMap } from "./persistence";
 import { canSetStatus } from "./rules";
-import { cutCount, looksCut, shownMap } from "./status";
+import { shownMap } from "./shown";
+import { cutCount, looksCut } from "./status";
 import { build, buildTree, ids } from "./testMaps";
 import type { LinkMap, NodeStatus } from "./types";
 

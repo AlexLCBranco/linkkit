@@ -42,6 +42,7 @@ function focusedBox(target: EventTarget | null): NodeId | null {
  *   Delete, Backspace          delete (with their arrows)
  *   1-8, 0                     set a palette colour; 0 clears it
  *   X                          cut, or uncut (a tree's steps)
+ *   Space                      collapse, or expand (a tree's branches)
  *   Ctrl/Cmd+C, X, D           copy, cut, duplicate (not in a tree)
  *
  * All ignored while typing a name or label, so the field's own undo and
@@ -100,6 +101,11 @@ export function useMapShortcuts() {
         store.setBoxesColor(picked, index === 0 ? null : PALETTE_COLORS[index - 1]);
       } else if (key === "x" && !e.shiftKey) {
         store.toggleCut(picked);
+      } else if (key === " " && store.map.kind === "tree" && !(e.target instanceof HTMLButtonElement)) {
+        // Not the page scrolling down. (On a focused button, Space presses
+        // the button instead.)
+        e.preventDefault();
+        store.toggleCollapsed(picked);
       }
     }
     document.addEventListener("keydown", onKeyDown);

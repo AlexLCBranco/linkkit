@@ -1,5 +1,5 @@
 import { createLinkId, createNodeId } from "./ids";
-import { canLink, canSetStatus, type LinkVerdict } from "./rules";
+import { canCollapse, canLink, canSetStatus, type LinkVerdict } from "./rules";
 import { isOrdered, withNextStep, withoutBoxes, withoutNextStep } from "./order";
 import type {
   ArrowLength,
@@ -37,6 +37,7 @@ export function createMap(id: MapId, name: string, page: Size, kind: MapKind = "
     links: {},
     order: {},
     hideCut: false,
+    collapsed: [],
   };
 }
 
@@ -150,7 +151,8 @@ export function deleteNodes(map: LinkMap, ids: Iterable<NodeId>): LinkMap {
   for (const link of Object.values(map.links)) {
     if (!gone.has(link.from) && !gone.has(link.to)) links[link.id] = link;
   }
-  return { ...map, nodes, links, order: withoutBoxes(map.order, gone) };
+  const collapsed = map.collapsed.some((id) => gone.has(id)) ? map.collapsed.filter((id) => !gone.has(id)) : map.collapsed;
+  return { ...map, nodes, links, order: withoutBoxes(map.order, gone), collapsed };
 }
 
 export function setNodesColor(map: LinkMap, ids: Iterable<NodeId>, color: PaletteColor | null): LinkMap {
@@ -224,3 +226,18 @@ export function setNodesStatus(map: LinkMap, ids: Iterable<NodeId>, status: Node
 
 export const setHideCut = (map: LinkMap, hideCut: boolean): LinkMap =>
   hideCut === map.hideCut ? map : { ...map, hideCut };
+
+/* ---- Collapse (trees) ---- */
+
+/** Collapses (`on`) or expands boxes. Only boxes that may be collapsed
+    (`canCollapse`) are added; any box may be expanded. The same map when
+    nothing changes. */
+export function setCollapsed(map: LinkMap, ids: Iterable<NodeId>, on: boolean): LinkMap {
+  const now = new Set(map.collapsed);
+  for (const id of ids) {
+    if (on && canCollapse(map, id)) now.add(id);
+    else if (!on) now.delete(id);
+  }
+  if (now.size === map.collapsed.length && map.collapsed.every((id) => now.has(id))) return map;
+  return { ...map, collapsed: [...now] };
+}

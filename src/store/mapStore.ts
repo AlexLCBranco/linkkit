@@ -28,12 +28,13 @@ import {
   setNodesColor,
   setNodesStatus,
   setHideCut,
+  setCollapsed,
   type MapFragment,
   setPage,
 } from "../domain/map";
 import { defaultPageSize } from "../domain/page";
-import { canDeleteLink, canPaste, canSetStatus } from "../domain/rules";
-import { shownMap } from "../domain/status";
+import { canCollapse, canDeleteLink, canPaste, canSetStatus } from "../domain/rules";
+import { shownMap } from "../domain/shown";
 import { addNextStep, branchesOf, createTree, deleteBranches } from "../domain/tree";
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
@@ -189,6 +190,9 @@ export interface MapState {
   /** Takes boxes that look cut off the page (and out of Tidy up), or
       brings them back. Undoable; the tree re-tidies around what shows. */
   setHideCut(hideCut: boolean): void;
+  /** Folds the boxes' branches away, or opens them when all are folded
+      (Treekit's collapse). Undoable; the tree re-tidies around what shows. */
+  toggleCollapsed(ids: readonly NodeId[]): void;
   /** Copies boxes and the arrows between them to the clipboard. Only where
       the rules allow pasting (`canPaste`): not in a tree. */
   copyBoxes(ids: readonly NodeId[]): void;
@@ -391,7 +395,8 @@ function commit(s: MapState, next: LinkMap, key: string | null = null): Partial<
 
 /**
  * `commit`, plus a re-tidy when boxes came onto or left the page ("hide
- * cut" turned on or off, or a box cut or uncut while it is on): the tree
+ * cut" turned on or off, a box cut or uncut while it is on, a branch
+ * collapsed or expanded): the tree
  * closes the gap or makes room, in the same undo step (see settleRequest).
  */
 function withRoomMade(s: MapState, next: LinkMap): Partial<MapState> {
@@ -531,6 +536,14 @@ export const useMapStore = create<MapState>()((set, get) => ({
       return withRoomMade(s, setNodesStatus(s.map, settable, allCut ? null : "cut"));
     }),
   setHideCut: (hideCut) => set((s) => withRoomMade(s, setHideCut(s.map, hideCut))),
+  toggleCollapsed: (ids) =>
+    set((s) => {
+      const foldable = ids.filter((id) => canCollapse(s.map, id));
+      if (foldable.length === 0) return {};
+      // All collapsed already: expand them. Otherwise: collapse them all.
+      const all = foldable.every((id) => s.map.collapsed.includes(id));
+      return withRoomMade(s, setCollapsed(s.map, foldable, !all));
+    }),
   copyBoxes: (ids) =>
     set((s) => {
       const fragment = copyFragment(s.map, ids);
@@ -562,7 +575,9 @@ export const useMapStore = create<MapState>()((set, get) => ({
     const parent = map.nodes[from];
     if (map.kind !== "tree" || !parent) return null;
     const offset = NEXT_STEP_OFFSET[map.direction];
-    const added = addNextStep(map, from, at ?? { x: parent.x + offset.x, y: parent.y + offset.y });
+    // A collapsed box opens first, so the new step shows (one undo step).
+    const open = setCollapsed(map, [from], false);
+    const added = addNextStep(open, from, at ?? { x: parent.x + offset.x, y: parent.y + offset.y });
     if (!added) return null;
     set((s) => ({
       ...commit(s, added.map, newBoxKey(added.nodeId)),

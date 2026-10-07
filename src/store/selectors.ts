@@ -1,5 +1,5 @@
 import { linkHighlight, nodeHighlight, reachOf, type LinkHighlight, type NodeHighlight, type Reach } from "../domain/reach";
-import { shownMap } from "../domain/status";
+import { shownMap } from "../domain/shown";
 import { canSetStatus } from "../domain/rules";
 import type { LinkId, NodeId, NodeStatus, PaletteColor } from "../domain/types";
 import type { MapState } from "./mapStore";

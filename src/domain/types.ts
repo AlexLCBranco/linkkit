@@ -125,4 +125,9 @@ export interface LinkMap {
       up) instead of greyed out. Linkkit's own view of the map, never
       shared; saved and undoable, since it changes the layout. */
   readonly hideCut: boolean;
+  /** Trees only: boxes whose branch is folded away (Treekit's collapse).
+      Kept here, outside the boxes, so it stays Linkkit's own view of the
+      map when boxes are shared (as Boardkit keeps `collapsedLists` outside
+      its lists). Saved and undoable, since it changes the layout. */
+  readonly collapsed: readonly NodeId[];
 }

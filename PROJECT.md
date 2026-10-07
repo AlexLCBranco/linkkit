@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.27 (keep / maybe / cut, step 14c)_
+_Last updated: 2026-10-07, v0.0.28 (collapse, step 14d)_
 
 ## What it is
 
@@ -289,6 +289,16 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     the map and one undo step. Hidden boxes are left out of the
     highlight, its counts and Ctrl+A; cutting a box while it is on hides
     it at once
+  - Collapse (Treekit's): the ⇕ button in the hover toolbar of a box with
+    next steps, "Collapse branch" / "Expand branch" in its right-click
+    menu (several picked: all collapse together, or all expand if all
+    are), or Space. Its branch leaves the page and the tree re-tidies
+    around what shows; a "+N" badge on the edge its next steps leave from
+    (bottom top-down, right left-right) says how many boxes are folded
+    away, and clicking it expands. A box another parent still shows
+    stays. Adding a next step to a collapsed box expands it first (one
+    undo step). Saved with the map, undoable; works together with Hide
+    cut (hidden boxes are out of the highlight, its counts and Ctrl+A)
   - Top-down / Left-right, Arrows, Align, colours, undo, Tidy up and
     saving work as in a connections map. A damaged saved tree opens as it
     was (its shape isn't repaired yet)
@@ -312,7 +322,7 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   - `rules.ts`: the one place that says what's allowed, per kind, in a
     `RULES` table: `canLink(map, from, to)` (may this arrow be drawn?),
     `canDeleteBox`, `canDeleteLink`, `canSetStatus` (a tree's steps, never
-    its start) and `canPaste` (may copied boxes go
+    its start), `canCollapse` (a tree box with next steps) and `canPaste` (may copied boxes go
     in?). "connections" refuses only a
     missing box, a box needing itself, or an exact repeat (loops and
     reverse arrows are allowed), lets anything be deleted and anything be
@@ -328,9 +338,12 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     one and deleting boxes keep it in step; `normalizeOrder` cleans it on
     load, giving older trees the order of their boxes on the page
   - `status.ts`: keep / maybe / cut worked out: `looksCut(map)` (the one
-    definition of "looks cut", for Boardkit's badge too), `cutCount`, and
-    `shownMap(map)`, the map without hidden cut boxes, which the canvas
-    draws and lays out and the highlight walks
+    definition of "looks cut", for Boardkit's badge too) and `cutCount`
+  - `shown.ts`: what of a tree is on the page. `shownMap(map)` leaves out
+    hidden cut boxes and boxes folded away by collapse (both by the
+    "every way in" rule); the canvas draws and lays out only it and the
+    highlight walks it. `hiddenAfter` is a collapsed box's "+N".
+    `graph.ts` holds the parents-first walk both files use
   - `tree.ts`: edits only a tree needs, each keeping "one start, no loose
     boxes" true in one step: a new tree (just its start box), adding a
     next step (the box and its arrow together), which boxes a delete
@@ -437,7 +450,7 @@ turning a connections map into a tree.
       tree.ts`: hover toolbar and right-click menu, cut branches faded,
       a way to hide cut branches; a box with two parents is cut only if
       every way into it is cut; one undo step each, saved)
-    - d. Collapse, copied from Treekit (a toggle on a box with next steps;
+    - d. ~~Collapse~~ (done), copied from Treekit (a toggle on a box with next steps;
       saved and undoable, but kept outside the box itself, unlike
       Treekit, so it stays Linkkit's own view state when maps are shared
       (see Bridge mapping, Decided); a box with another parent still
@@ -538,7 +551,7 @@ View state (each app's own, never shared):
 
 | App | Fields |
 |---|---|
-| Linkkit | box `x`, `y`, `color`; `page`, `direction`, `arrowLength`; collapse (14d, kept outside the box, undoable); "hide cut" (14c); `linkkit:align`, the map list, active map, selection, undo, clipboard |
+| Linkkit | box `x`, `y`, `color`; `page`, `direction`, `arrowLength`; `collapsed` (14d, a list on the map, outside the boxes, undoable); `hideCut` (14c); `linkkit:align`, the map list, active map, selection, undo, clipboard |
 | Boardkit | list `color`, `icon`, `width`, numbering fields; card `color`, `numberEmphasis`, `highlight`, `highlightStyle`; `background`, `collapsedLists`; the board list's order, active board, undo |
 
 Decided (for 14b): when a card moves to another list, in either app, its
@@ -829,3 +842,8 @@ All bridge-mapping questions are decided.
   the selection bar has no status button (the right-click menu covers
   groups). To fit "Hide cut" on a 375px phone, "Align" now shows an icon
   there and the header's gaps are 4px.
+- Step 14d (collapse, design OK'd by the owner). Stored as
+  `map.collapsed` (box ids), outside the boxes as decided. Choices made
+  without asking, easy to change: Space is the key (Treekit's); the "+N"
+  badge sits on the bottom edge top-down and on the right edge, under the
+  connect dot, left-right; no "collapse all".

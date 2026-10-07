@@ -1,10 +1,11 @@
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { Palette, Pencil, Plus, Tag, Trash2 } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, Palette, Pencil, Plus, Tag, Trash2 } from "lucide-react";
 import { memo, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
 
 import { InlineEditable } from "../../components/InlineEditable";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
-import { canDeleteBox, canSetStatus } from "../../domain/rules";
+import { canCollapse, canDeleteBox, canSetStatus } from "../../domain/rules";
+import { hiddenAfter } from "../../domain/shown";
 import { looksCut } from "../../domain/status";
 import type { NodeId, NodeStatus } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
@@ -42,6 +43,11 @@ const keepToButton = (e: PointerEvent | MouseEvent) => e.stopPropagation();
  * that looks cut (cut, or only reached through cut boxes) fades under a
  * veil with a dashed border.
  *
+ * A tree box with next steps can be collapsed (the toolbar's ⇕, its menu,
+ * or Space): its branch leaves the page, and a "+N" badge on the edge its
+ * next steps leave from says how many boxes are folded away; clicking it
+ * opens the branch again.
+ *
  * One of several boxes picked together (the marquee) shows the selection
  * ring, without the toolbar: dragging any of them moves them all.
  *
@@ -68,6 +74,11 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   const statusable = useMapStore((s) => canSetStatus(s.map, nodeId));
   const isCut = useMapStore((s) => looksCut(s.map).has(nodeId));
   const setBoxesStatus = useMapStore((s) => s.setBoxesStatus);
+  const foldable = useMapStore((s) => canCollapse(s.map, nodeId));
+  const isCollapsed = useMapStore((s) => s.map.collapsed.includes(nodeId));
+  const folded = useMapStore((s) => (s.map.collapsed.includes(nodeId) ? hiddenAfter(s.map, nodeId) : 0));
+  const direction = useMapStore((s) => s.map.direction);
+  const toggleCollapsed = useMapStore((s) => s.toggleCollapsed);
   const { dragging, onBoxPointerDown, onDotPointerDown } = useBoxGestures(nodeId);
   if (!node) return null;
 
@@ -86,6 +97,7 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
       data-connect-target={isTarget || undefined}
       data-connect-source={isSource || undefined}
       data-cut={isCut || undefined}
+      data-direction={direction}
       style={style}
       onPointerDown={onBoxPointerDown}
       onDoubleClick={rename}
@@ -105,6 +117,20 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
       <Handle type="source" position={Position.Bottom} className={styles.handle} isConnectable={false} />
 
       {node.status && <StatusBadge status={node.status} />}
+
+      {isCollapsed && folded > 0 && (
+        <button
+          type="button"
+          className={styles.folded}
+          onPointerDown={keepToButton}
+          onDoubleClick={keepToButton}
+          onClick={() => toggleCollapsed([nodeId])}
+          aria-label={`Expand: ${folded} hidden`}
+          title={`${folded} hidden: click to expand (Space)`}
+        >
+          +{folded}
+        </button>
+      )}
 
       {/* Drag from here to another box to draw an arrow. */}
       <span
@@ -140,6 +166,18 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
             <SwatchRow value={node.color} onPick={(c) => setBoxColor(nodeId, c)} Item={DropdownMenuItem} />
           </DropdownMenuContent>
         </DropdownMenu>
+        {foldable && (
+          <button
+            type="button"
+            className={styles.toolbarButton}
+            onClick={() => toggleCollapsed([nodeId])}
+            aria-label={isCollapsed ? "Expand branch" : "Collapse branch"}
+            aria-expanded={!isCollapsed}
+            title={isCollapsed ? "Expand branch (Space)" : "Collapse branch (Space)"}
+          >
+            {isCollapsed ? <ChevronsUpDown size={14} /> : <ChevronsDownUp size={14} />}
+          </button>
+        )}
         {statusable && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

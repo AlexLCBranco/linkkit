@@ -14,7 +14,7 @@ import {
 import { linkGeometry, type Box, type LinkGeometry } from "../../domain/geometry";
 import { placeLabels } from "../../domain/labels";
 import { layoutMap } from "../../domain/layout";
-import { shownMap } from "../../domain/status";
+import { shownMap } from "../../domain/shown";
 import { boxesIn, marqueeSelection, rectBetween, type Rect } from "../../domain/marquee";
 import { boxBounds, clampToPage, keepOnPage, pageSize, placeOnPage } from "../../domain/page";
 import type { ArrowLength, LayoutDirection, LinkId, LinkMap, NodeId, Point, Size } from "../../domain/types";

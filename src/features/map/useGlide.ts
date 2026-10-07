@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { glidePositions } from "../../domain/glide";
-import { shownMap } from "../../domain/status";
+import { shownMap } from "../../domain/shown";
 import type { LinkMap, NodeId, Point } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 

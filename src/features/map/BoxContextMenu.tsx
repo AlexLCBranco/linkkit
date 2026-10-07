@@ -1,6 +1,7 @@
 import { useReactFlow } from "@xyflow/react";
-import { ClipboardPaste, Copy, CopyPlus, Pencil, Plus, Scissors, Trash2 } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, ClipboardPaste, Copy, CopyPlus, Pencil, Plus, Scissors, Trash2 } from "lucide-react";
 import { useRef, useState, type MouseEvent, type ReactElement } from "react";
+import { useShallow } from "zustand/react/shallow";
 
 import {
   ContextMenu,
@@ -11,7 +12,7 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "../../components/ui/context-menu";
-import { canDeleteBox, canPaste, canSetStatus } from "../../domain/rules";
+import { canCollapse, canDeleteBox, canPaste, canSetStatus } from "../../domain/rules";
 import type { NodeId, Point } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { selectGroupColor, selectGroupStatus } from "../../store/selectors";
@@ -127,6 +128,31 @@ function CopyItems({ ids, cut = false }: { readonly ids: () => readonly NodeId[]
   );
 }
 
+/** "Collapse branch" / "Expand branch" for boxes with next steps (all of a
+    group: collapsed together, or expanded if all are). Nothing when none
+    has next steps. */
+function CollapseItem({ ids }: { readonly ids: () => readonly NodeId[] }) {
+  const { foldable, folded, many } = useMapStore(
+    useShallow((s) => {
+      const withSteps = ids().filter((id) => canCollapse(s.map, id));
+      return {
+        foldable: withSteps.length,
+        folded: withSteps.length > 0 && withSteps.every((id) => s.map.collapsed.includes(id)),
+        many: withSteps.length > 1,
+      };
+    }),
+  );
+  if (foldable === 0) return null;
+  const noun = many ? "branches" : "branch";
+  return (
+    <ContextMenuItem onSelect={() => useMapStore.getState().toggleCollapsed(ids())}>
+      {folded ? <ChevronsUpDown aria-hidden /> : <ChevronsDownUp aria-hidden />}
+      {folded ? `Expand ${noun}` : `Collapse ${noun}`}
+      <ContextMenuShortcut>Space</ContextMenuShortcut>
+    </ContextMenuItem>
+  );
+}
+
 function BoxMenuItems({
   nodeId,
   runAfterClose,
@@ -159,6 +185,7 @@ function BoxMenuItems({
         <Pencil aria-hidden />
         Rename
       </ContextMenuItem>
+      <CollapseItem ids={() => [nodeId]} />
       <CopyItems ids={() => [nodeId]} />
       {statusable && (
         <>
@@ -198,6 +225,7 @@ function GroupMenuItems() {
     <>
       <ContextMenuLabel>{count} boxes</ContextMenuLabel>
       <CopyItems ids={group} cut />
+      <CollapseItem ids={group} />
       {statusable && (
         <>
           <ContextMenuSeparator />

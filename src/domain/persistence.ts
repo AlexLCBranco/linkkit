@@ -43,7 +43,7 @@ export interface PersistedMap {
 }
 
 export function serializeMap(map: LinkMap): PersistedMap {
-  const { id, name, kind, page, direction, arrowLength, nodes, links, order, hideCut } = map;
+  const { id, name, kind, page, direction, arrowLength, nodes, links, order, hideCut, collapsed } = map;
   // Copies out exactly the content fields, so nothing else that happens to
   // ride along on the object can leak into storage.
   return {
@@ -59,6 +59,7 @@ export function serializeMap(map: LinkMap): PersistedMap {
       links,
       order,
       hideCut,
+      collapsed,
     },
   };
 }
@@ -169,9 +170,33 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
   const links: Record<LinkId, Link> = {};
   // Older saves have no "hide cut": shown. Only a tree hides anything.
   const hideCut =
-    raw.hideCut === undefined ? false : typeof raw.hideCut === "boolean" && (kind === "tree" || !raw.hideCut) ? raw.hideCut : fix(false);
+    raw.hideCut === undefined
+      ? false
+      : typeof raw.hideCut === "boolean" && (kind === "tree" || !raw.hideCut)
+        ? raw.hideCut
+        : fix(false);
 
-  const map: LinkMap = { id: raw.id as MapId, name, kind, page, direction, arrowLength, nodes, links, order: {}, hideCut };
+  // Older saves have nothing collapsed. A box that isn't there (or any
+  // entry in a connections map) is dropped as a repair.
+  const rawCollapsed = raw.collapsed === undefined ? [] : Array.isArray(raw.collapsed) ? raw.collapsed : fix([]);
+  const collapsed = [
+    ...new Set(rawCollapsed.filter((c): c is NodeId => typeof c === "string" && kind === "tree" && !!nodes[c as NodeId])),
+  ];
+  if (collapsed.length !== rawCollapsed.length) fix(null);
+
+  const map: LinkMap = {
+    id: raw.id as MapId,
+    name,
+    kind,
+    page,
+    direction,
+    arrowLength,
+    nodes,
+    links,
+    order: {},
+    hideCut,
+    collapsed,
+  };
   for (const [key, link] of Object.entries(rawLinks)) {
     if (!isObject(link) || typeof link.from !== "string" || typeof link.to !== "string") {
       fix(null);

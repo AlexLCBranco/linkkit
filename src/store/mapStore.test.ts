@@ -441,6 +441,28 @@ describe("map store (tree)", () => {
     expect(useMapStore.getState().map.hideCut).toBe(false);
   });
 
+  it("collapses a branch, lets go of what it hides, and opens it to add a step", async () => {
+    const useMapStore = await treeStore();
+    const yes = named(useMapStore, "Yes, take it");
+    const rent = named(useMapStore, "Rent a flat");
+    useMapStore.getState().select(rent);
+    const settle = useMapStore.getState().settleRequest;
+    useMapStore.getState().toggleCollapsed([yes]);
+    expect(useMapStore.getState().map.collapsed).toEqual([yes]);
+    expect(useMapStore.getState().selected).toBeNull();
+    expect(useMapStore.getState().settleRequest).toBe(settle + 1);
+    useMapStore.getState().addNextStep(yes);
+    useMapStore.getState().stopEditing();
+    // Left without a name, the step is dropped, and so is the opening.
+    expect(useMapStore.getState().map.collapsed).toEqual([yes]);
+    const id = useMapStore.getState().addNextStep(yes)!;
+    expect(useMapStore.getState().map.collapsed).toEqual([]);
+    useMapStore.getState().renameBox(id, "Ask a friend");
+    useMapStore.getState().stopEditing();
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.collapsed).toEqual([yes]);
+  });
+
   it("drops a next step left without a name, arrow and all", async () => {
     const useMapStore = await treeStore();
     const before = useMapStore.getState().map;

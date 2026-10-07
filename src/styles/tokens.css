@@ -65,6 +65,8 @@
      on a box's corner. */
   --status-choice-size: 24px;
   --status-badge-size: 16px;
+  /* The "+N" on a collapsed box (it grows sideways for bigger numbers). */
+  --fold-badge-size: 18px;
   /* How much a cut branch fades into the page (0-1): a veil over the box,
      so its toolbar stays readable. Treekit's. */
   --cut-veil: 0.55;

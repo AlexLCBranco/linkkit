@@ -279,3 +279,44 @@
 .box[data-cut] .badge {
   opacity: calc(1 - var(--cut-veil));
 }
+
+/* ---- Collapse (trees) ---- */
+
+/* "+N" on a collapsed box: how many boxes are folded away, on the edge its
+   next steps leave from (bottom top-down; right left-right, below the
+   connect dot). Click to expand. Treekit's count button. */
+.folded {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  min-width: var(--fold-badge-size);
+  height: var(--fold-badge-size);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+  /* Sitting past the box's right edge (left-right), it would otherwise
+     wrap "+5" onto two lines. */
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.folded:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.box[data-direction="TB"] .folded {
+  bottom: calc(-1 * var(--fold-badge-size) / 2);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.box[data-direction="LR"] .folded {
+  top: calc(50% + var(--box-handle-size) / 2 + var(--space-1));
+  left: calc(100% - var(--fold-badge-size) / 2);
+}
