@@ -454,6 +454,20 @@ export function linkedProblem(map: LinkMap): string | null {
   return problem ? problemText(map, problem) : null;
 }
 
+/**
+ * `linkedProblem`, and also whether `map` can be written onto `board`, the
+ * board as stored: an undo or redo merged with Boardkit's edits can turn a
+ * card into a list (redoing a list's delete after Boardkit put a new card
+ * in it leaves that card hanging off the start). Refused up front, with
+ * the reason, rather than written and then thrown away by the save.
+ */
+export function boardRefusal(board: BoardContent | null, map: LinkMap): string | null {
+  const problem = linkedProblem(map);
+  if (problem || !board || !map.linkedBoard) return problem;
+  const written = treeToBoard(board, map, 0);
+  return written.ok ? null : problemText(map, written.problems[0]);
+}
+
 /** A board with nothing on it: what "Link to Boardkit" fills from the tree
     (Boardkit's `createEmptyBoard`). */
 export const EMPTY_BOARD: BoardContent = { lists: {}, cards: {}, listOrder: [], cardOrder: {}, trash: [], trashedLists: [] };

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.37 (step 27 cross-app undo done in Boardkit v0.0.86: linking steps 20-27 all built)_
+_Last updated: 2026-10-07, v0.0.38 (usability pass U0: undo data bug fixed)_
 
 ## What it is
 
@@ -504,6 +504,7 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     tree box is dragged, and where its bar goes; where two parents' rows
     meet, the nearer bar wins. Left-right swaps x and y
   - `glide.ts`: the easing of Tidy up's glide
+  - `stress.test.ts`: seeded random edits, merges, undo and redo
   - `history.ts`: undo steps (each stores only what changed; a drag
     joined into one step). After a change from outside, a step is undone
     as a three-way merge (`mergeMaps`: as the step left it, as before it,
@@ -1004,6 +1005,22 @@ file is updated too.
     found with `findLinkedMap`). Not tested with a real Linkkit beside it
     (simulated in the browser pane by writing storage and firing the
     `storage` event)
+
+### Usability pass (owner's brief, 2026-10-07)
+
+One commit per item. Short entries only.
+
+- ~~U0. Undo data bug~~ (done, v0.0.38). A seeded stress test
+  (`domain/stress.test.ts`: random edits, two-tab merges, Boardkit edits
+  on a linked tree, undo, redo; every map must load without repair, every
+  board must read cleanly) found Boardkit's v0.0.87 bug here too: undoing
+  an added box after another tab drew an arrow to it left the arrow
+  pointing at nothing. Fixed as Boardkit did: each undo step keeps the
+  whole maps it went between. It also found that redoing a list's delete
+  after Boardkit put a new card in it turned the card into a list; that
+  undo / redo is now refused up front with the reason. Everyday run: 150
+  seeds (2,250 runs, ~2s); `STRESS_SEEDS=5000 npm test` for a long one
+  (75,000 runs, all pass)
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 

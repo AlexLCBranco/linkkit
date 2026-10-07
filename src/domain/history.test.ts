@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { amendLast, discardLast, EMPTY_HISTORY, record, redo, undo } from "./history";
-import { addLink, moveNode, renameNode, setNodeColor, setPage } from "./map";
+import { asLinkId } from "./ids";
+import { addLink, addNode, moveNode, renameNode, setNodeColor, setPage } from "./map";
 import { build, ids } from "./testMaps";
 
 const [a, b] = ids("a", "b");
@@ -133,5 +134,16 @@ describe("history across a change from outside (step 26)", () => {
     const m1 = renameNode(m0, a, "Alpha");
     const theirs = outside(m1, (m) => renameNode(m, a, "Ay"));
     expect(discardLast(record(EMPTY_HISTORY, m0, m1), theirs)).toBeNull();
+  });
+
+  it("undoing an added box also drops an arrow drawn to it elsewhere (stress-test find)", () => {
+    const m0 = build(["a"]);
+    const m1 = addNode(m0, { x: 0, y: 0 }, "New", c).map;
+    // The other tab drew an arrow to the new box; the boxes didn't change.
+    const now = { ...m1, links: addLink(m1, c, a, "needs", asLinkId("c>a")).map.links };
+    const back = undo(record(EMPTY_HISTORY, m0, m1), now)!;
+    expect(back.conflicts).toEqual([]);
+    expect(back.map.nodes[c]).toBeUndefined();
+    expect(Object.values(back.map.links).filter((l) => l.from === c || l.to === c)).toEqual([]);
   });
 });

@@ -13,11 +13,17 @@ import type { LinkMap } from "./types";
  * untouched parts on every step.
  *
  * Changes from outside (another tab, or Boardkit for a linked tree; step
- * 26) don't clear the history. A step whose parts are still exactly as it
- * left them is undone by putting its old parts back, as always. Otherwise
- * something came in from outside since, and the step is undone as a merge
- * (`mergeMaps`): base = the map as the step left it, mine = as it was
- * before, theirs = the map now. Only the items the step changed go back;
+ * 26) don't clear the history. While the map is still exactly as the step
+ * left it, the step is undone by putting its old parts back, as always.
+ * Otherwise something came in from outside since, and the step is undone
+ * as a merge (`mergeMaps`): base = the map as the step left it, mine = as
+ * it was before, theirs = the map now. For that each step keeps the two
+ * whole maps it went between (references to their parts, nothing copied).
+ * Rebuilding them from the step's own parts plus today's others mixed two
+ * moments, and checking only the step's own parts missed outside changes
+ * to the others: an arrow another tab drew to a box the step added
+ * survived the undo pointing at nothing (found by `stress.test.ts`; the
+ * bug Boardkit fixed in v0.0.87). Only the items the step changed go back;
  * the rest stays as it is now. An item the step changed that was also
  * changed from outside is a conflict: the undo is refused, and that step and
  * every older one are dropped (skipping just it could make a map that never
@@ -28,6 +34,9 @@ export type MapPatch = Partial<LinkMap>;
 export interface HistoryEntry {
   readonly before: MapPatch;
   readonly after: MapPatch;
+  /** The whole map just before the step, and just after it. */
+  readonly prev: LinkMap;
+  readonly next: LinkMap;
 }
 
 export interface History {
@@ -50,7 +59,7 @@ function diff(prev: LinkMap, next: LinkMap): HistoryEntry {
       after[key] = next[key];
     }
   }
-  return { before: before as MapPatch, after: after as MapPatch };
+  return { before: before as MapPatch, after: after as MapPatch, prev, next };
 }
 
 const isEmpty = (patch: MapPatch) => Object.keys(patch).length === 0;
@@ -70,16 +79,21 @@ export function record(history: History, prev: LinkMap, next: LinkMap): History 
  * Folds `prev -> next` into the most recent step instead of adding a new
  * one: a whole drag is one step, not one per pixel, and "add a box, type
  * its name" undoes in one go. The older step's `before` wins for any part
- * both touched, since that is the value from before either change.
+ * both touched, since that is the value from before either change. When
+ * something came in from outside in between (the step no longer ends at
+ * `prev`), this is a step of its own: folded in, undoing it would take
+ * back what came in too.
  */
 export function amendLast(history: History, prev: LinkMap, next: LinkMap): History {
   const last = history.past.at(-1);
-  if (!last) return record(history, prev, next);
+  if (!last || last.next !== prev) return record(history, prev, next);
   const entry = diff(prev, next);
   if (isEmpty(entry.after)) return history;
   const merged: HistoryEntry = {
     before: { ...entry.before, ...last.before },
     after: { ...last.after, ...entry.after },
+    prev: last.prev,
+    next,
   };
   return { past: [...history.past.slice(0, -1), merged], future: [] };
 }
@@ -96,19 +110,30 @@ export interface Step {
   readonly conflicts: readonly MergeConflict[];
 }
 
-/** `map` with the parts in `from` turned back into `to`: directly when
-    `map` still holds `from`'s very parts, else item by item (see the
-    file comment). */
-function apply(map: LinkMap, from: MapPatch, to: MapPatch): { map: LinkMap; conflicts: readonly MergeConflict[] } {
-  const keys = Object.keys(from) as (keyof LinkMap)[];
-  if (keys.every((key) => map[key] === from[key])) return { map: { ...map, ...to }, conflicts: [] };
-  return mergeMaps({ ...map, ...from }, { ...map, ...to }, map);
+/** Whether `map` holds exactly `whole`'s parts: nothing changed since. */
+function untouched(map: LinkMap, whole: LinkMap): boolean {
+  const keys = new Set([...Object.keys(map), ...Object.keys(whole)] as (keyof LinkMap)[]);
+  return [...keys].every((key) => map[key] === whole[key]);
+}
+
+/** `map` taken across `entry`, back (undo) or forward (redo): directly
+    while `map` is still exactly the map that side left, else item by item
+    (see the file comment). */
+function apply(
+  map: LinkMap,
+  entry: HistoryEntry,
+  action: "undo" | "redo",
+): { map: LinkMap; conflicts: readonly MergeConflict[] } {
+  const [from, to, patch] =
+    action === "undo" ? [entry.next, entry.prev, entry.before] : [entry.prev, entry.next, entry.after];
+  if (untouched(map, from)) return { map: { ...map, ...patch }, conflicts: [] };
+  return mergeMaps(from, to, map);
 }
 
 export function undo(history: History, map: LinkMap): Step | null {
   const entry = history.past.at(-1);
   if (!entry) return null;
-  const done = apply(map, entry.after, entry.before);
+  const done = apply(map, entry, "undo");
   // Refused: what was undone before stays to redo.
   if (done.conflicts.length) return { history: { past: [], future: history.future }, map, conflicts: done.conflicts };
   return {
@@ -121,7 +146,7 @@ export function undo(history: History, map: LinkMap): Step | null {
 export function redo(history: History, map: LinkMap): Step | null {
   const entry = history.future.at(-1);
   if (!entry) return null;
-  const done = apply(map, entry.before, entry.after);
+  const done = apply(map, entry, "redo");
   // Refused: this step and every one redoable after it go.
   if (done.conflicts.length) return { history: { past: history.past, future: [] }, map, conflicts: done.conflicts };
   return {

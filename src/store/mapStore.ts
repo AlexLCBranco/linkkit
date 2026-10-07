@@ -64,6 +64,7 @@ import { ARROW_LENGTH_PRESETS, type LinkId, type LinkMap, type MapId, type NodeI
 import { mergeMaps, shareUnchanged, type MergeConflict } from "../domain/merge";
 import {
   boardProblems,
+  boardRefusal,
   linkedProblem,
   linkTree,
   problemText,
@@ -582,6 +583,14 @@ function boardErasing(map: LinkMap, next: LinkMap): readonly BoardErased[] {
   return result.ok ? result.erased : [];
 }
 
+/** The board a linked map is written onto, as stored; `null` when there
+    is none to read (or the map isn't linked). */
+function storedBoard(map: LinkMap) {
+  if (!map.linkedBoard) return null;
+  const stored = loadBoard(map.linkedBoard);
+  return stored.status === "ok" ? stored.record.board : null;
+}
+
 /** "Can't undo further: “Rent” was changed in another tab." A linked
     tree's change may have come from Boardkit or another Linkkit tab. */
 export function refusedStepText(map: LinkMap, conflicts: readonly MergeConflict[], action: "undo" | "redo"): string {
@@ -603,7 +612,7 @@ function stepping(s: MapState, step: history.Step | null, action: "undo" | "redo
     useSyncNotice.getState().say(refusedStepText(s.map, step.conflicts, action));
     return { history: step.history, stepKey: null };
   }
-  const problem = linkedProblem(step.map);
+  const problem = boardRefusal(storedBoard(step.map), step.map);
   if (problem) {
     useSyncNotice.getState().say(`Can't ${action} further: ${problem}`);
     return { history: action === "undo" ? { past: [], future: s.history.future } : { past: s.history.past, future: [] }, stepKey: null };
@@ -796,9 +805,9 @@ export const useMapStore = create<MapState>()((set, get) => ({
     set((s) => {
       const next = moveNodes(s.map, positions);
       if (next === s.map) return {};
-      // With no step to join (boxes from another app, tidied in), the room
-      // made is not something to undo.
-      if (s.history.past.length === 0) return { map: next };
+      // With no step to join (boxes from another app, tidied in, after the
+      // last step or with none), the room made is not something to undo.
+      if (s.history.past.at(-1)?.next !== s.map) return { map: next };
       return { map: next, history: history.amendLast(s.history, s.map, next) };
     }),
   setBoxColor: (id, color) => set((s) => commit(s, setNodeColor(s.map, id, color))),
