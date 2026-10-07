@@ -652,7 +652,9 @@ PROJECT.md updated, pushed, and say what couldn't be tested.
      writes, `storage` events, failed saves). Nothing visible changes until
      "Link to Boardkit" exists (item 5's steps), except that two tabs of
      one app stop overwriting each other
-   - Steps: 3a Boardkit side (not started), 3b Linkkit side (not started)
+   - Steps: 3a Boardkit side: 3a1 done (Boardkit v0.0.82: version 2 with
+     `status` and `rev`, newer versions open read-only), 3a2 next (`storage`
+     events, `rev`-checked writes); 3b Linkkit side (not started)
 5. Only plan, don't build: turn the linking work into numbered steps in
    "What's next": the "Link to Boardkit" action, the stricter rules for
    linked trees in rules.ts, the cut badge in Boardkit, and cross-app undo
