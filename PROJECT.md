@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.32 (shared store: 3b3 linked map storage done; queue item 5 next)_
+_Last updated: 2026-10-07, v0.0.32 (queue item 5 done: linking planned as steps 20-27; step 20 next)_
 
 ## What it is
 
@@ -692,7 +692,7 @@ PROJECT.md updated, pushed, and say what couldn't be tested.
      other~~ (done, v0.0.31: `rev` on `linkkit:map:` records, a three-way
      merge of maps in `domain/merge.ts`, reload on `storage` events; the
      same merge then serves linked maps); ~~3b3: linked map storage~~ (done, v0.0.32). The shared store is
-     built; next is queue item 5 (plan only)
+     built; queue item 5 planned it as steps 20-27
    - What 3b3 settled: the owner decided (2026-10-07) that a linked map's
      record also keeps a backup copy of the shared parts (names, order,
      statuses), refreshed whenever Linkkit opens or saves the map, used
@@ -766,9 +766,83 @@ PROJECT.md updated, pushed, and say what couldn't be tested.
      taking in another tab's change clears that board's undo history in
      Boardkit (an undo step restores whole slices); the per-item undo
      refusal decided under Bridge mapping is queue item 5's cross-app undo
-5. Only plan, don't build: turn the linking work into numbered steps in
+5. ~~Only plan, don't build: turn the linking work into numbered steps in
    "What's next": the "Link to Boardkit" action, the stricter rules for
-   linked trees in rules.ts, the cut badge in Boardkit, and cross-app undo
+   linked trees in rules.ts, the cut badge in Boardkit, and cross-app undo~~
+   (done 2026-10-07: steps 20-27 below)
+
+### Linking to Boardkit (queue item 5's plan, steps 20-27)
+
+Work in this order, one chat each. Every step still needs its short
+design summary and the owner's OK before code (the queue's rule); the
+choices already decided under Bridge mapping and in steps 3a-3b are not
+reopened. Where things stand: linked maps can be stored, opened and saved
+(3b3), but nothing in the app creates one yet, so until step 23 they are
+tested by writing the records by hand, as in 3b3. Steps 24-25 are built in
+the Boardkit repo (`../Projects/boardkit`, its own CLAUDE.md), then this
+file is updated too.
+
+20. Linked-tree rules in `rules.ts`. Today a linked tree is held to the
+    board's shape only after an edit (`linkedProblem` in the store refuses
+    it with a toast). Move that up front: a third rule set, "linked tree"
+    (the tree rules plus: no second way into a box, no next step under a
+    card, no change of level), picked by `linkedBoard`. A new
+    `canAddNextStep` rule, so a card's toolbar and its dot offer no "+"
+    and no drop target, rather than a refusal after the fact. Refusal
+    reasons get words ("A card can't have next steps in Boardkit"). The
+    store's after-the-fact check stays as the last guard. Tests
+21. Moving a box to another parent, in any tree. Needed because a linked
+    tree refuses the second way in that today's two-step move uses, so a
+    card couldn't change lists at all. Drag a box onto another box (or
+    between two siblings) to make it that box's next step at that place;
+    reordering siblings by hand comes with it (Boardkit's list and card
+    reorders already show here; this is the way back). Keeps the arrow's
+    label (decided). Linked trees: `canMove` refuses a change of level;
+    the divider rule is `arrangeCards` (built in 3b1). Design summary must
+    show how the drag looks and how it differs from today's drag (which
+    only moves a box on the page)
+22. A linked map's deletes go only to Boardkit's trash. Today they land
+    in both: `treeToBoard` already trashes them on the board, and Linkkit
+    also adds its own trash entry. Then: no Linkkit trash entry for a
+    linked map; Boardkit's limits (200 cards, 30 lists per board) and its
+    overflow question, naming the oldest item it would erase, before the
+    delete; the trash panel for a linked map shows "Open trash in
+    Boardkit" instead of "From this map". A restore made in Boardkit
+    arrives through the `storage` event and is tidied in
+23. The "Link to Boardkit" action (the switch that makes linking
+    visible). In the map menu, for trees, shown only where Boardkit's
+    data is present (`boardkit:registry`). A tree that doesn't fit is
+    refused, naming each box in the way (`boardProblems`, built). Else, in
+    one go: creates the board record (version 2) from the tree, adds the
+    board to Boardkit's list (a new write in `store/persistBoard.ts`),
+    turns the map into the linked form, keeping the old record aside until
+    both writes are stored. A linked map then shows that it is linked
+    (e.g. a small "Linked to Boardkit" chip with "Open in Boardkit" to
+    /boardkit). To ask the owner in the design: an "Unlink" action (the
+    map keeps its copy as an ordinary tree, the board stays in Boardkit),
+    or leave unlinking to deleting the board. Linking an existing board
+    stays later (decided)
+24. Boardkit: the keep / maybe / cut badge. A small badge on cards and
+    lists that have a status; anything under a cut item looks cut (a cut
+    list fades its cards), computed, never stored, by the same definition
+    as Linkkit's `looksCut` (`domain/status.ts`, copied with its tests).
+    Boardkit only shows it; setting a status from Boardkit is not asked
+    for (ask the owner in the design)
+25. Boardkit: deleting a linked board names the linked map in its
+    question ("'Rent or buy' is also a map in Linkkit; Linkkit keeps its
+    copy as an ordinary tree"). Boardkit finds it by reading Linkkit's
+    records for a `linkedBoard` equal to the board's id (reading only;
+    Linkkit's keys are still written only by Linkkit)
+26. Cross-app undo in Linkkit. Today taking in another tab's or app's
+    change clears the map's undo history. Instead (decided under Bridge
+    mapping): each undo step knows which items it touches; an item changed
+    from outside marks the steps that touch it; undoing a marked step is
+    refused with a message naming it ("Can't undo further: 'Rent' was
+    changed in Boardkit"), and that step and every older one are dropped;
+    redo keeps what was undone before. Pure logic in `domain/history.ts`
+    with tests. Same for two Linkkit tabs
+27. Cross-app undo in Boardkit: the same rule there (built in the
+    Boardkit repo); today it clears the board's undo history too
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 
