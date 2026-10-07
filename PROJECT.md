@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.36 (step 23 the "Link to Boardkit" action done; step 24 next)_
+_Last updated: 2026-10-07, v0.0.36 (steps 24-25 done in Boardkit, v0.0.84-85; step 26 next)_
 
 ## What it is
 
@@ -945,13 +945,22 @@ file is updated too.
     map keeps its copy as an ordinary tree, the board stays in Boardkit),
     or leave unlinking to deleting the board. Linking an existing board
     stays later (decided)
-24. Boardkit: the keep / maybe / cut badge. A small badge on cards and
+24. ~~Boardkit: the keep / maybe / cut badge~~ (done in Boardkit
+    v0.0.84; show only, the owner's call: statuses are set in Linkkit). A small badge on cards and
     lists that have a status; anything under a cut item looks cut (a cut
     list fades its cards), computed, never stored, by the same definition
     as Linkkit's `looksCut` (`domain/status.ts`, copied with its tests).
     Boardkit only shows it; setting a status from Boardkit is not asked
     for (ask the owner in the design)
-25. Boardkit: deleting a linked board names the linked map in its
+25. ~~Boardkit: deleting a linked board names the linked map~~ (done in
+    Boardkit v0.0.85, design OK'd by the owner 2026-10-07 with both
+    recommendations: a linked map in Linkkit's trash is named too ("is a
+    map in Linkkit's trash, linked to this board; restored there, it
+    comes back as an ordinary tree"), and the question adds that the
+    map's deleted boxes, kept in the board's trash, go with it.
+    Boardkit's `store/linkedMap.ts` reads `linkkit:registry`,
+    `linkkit:trash:maps` and `linkkit:map:<id>`; anything it doesn't
+    recognise means no link). As planned: names the linked map in its
     question ("'Rent or buy' is also a map in Linkkit; Linkkit keeps its
     copy as an ordinary tree"). Boardkit finds it by reading Linkkit's
     records for a `linkedBoard` equal to the board's id (reading only;
