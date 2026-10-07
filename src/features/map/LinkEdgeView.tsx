@@ -236,7 +236,7 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
                 value={label}
                 editing
                 onCommit={(next) => setLinkLabel(linkId, next)}
-                onDone={stopEditing}
+                onDone={() => stopEditing()}
                 placeholder={kind === "tree" ? "if yes" : "needs"}
                 ariaLabel="Arrow label"
               />

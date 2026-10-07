@@ -87,31 +87,37 @@ describe("map store", () => {
     expect(useMapStore.getState().tidyRequest).toMatchObject({ arrowLength: 240, gesture: "g" });
   });
 
-  it("adds a box ready for typing, and drops it if left without a name", async () => {
+  it("adds a box ready for typing, keeps it left blank, and takes it back on Esc", async () => {
     const useMapStore = await freshStore();
     const id = useMapStore.getState().addBox({ x: 300, y: 200 });
     expect(useMapStore.getState().editing).toEqual({ kind: "box", id });
     expect(useMapStore.getState().map.nodes[id]).toMatchObject({ name: "", x: 300, y: 200 });
 
     useMapStore.getState().stopEditing();
-    expect(useMapStore.getState().map.nodes[id]).toBeUndefined();
+    expect(useMapStore.getState().map.nodes[id]).toMatchObject({ name: "" });
     expect(useMapStore.getState().editing).toBeNull();
+
+    const other = useMapStore.getState().addBox({ x: 500, y: 200 });
+    useMapStore.getState().stopEditing(true);
+    expect(useMapStore.getState().map.nodes[other]).toBeUndefined();
+    expect(useMapStore.getState().history.past).toHaveLength(1);
   });
 
-  it("never leaves a nameless box behind when another box is added", async () => {
+  it("keeps a blank box when another box is added", async () => {
     const useMapStore = await freshStore();
     const first = useMapStore.getState().addBox({ x: 300, y: 200 });
     useMapStore.getState().addBox({ x: 500, y: 200 });
-    expect(useMapStore.getState().map.nodes[first]).toBeUndefined();
+    expect(useMapStore.getState().map.nodes[first]).toMatchObject({ name: "" });
   });
 
-  it("keeps a named box when typing ends, and never blanks a name", async () => {
+  it("keeps a named box when typing ends, and lets a name be emptied", async () => {
     const useMapStore = await freshStore();
     const id = useMapStore.getState().addBox({ x: 300, y: 200 });
     useMapStore.getState().renameBox(id, "  Printer  ");
     useMapStore.getState().stopEditing();
-    useMapStore.getState().renameBox(id, "   ");
     expect(useMapStore.getState().map.nodes[id]?.name).toBe("Printer");
+    useMapStore.getState().renameBox(id, "   ");
+    expect(useMapStore.getState().map.nodes[id]?.name).toBe("");
   });
 
   it("connects only where the rules allow", async () => {
@@ -175,10 +181,10 @@ describe("map store", () => {
     expect(useMapStore.getState().map).toEqual(start);
   });
 
-  it("leaves no undo step for a box added and left without a name", async () => {
+  it("leaves no undo step for a box added and taken back with Esc", async () => {
     const useMapStore = await freshStore();
     const id = useMapStore.getState().addBox({ x: 300, y: 200 });
-    useMapStore.getState().stopEditing();
+    useMapStore.getState().stopEditing(true);
     expect(useMapStore.getState().map.nodes[id]).toBeUndefined();
     expect(useMapStore.getState().history).toEqual({ past: [], future: [] });
   });
@@ -191,8 +197,10 @@ describe("map store", () => {
     useMapStore.getState().undo();
     expect(useMapStore.getState().map.nodes[id]).toBeUndefined();
     expect(useMapStore.getState().map.nodes[a].color).toBe("red");
+    expect(useMapStore.getState().editing).toBeNull();
+    // A blank box is a box: redo brings it back, blank.
     useMapStore.getState().redo();
-    expect(useMapStore.getState().map.nodes[id]).toBeUndefined();
+    expect(useMapStore.getState().map.nodes[id]).toMatchObject({ name: "" });
   });
 
   it("folds a nudge back onto the page into the change that caused it", async () => {
@@ -272,11 +280,12 @@ describe("several maps", () => {
     expect(useMapStore.getState().map.nodes[asNodeId("a")].color).toBeNull();
   });
 
-  it("finishes typing before switching, so a nameless box is not carried away", async () => {
+  it("finishes typing before switching, so a blank box stays in its own map", async () => {
     const { useMapStore, first } = await storeWithOneMap();
-    useMapStore.getState().addBox({ x: 300, y: 200 });
+    const id = useMapStore.getState().addBox({ x: 300, y: 200 });
     useMapStore.getState().newMap();
-    expect(Object.keys(loadMap(first.id, PAGE)!.nodes)).toEqual(["a", "b"]);
+    expect(Object.keys(loadMap(first.id, PAGE)!.nodes)).toEqual(["a", "b", id]);
+    expect(useMapStore.getState().map.nodes[id]).toBeUndefined();
     expect(useMapStore.getState().editing).toBeNull();
   });
 
@@ -562,8 +571,8 @@ describe("map store (tree)", () => {
     expect(useMapStore.getState().selected).toBeNull();
     expect(useMapStore.getState().settleRequest).toBe(settle + 1);
     useMapStore.getState().addNextStep(yes);
-    useMapStore.getState().stopEditing();
-    // Left without a name, the step is dropped, and so is the opening.
+    useMapStore.getState().stopEditing(true);
+    // Taken back with Esc, the step is dropped, and so is the opening.
     expect(useMapStore.getState().map.collapsed).toEqual([yes]);
     const id = useMapStore.getState().addNextStep(yes)!;
     expect(useMapStore.getState().map.collapsed).toEqual([]);
@@ -573,12 +582,17 @@ describe("map store (tree)", () => {
     expect(useMapStore.getState().map.collapsed).toEqual([yes]);
   });
 
-  it("drops a next step left without a name, arrow and all", async () => {
+  it("keeps a next step left blank, and drops one taken back with Esc, arrow and all", async () => {
     const useMapStore = await treeStore();
     const before = useMapStore.getState().map;
-    useMapStore.getState().addNextStep(named(useMapStore, "No, stay"));
-    useMapStore.getState().stopEditing();
+    const no = named(useMapStore, "No, stay");
+    useMapStore.getState().addNextStep(no);
+    useMapStore.getState().stopEditing(true);
     expect(useMapStore.getState().map).toEqual(before);
+    const id = useMapStore.getState().addNextStep(no)!;
+    useMapStore.getState().stopEditing();
+    expect(useMapStore.getState().map.nodes[id]).toMatchObject({ name: "" });
+    expect(Object.values(useMapStore.getState().map.links).some((l) => l.from === no && l.to === id)).toBe(true);
   });
 
   it("asks before deleting a branch, then deletes it as one undo step", async () => {
@@ -919,6 +933,20 @@ describe("a linked tree in the store", () => {
     expect(maps.find((m) => m.id === "m1")?.name).toBe("Stay?");
     useMapStore.getState().renameBox(asNodeId("move"), "Go?");
     expect(useMapStore.getState().map.name).toBe("Go?");
+  });
+
+  it("keeps a blank card, which reaches the board as an empty title, but never a blank board name", async () => {
+    const { useMapStore } = await linkedStore();
+    useMapStore.getState().renameBox(asNodeId("move"), "  ");
+    expect(useMapStore.getState().map.nodes[asNodeId("move")].name).toBe("Move?");
+    const id = useMapStore.getState().addNextStep(asNodeId("buy"))!;
+    useMapStore.getState().stopEditing();
+    expect(useMapStore.getState().map.nodes[id].name).toBe("");
+    const { saveMap: save } = await import("./persistMap");
+    save(useMapStore.getState().map);
+    const board = JSON.parse(localStorage.getItem("boardkit:board:move")!).board;
+    expect(board.cards[id]).toMatchObject({ id, title: "" });
+    expect(board.cardOrder.buy).toEqual([id]);
   });
 
   it("deletes into the board's trash only, with no trash entry of its own", async () => {

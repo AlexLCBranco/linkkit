@@ -12,7 +12,6 @@ import {
   createMap,
   deleteLink,
   copyFragment,
-  deleteNode,
   deleteNodes,
   duplicateMap,
   fragmentCenter,
@@ -270,8 +269,8 @@ export interface MapState {
   /** Adds a nameless box with its centre at `at` and opens its name for
       typing. */
   addBox(at: Point): NodeId;
-  /** An empty name is ignored: a box keeps its old name rather than going
-      blank. */
+  /** An empty name leaves the box blank, except a linked map's start
+      (the board's name). */
   renameBox(id: NodeId, name: string): void;
   /** Moves a box. Moves with the same `gesture` (one drag) are one undo
       step. */
@@ -402,9 +401,10 @@ export interface MapState {
   unlinkFromBoard(): void;
 
   startEditing(editing: Editing): void;
-  /** Ends typing. A box still without a name is removed (as in the
-      prototype: a box added by mistake goes away on Escape). */
-  stopEditing(): void;
+  /** Ends typing. A box may stay blank (it shows a faint "Untitled").
+      `cancelled` (Esc) on a box just added and still blank takes the add
+      back, as if it had never been added (the prototype's Escape). */
+  stopEditing(cancelled?: boolean): void;
 }
 
 /**
@@ -851,7 +851,10 @@ export const useMapStore = create<MapState>()((set, get) => ({
     return nodeId;
   },
   renameBox: (id, name) => {
-    if (!cleanName(name)) return;
+    // A box may be blank, except a linked map's start: it is the board's
+    // name in Boardkit, which never has a blank one.
+    const { map } = get();
+    if (!cleanName(name) && map.linkedBoard && id === (map.linkedBoard as NodeId)) return;
     // Naming a box just added joins its "add" step (`newBoxKey`); any other
     // rename is a step of its own.
     set((s) => commit(s, renameNode(s.map, id, name), s.stepKey === newBoxKey(id) ? s.stepKey : null));
@@ -1213,15 +1216,14 @@ export const useMapStore = create<MapState>()((set, get) => ({
   },
 
   startEditing: (editing) => set({ editing }),
-  stopEditing: () =>
+  stopEditing: (cancelled = false) =>
     set((s) => {
       const e = s.editing;
-      if (e?.kind === "box" && s.map.nodes[e.id]?.name === "") {
-        // A box added and left without a name: its "add" step is taken
+      if (cancelled && e?.kind === "box" && s.map.nodes[e.id]?.name === "" && s.stepKey === newBoxKey(e.id)) {
+        // Esc on a box just added, still blank: its "add" step is taken
         // back and forgotten, as if it had never been added.
-        const step = s.stepKey === newBoxKey(e.id) ? history.discardLast(s.history, s.map) : null;
+        const step = history.discardLast(s.history, s.map);
         if (step) return { ...forget(s, step.map), history: step.history, stepKey: null, editing: null };
-        return { ...commit(s, deleteNode(s.map, e.id)), editing: null };
       }
       // A new tree step just named: its final size is known now, so the
       // tree makes room for it (joined to the same step, see settleRequest).

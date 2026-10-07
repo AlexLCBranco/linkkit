@@ -25,10 +25,11 @@ export function saveOpenMapNow(): void {
   saveActiveMapId(map.id);
 }
 
-/** Whether a linked map's save waits: a box just added still has no name.
-    Saved now, it would reach Boardkit as an untitled card, and left
-    nameless it would then land in Boardkit's trash, where a box never
-    named doesn't belong. It saves once named (or taken back). */
+/** Whether a linked map's save waits: a box just added is still being
+    named. Saved now, it would reach Boardkit as an untitled card and,
+    taken back with Esc, land in Boardkit's trash, where a box never kept
+    doesn't belong. It saves once typing ends (a box left blank is kept,
+    and reaches Boardkit as a card with an empty title). */
 const waitsForName = (state: MapState): boolean =>
   !!state.map.linkedBoard && state.editing?.kind === "box" && state.map.nodes[state.editing.id]?.name === "";
 

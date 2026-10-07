@@ -129,7 +129,8 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
         value={node.name}
         editing={isEditing}
         onCommit={(name) => renameBox(nodeId, name)}
-        onDone={stopEditing}
+        // Esc on a box just added takes it back; left blank otherwise, it stays.
+        onDone={(committed) => stopEditing(!committed)}
         placeholder={isEditing ? "Type a name" : "Untitled"}
         ariaLabel="Box name"
         className={styles.name}

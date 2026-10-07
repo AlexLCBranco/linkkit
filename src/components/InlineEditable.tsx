@@ -8,8 +8,9 @@ interface InlineEditableProps {
       Enter, "Add box") is decided outside this field. */
   readonly editing: boolean;
   readonly onCommit: (value: string) => void;
-  /** Called when editing ends, committed or cancelled. */
-  readonly onDone: () => void;
+  /** Called when editing ends: `committed` false when it was cancelled
+      (Esc). */
+  readonly onDone: (committed: boolean) => void;
   readonly ariaLabel: string;
   readonly placeholder?: string;
   readonly className?: string;
@@ -65,7 +66,7 @@ function EditField({
     finishedRef.current = true;
     const trimmed = draft.trim();
     if (commit && trimmed !== value) onCommit(trimmed);
-    onDone();
+    onDone(commit);
   }
 
   return (

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.41 (usability pass U3: one name, a map with tree rules on or off)_
+_Last updated: 2026-10-07, v0.0.42 (usability pass U4: blank boxes stay)_
 
 ## What it is
 
@@ -99,9 +99,8 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
 - Undo / redo: the header's arrows, or Ctrl+Z and Ctrl+Shift+Z (or
   Ctrl+Y). Every change to the map is one step: a whole drag, adding a
   box together with its first name, a Tidy up, a page resize, a colour.
-  A box added and left without a name leaves no step behind. Undo while
-  typing a name first finishes the typing (and if that takes back a new
-  nameless box, that is the undo). The history lasts until the page is
+  A box added and taken back with Esc leaves no step behind (U4). Undo
+  while typing a name first finishes the typing. The history lasts until the page is
   reloaded; it is not saved
 - Box colours (Treekit's 8, or none): right-click a box for a menu
   (Rename, a row of colour dots, Delete box), or the palette button in a
@@ -1058,6 +1057,17 @@ One commit per item. Short entries only.
   shared with Boardkit."); dialogs, banners, the linked chip and refusal
   messages say "map" / "with tree rules on". This file still says "tree"
   for short
+- ~~U4. Empty boxes~~ (done, v0.0.42). A box can be blank: left without a
+  name (Enter or clicking away) it stays, showing a faint italic
+  "Untitled" (display only), and a name can be emptied. Esc on a box just
+  added still takes it back (no undo step left). Replaces "a box left
+  without a name goes away". Boardkit (read, not changed): card and list
+  titles may be empty there too (its own fields allow it; lists show
+  "Untitled list" in some places), so a blank card or list syncs as an
+  empty title. A board name is never blank in Boardkit (its field refuses
+  it; a blank one would show as an empty row in its board menu), so a
+  linked map's start box can't be emptied: the old name stays. Nothing
+  Boardkit needs
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 

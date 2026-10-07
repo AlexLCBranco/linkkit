@@ -9,8 +9,11 @@
   content: "\200b";
 }
 
+/* Shown in place of an empty value (a blank box's "Untitled"): display
+   only, never saved. */
 .placeholder {
   color: var(--text-muted);
+  font-style: italic;
 }
 
 /* Autosize: the textarea and the invisible `::after` share one grid cell,
