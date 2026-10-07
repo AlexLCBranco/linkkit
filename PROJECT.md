@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.37 (step 26 cross-app undo in Linkkit done; step 27 next, in Boardkit)_
+_Last updated: 2026-10-07, v0.0.37 (step 27 cross-app undo done in Boardkit v0.0.86: linking steps 20-27 all built)_
 
 ## What it is
 
@@ -995,8 +995,15 @@ file is updated too.
     changed in Boardkit"), and that step and every older one are dropped;
     redo keeps what was undone before. Pure logic in `domain/history.ts`
     with tests. Same for two Linkkit tabs
-27. Cross-app undo in Boardkit: the same rule there (built in the
-    Boardkit repo); today it clears the board's undo history too
+27. ~~Cross-app undo in Boardkit~~ (done in Boardkit v0.0.86, design
+    OK'd by the owner 2026-10-07 as proposed). The same merge as step 26:
+    a step whose slices changed since is undone with Boardkit's
+    `mergeBoards`, keeping what came in; a clash refuses it and drops
+    that step and older ones ("Can't undo further: “Rent” was changed in
+    another tab", "in Linkkit or another tab" for a board linked to a map,
+    found with `findLinkedMap`). Not tested with a real Linkkit beside it
+    (simulated in the browser pane by writing storage and firing the
+    `storage` event)
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 
