@@ -24,7 +24,7 @@ export interface Backup {
 }
 
 export function serializeBackup(maps: readonly LinkMap[], exportedAt: Date): Backup {
-  return { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: exportedAt.toISOString(), maps: maps.map(serializeMap) };
+  return { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: exportedAt.toISOString(), maps: maps.map((map) => serializeMap(map)) };
 }
 
 export type BackupRead =

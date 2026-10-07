@@ -4,7 +4,19 @@ import { asMapId } from "../domain/ids";
 import { serializeMap } from "../domain/persistence";
 import { build } from "../domain/testMaps";
 import { memoryStorage } from "./memoryStorage";
-import { deleteStoredMap, loadActiveMapId, loadMap, loadRegistry, saveActiveMapId, saveMap } from "./persistMap";
+import { asNodeId } from "../domain/ids";
+import { renameNode } from "../domain/map";
+import { revOf } from "../domain/persistence";
+import {
+  catchUpMap,
+  deleteStoredMap,
+  loadActiveMapId,
+  loadMap,
+  loadRegistry,
+  saveActiveMapId,
+  saveMap,
+} from "./persistMap";
+import { useSyncNotice } from "./syncNotice";
 import { useSaveHealth } from "./saveHealth";
 
 const PAGE = { width: 900, height: 560 };
@@ -201,5 +213,68 @@ describe("a map whose save failed", () => {
     storage.full = true;
     saveMap(edited);
     expect(loadMap(map.id, PAGE)).toEqual(edited);
+  });
+});
+
+describe("two tabs", () => {
+  let n = 0;
+  /** A map with an id of its own: the module remembers each map's last
+      read or write across tests. */
+  const fresh = () => ({ ...build(["a", "b"], [["a", "b"]]), id: asMapId(`tabs${++n}`) });
+  const key = (map: { id: string }) => `linkkit:map:${map.id}`;
+  const stored = (map: { id: string }) => JSON.parse(localStorage.getItem(key(map))!);
+  /** Another tab stores `map` with the next `rev`. */
+  const otherTabSaves = (map: ReturnType<typeof fresh>) =>
+    localStorage.setItem(key(map), JSON.stringify(serializeMap(map, revOf(stored(map)) + 1)));
+
+  it("raises rev with every write, and skips a write that stores nothing new", () => {
+    const map = fresh();
+    saveMap(map);
+    expect(stored(map).rev).toBe(1);
+    saveMap(map);
+    expect(stored(map).rev).toBe(1);
+    saveMap(renameNode(map, asNodeId("a"), "A"));
+    expect(stored(map).rev).toBe(2);
+  });
+
+  it("merges another tab's save in instead of writing over it", () => {
+    const map = fresh();
+    saveMap(map);
+    otherTabSaves(renameNode(map, asNodeId("b"), "Theirs"));
+    saveMap(renameNode(map, asNodeId("a"), "Mine"));
+    expect(stored(map).rev).toBe(3);
+    const back = loadMap(map.id, PAGE)!;
+    expect(back.nodes[asNodeId("a")].name).toBe("Mine");
+    expect(back.nodes[asNodeId("b")].name).toBe("Theirs");
+  });
+
+  it("keeps theirs when both changed one box, and says so", () => {
+    const map = fresh();
+    saveMap(map);
+    otherTabSaves(renameNode(map, asNodeId("a"), "Theirs"));
+    saveMap(renameNode(map, asNodeId("a"), "Mine"));
+    expect(loadMap(map.id, PAGE)!.nodes[asNodeId("a")].name).toBe("Theirs");
+    expect(useSyncNotice.getState().message?.text).toBe("“Theirs” was just changed in another tab, so that version was kept.");
+  });
+
+  it("catches up with another tab's save, keeping this tab's unsaved change", () => {
+    const map = fresh();
+    saveMap(map);
+    otherTabSaves(renameNode(map, asNodeId("b"), "Theirs"));
+    const result = catchUpMap(map.id, renameNode(map, asNodeId("a"), "Mine"));
+    expect(result.kind).toBe("merged");
+    if (result.kind !== "merged") return;
+    expect(result.map.nodes[asNodeId("a")].name).toBe("Mine");
+    expect(result.map.nodes[asNodeId("b")].name).toBe("Theirs");
+    expect(catchUpMap(map.id, result.map).kind).toBe("current");
+  });
+
+  it("never writes a map another tab erased", () => {
+    const map = fresh();
+    saveMap(map);
+    localStorage.removeItem(key(map));
+    expect(catchUpMap(map.id, map).kind).toBe("deleted");
+    saveMap(renameNode(map, asNodeId("a"), "Late"));
+    expect(localStorage.getItem(key(map))).toBeNull();
   });
 });

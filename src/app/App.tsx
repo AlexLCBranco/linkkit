@@ -12,6 +12,7 @@ import { TidyButton } from "../features/map/TidyButton";
 import { MapSwitcher } from "../features/maps/MapSwitcher";
 import { MissingMapsBanner } from "../features/maps/MissingMapsBanner";
 import { SaveFailedBanner } from "../features/maps/SaveFailedBanner";
+import { SyncToast } from "../features/maps/SyncToast";
 import { TrashFullDialog } from "../features/trash/TrashFullDialog";
 import { TrashPanel } from "../features/trash/TrashPanel";
 import { useMapStore } from "../store/mapStore";
@@ -52,6 +53,7 @@ export function App() {
       </main>
       <DeleteBranchDialog />
       <TrashFullDialog />
+      <SyncToast />
       <VersionBadge />
     </div>
   );

@@ -1,0 +1,54 @@
+/* A small note at the bottom of the screen, above the map. */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: var(--space-5);
+  z-index: var(--z-popover);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  max-width: min(440px, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-lifted);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-normal);
+  transform: translateX(-50%);
+  animation: rise var(--duration-medium) var(--ease-out);
+}
+
+.text {
+  margin: var(--space-1) 0;
+}
+
+.close {
+  display: grid;
+  flex: none;
+  place-items: center;
+  padding: var(--space-1);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.close:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.close:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate(-50%, var(--space-2));
+  }
+}

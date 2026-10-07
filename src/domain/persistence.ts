@@ -40,17 +40,34 @@ export const SCHEMA_VERSION = 1;
 
 export const UNTITLED_MAP = "Untitled map";
 
+/**
+ * `rev`: a count raised by every write of a stored map, so a tab can tell
+ * that another tab saved the map since it last read it (see `merge.ts`).
+ * Only stored records have one (an exported map doesn't). Added without a
+ * new version number on purpose: an older Linkkit still open in another
+ * tab reads a record with `rev` as before, where a new version would make
+ * it call the map unreadable and set it aside.
+ */
 export interface PersistedMap {
   readonly version: typeof SCHEMA_VERSION;
+  readonly rev?: number;
   readonly map: LinkMap;
 }
 
-export function serializeMap(map: LinkMap): PersistedMap {
+/** A stored record's `rev`, or 0 when it has none (saved before there was
+    one) or it isn't a record. */
+export function revOf(data: unknown): number {
+  const rev = isObject(data) ? data.rev : undefined;
+  return typeof rev === "number" && Number.isSafeInteger(rev) && rev >= 0 ? rev : 0;
+}
+
+export function serializeMap(map: LinkMap, rev?: number): PersistedMap {
   const { id, name, kind, page, direction, arrowLength, nodes, links, order, hideCut, collapsed, trash } = map;
   // Copies out exactly the content fields, so nothing else that happens to
   // ride along on the object can leak into storage.
   return {
     version: SCHEMA_VERSION,
+    ...(rev === undefined ? {} : { rev }),
     map: {
       id,
       name,

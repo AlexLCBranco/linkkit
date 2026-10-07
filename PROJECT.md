@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.30 (shared store: 3b1 conversion done, 3b2 next)_
+_Last updated: 2026-10-07, v0.0.31 (shared store: 3b2 two tabs done, 3b3 next)_
 
 ## What it is
 
@@ -122,6 +122,18 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
 - Saved automatically in the browser; a reload reopens the same map where
   it was. A damaged save is repaired and the original kept aside (the
   console says so only if that copy really was written)
+- Two tabs of Linkkit (shared store step 3b2, v0.0.31) no longer
+  overwrite each other. A change saved in one tab shows in the other at
+  once, and each tab's own changes are kept: a box renamed in one tab
+  and moved or recoloured in the other keeps both. When both tabs changed
+  the same thing (one box's name, its colour, its status or its place;
+  one arrow; one map setting), the other tab's version is kept and a
+  small note at the bottom says so ("“Teams” was just changed in another
+  tab, so that version was kept."), Boardkit's wording. A map deleted in
+  one tab closes in the other, which opens the newest map left and says
+  "“…” was deleted in another tab." New, renamed and deleted maps show in
+  the other tab's map list and trash. Taking in another tab's change
+  clears that map's undo history (as in Boardkit)
 - When a save fails (the browser's storage for the site is full), a
   banner under the header says changes aren't being saved and stays
   until they are. It offers "Export all maps" (the file holds the open
@@ -432,8 +444,15 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     and `problemText` name what keeps a tree from being a board ("'Rent'
     has two ways in", "'Walk to work' is 4 levels deep"); `arrangeCards`
     is the divider rule
+  - `merge.ts` (step 3b2): `mergeMaps(base, mine, theirs)`, two tabs'
+    versions of one map made into one (theirs, with this tab's changes
+    re-applied item by item; a clash keeps theirs and is named), then
+    made whole again (no arrow to a missing box, no repeat, a tree
+    repaired by `repairTree`). Also `sameMap` and `shareUnchanged` (so
+    only boxes that really changed re-render). Boardkit's
+    `domain/merge.ts` for maps
   - `persistence.ts` and `registry.ts`: saving a map with a version
-    number and repairing a damaged save (an unknown `kind` can't be
+    number (and `rev`, raised by every save) and repairing a damaged save (an unknown `kind` can't be
     read; arrows every kind refuses are dropped: a missing end, a box
     linking to itself, an exact repeat), and the list of saved maps (with
     "(copy)" names). A tree's own shape (several starts, loose boxes,
@@ -669,13 +688,36 @@ PROJECT.md updated, pushed, and say what couldn't be tested.
      Boardkit tabs no longer overwrite each other); 3b Linkkit side, split
      in three (each its own chat): ~~3b1 the conversion~~ (done: pure
      `domain/boardRecord.ts` and `domain/bridge.ts` with tests, nothing
-     wired in yet); 3b2 next: two Linkkit tabs stop overwriting each
-     other (`rev` on `linkkit:map:` records, a three-way merge of maps in
-     `domain/`, reload on `storage` events; the same merge then serves
-     linked maps); 3b3: linked map storage (`linkedBoard`, the slim record,
+     wired in yet); ~~3b2: two Linkkit tabs stop overwriting each
+     other~~ (done, v0.0.31: `rev` on `linkkit:map:` records, a three-way
+     merge of maps in `domain/merge.ts`, reload on `storage` events; the
+     same merge then serves linked maps); 3b3 next: linked map storage (`linkedBoard`, the slim record,
      opening builds the tree from the board and tidies in unplaced boxes,
      shared part written first with the `rev` check, failed saves, a board
      deleted in Boardkit leaves an unlinked copy)
+   - What 3b2 settled (choices made while building, within the OK'd
+     design): `rev` was added to version 1 records without a new version
+     number, because an older Linkkit tab still open after a deploy calls
+     an unknown version unreadable and would set the map aside; exported
+     files carry no `rev`. Items for the merge: a box field by field
+     (name, colour, status, place = x and y together), so renaming in one
+     tab and moving in the other is no clash; an arrow whole; sibling
+     order re-applied next to the same neighbour (Boardkit's rule); map
+     settings one by one; trash entries whole; collapse box by box, this
+     tab winning, never named (like Boardkit's folded lists). A box
+     deleted in one tab and changed in the other stays as the other tab
+     has it; when this tab's delete loses, the box keeps its arrows and
+     leaves this tab's trash entry. After merging, a tree is repaired with
+     `repairTree` (two tabs can each add a fine arrow that together close
+     a loop). The deleted-maps list and the map list are read fresh
+     before each change (read-modify-write), so they need no merge. A map
+     erased in another tab is never written again this session. The note
+     is a small toast at the bottom (Linkkit had none; Boardkit uses
+     sonner, Linkkit got a hand-made one rather than a new library), gone
+     after 6 seconds or on its ×. Not tested by hand: two real tabs
+     typing at once (the browser pane can't drive two visible tabs; the
+     second tab was simulated by writing storage, which fires the same
+     `storage` event)
    - What 3b1 settled: the start box's id is the board's id, and the
      arrow into a box has that box's id (one way in each, so it's unique;
      labels are kept by it). Linkkit reads Boardkit's record strictly:

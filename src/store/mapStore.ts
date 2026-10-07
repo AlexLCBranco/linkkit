@@ -52,7 +52,9 @@ import { addNextStep, branchesOf, createTree } from "../domain/tree";
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
 import { ARROW_LENGTH_PRESETS, type LinkId, type LinkMap, type MapId, type NodeId, type NodeStatus, type PaletteColor, type Point, type Size } from "../domain/types";
+import { mergeMaps, shareUnchanged } from "../domain/merge";
 import { useMissingMaps } from "./missingMaps";
+import { useSyncNotice } from "./syncNotice";
 import {
   deleteStoredMap,
   loadActiveMapId,
@@ -64,6 +66,12 @@ import {
   saveMap,
   saveMapTrash,
   saveStarterId,
+  allowMapWrites,
+  catchUpMap,
+  forgetMapDeletedElsewhere,
+  isListKey,
+  mapIdOfKey,
+  onMapMerged,
   unlistStoredMap,
 } from "./persistMap";
 import { cancelSave, flushSave } from "./saveQueue";
@@ -487,7 +495,8 @@ function trashMap(id: MapId): void {
     cancelSave();
   }
   const map = isOpen ? (useMapStore.getState().needsTidy ? null : useMapStore.getState().map) : loadMap(id, newPageSize());
-  let trashedMaps = s.trashedMaps;
+  // Read fresh, not from the store: another tab may have changed it.
+  let trashedMaps = loadMapTrash();
   if (map) {
     saveMap(map);
     const name = s.maps.find((m) => m.id === id)?.name ?? map.name;
@@ -700,7 +709,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
     }),
   forgetBoxes: (entryId) => set((s) => commit(s, forgetTrashEntry(s.map, entryId))),
   emptyTrash: () => {
-    for (const m of get().trashedMaps) deleteStoredMap(m.id);
+    for (const m of loadMapTrash()) deleteStoredMap(m.id);
     saveMapTrash([]);
     set((s) => ({ ...commit(s, emptyTrash(s.map)), trashedMaps: [] }));
   },
@@ -708,7 +717,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
     if (!get().trashedMaps.some((m) => m.id === id)) return;
     get().stopEditing();
     flushSave();
-    const trashedMaps = withoutTrashedMap(get().trashedMaps, id);
+    const trashedMaps = withoutTrashedMap(loadMapTrash(), id);
     saveMapTrash(trashedMaps);
     const map = loadMap(id, newPageSize());
     if (!map) {
@@ -723,7 +732,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
   eraseMap: (id) => {
     if (!get().trashedMaps.some((m) => m.id === id)) return;
     deleteStoredMap(id);
-    const trashedMaps = withoutTrashedMap(get().trashedMaps, id);
+    const trashedMaps = withoutTrashedMap(loadMapTrash(), id);
     saveMapTrash(trashedMaps);
     set({ trashedMaps });
   },
@@ -865,3 +874,115 @@ export const useMapStore = create<MapState>()((set, get) => ({
       return { editing: null, stepKey: null, settleRequest: s.settleRequest + (named ? 1 : 0) };
     }),
 }));
+
+/*
+ * Other tabs. Two tabs of Linkkit may have the same map open. Each saves
+ * the whole map, so without this the last save would silently undo the
+ * other's changes. Two halves (Boardkit's design):
+ *
+ *  - Every save checks the record's `rev` first and merges in what another
+ *    tab stored since (`persistMap.ts`, `domain/merge.ts`); the merged map
+ *    comes back here through `onMapMerged`.
+ *  - The browser's `storage` event, which fires in every *other* tab of the
+ *    same address when one tab writes, brings another tab's save in at
+ *    once, merged with whatever this tab has not saved yet.
+ *
+ * Taking in another tab's change clears this map's undo history: an undo
+ * step stores whole parts of the map as they were before, so undoing would
+ * quietly put back what the other tab just changed. (Undo that steps
+ * around the other tab's changes is a later step of the shared-store plan.)
+ */
+
+/** Puts `map` on screen as the open map, keeping every object that didn't
+    change (`shareUnchanged`), so only what the other tab changed
+    re-renders. */
+function adoptMap(map: LinkMap): void {
+  useMapStore.setState((s) => {
+    const next = shareUnchanged(s.map, map);
+    if (next === s.map) return {};
+    return {
+      ...forget(s, next),
+      maps: upsertMap(s.maps, { id: next.id, name: next.name }),
+      history: history.EMPTY_HISTORY,
+      stepKey: null,
+      confirmingDelete: null,
+    };
+  });
+}
+
+/** The open map went away in another tab (trashed or erased): the newest
+    map left opens, and the user is told. */
+function leaveGoneMap(name: string, erased: boolean): void {
+  const s = useMapStore.getState();
+  // A trashed map keeps this tab's last edits (it can be restored); an
+  // erased one is gone, and a save would bring it back.
+  if (erased) cancelSave();
+  else flushSave();
+  const left = removeMap(s.maps, s.map.id);
+  const { map: next, maps } = loadNewest(left);
+  if (next) useMapStore.setState((state) => open(state, next, maps));
+  else {
+    const blank = blankMap();
+    useMapStore.setState((state) => open(state, blank, createStored(blank, maps)));
+  }
+  useSyncNotice.getState().mapDeleted(name);
+}
+
+/** Another tab changed the map list or the deleted maps: both are read
+    again. The open map stays listed while it is waiting for its first
+    tidy (it isn't stored yet); if another tab deleted it, the newest map
+    left opens. */
+function pullLists(): void {
+  const s = useMapStore.getState();
+  const trashedMaps = loadMapTrash();
+  let maps = loadRegistry();
+  if (trashedMaps.some((m) => m.id === s.map.id)) {
+    useMapStore.setState({ maps: upsertMap(maps, { id: s.map.id, name: s.map.name }), trashedMaps });
+    leaveGoneMap(s.map.name, false);
+    return;
+  }
+  if (!maps.some((m) => m.id === s.map.id)) maps = upsertMap(maps, { id: s.map.id, name: s.map.name });
+  useMapStore.setState({ maps, trashedMaps });
+}
+
+/** Another tab stored (or erased) map `id`. Only the open map needs
+    anything now; any other map is read fresh when it is opened. */
+function pullMap(id: MapId, removed: boolean): void {
+  // Stored again (another tab restored it from a file): writable again.
+  if (!removed) allowMapWrites(id);
+  const s = useMapStore.getState();
+  if (id !== s.map.id || s.needsTidy) {
+    if (removed) forgetMapDeletedElsewhere(id);
+    return;
+  }
+  const result = catchUpMap(id, s.map);
+  if (result.kind === "merged") adoptMap(result.map);
+  else if (result.kind === "deleted") leaveGoneMap(s.map.name, true);
+}
+
+// A save that merged in another tab's save. Applied once the current store
+// update is over: a save can happen inside one (switching maps flushes the
+// outgoing map's save), and setting state from inside it would be lost.
+onMapMerged((id, from, merged) =>
+  queueMicrotask(() => {
+    const s = useMapStore.getState();
+    if (s.map.id !== id) return;
+    // If this tab changed the map again since `from`, that change is kept
+    // on top too.
+    adoptMap(mergeMaps(from, s.map, merged).map);
+  }),
+);
+
+/** Starts following other tabs' saves. Called once from `main.tsx`. */
+export function initOtherTabs(): void {
+  window.addEventListener("storage", (event) => {
+    // `key` is null when another tab cleared all of storage: nothing to merge.
+    if (event.key === null || event.storageArea !== localStorage) return;
+    if (isListKey(event.key)) {
+      pullLists();
+      return;
+    }
+    const id = mapIdOfKey(event.key);
+    if (id) pullMap(id, event.newValue === null);
+  });
+}
