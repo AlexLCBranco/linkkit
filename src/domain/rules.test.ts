@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { asLinkId, asNodeId } from "./ids";
-import { canDeleteBox, canDeleteLink, canLink, canPaste } from "./rules";
-import { build } from "./testMaps";
+import { canAddNextStep, canDeleteBox, canDeleteLink, canLink, canPaste, levelOf, nextStepRefusal } from "./rules";
+import { build, buildTree, ids } from "./testMaps";
 
 const a = asNodeId("a");
 const b = asNodeId("b");
@@ -40,5 +40,50 @@ describe("canPaste", () => {
     const map = build(["a"]);
     expect(canPaste(map)).toBe(true);
     expect(canPaste({ ...map, kind: "tree" })).toBe(false);
+  });
+});
+
+describe("linked trees (a tree shared with a Boardkit board)", () => {
+  // s = start (the board), l1 / l2 = lists, c = a card in l1.
+  const tree = buildTree("s", ["l1", "l2", "c"], [
+    ["s", "l1"],
+    ["s", "l2"],
+    ["l1", "c"],
+  ]);
+  const linked = { ...tree, linkedBoard: "s" };
+  const [s, l1, l2, c] = ids("s", "l1", "l2", "c");
+
+  it("counts levels from the start", () => {
+    expect([s, l1, c].map((id) => levelOf(linked, id))).toEqual([1, 2, 3]);
+  });
+
+  it("has no level for a box with two ways in", () => {
+    const twice = { ...tree, links: { ...tree.links, x: { id: asLinkId("x"), from: l2, to: c, label: "" } } };
+    expect(levelOf(twice, c)).toBeNull();
+  });
+
+  it("lets the board and its lists have next steps, never a card", () => {
+    expect(canAddNextStep(linked, s)).toBe(true);
+    expect(canAddNextStep(linked, l1)).toBe(true);
+    expect(canAddNextStep(linked, c)).toBe(false);
+    expect(nextStepRefusal(linked, c)).toBe("“c” is a card, and cards can't have next steps in Boardkit.");
+    expect(nextStepRefusal(linked, l1)).toBeNull();
+  });
+
+  it("refuses a second way into a box", () => {
+    expect(canLink(linked, l2, c)).toEqual({ ok: false, reason: "two-ways-in" });
+    // The same arrow is fine in an unlinked tree.
+    expect(canLink(tree, l2, c)).toEqual({ ok: true });
+  });
+
+  it("keeps the tree rules underneath", () => {
+    expect(canLink(linked, c, s)).toEqual({ ok: false, reason: "start" });
+    expect(canDeleteBox(linked, s)).toBe(false);
+    expect(canDeleteBox(linked, c)).toBe(true);
+  });
+
+  it("leaves unlinked trees and connections maps as they were", () => {
+    expect(canAddNextStep(tree, c)).toBe(true);
+    expect(canAddNextStep(build(["a"]), a)).toBe(false);
   });
 });

@@ -12,7 +12,7 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "../../components/ui/context-menu";
-import { canCollapse, canDeleteBox, canPaste, canSetStatus } from "../../domain/rules";
+import { canAddNextStep, canCollapse, canDeleteBox, canPaste, canSetStatus } from "../../domain/rules";
 import type { NodeId, Point } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { selectGroupColor, selectGroupStatus } from "../../store/selectors";
@@ -165,7 +165,7 @@ function BoxMenuItems({
   const setBoxColor = useMapStore((s) => s.setBoxColor);
   const deleteBox = useMapStore((s) => s.deleteBox);
   const addNextStep = useMapStore((s) => s.addNextStep);
-  const isTree = useMapStore((s) => s.map.kind === "tree");
+  const addable = useMapStore((s) => canAddNextStep(s.map, nodeId));
   const deletable = useMapStore((s) => canDeleteBox(s.map, nodeId));
   const status = useMapStore((s) => s.map.nodes[nodeId]?.status ?? null);
   const statusable = useMapStore((s) => canSetStatus(s.map, nodeId));
@@ -173,7 +173,7 @@ function BoxMenuItems({
 
   return (
     <>
-      {isTree && (
+      {addable && (
         // Waits for the menu to close, like Rename: the new box's name
         // field needs the focus.
         <ContextMenuItem onSelect={() => runAfterClose(() => addNextStep(nodeId))}>

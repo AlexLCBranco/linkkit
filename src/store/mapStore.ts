@@ -32,7 +32,7 @@ import {
   setPage,
 } from "../domain/map";
 import { defaultPageSize } from "../domain/page";
-import { canCollapse, canDeleteLink, canPaste, canSetStatus } from "../domain/rules";
+import { canCollapse, canDeleteLink, canPaste, canSetStatus, nextStepRefusal } from "../domain/rules";
 import { shownMap } from "../domain/shown";
 import {
   emptyTrash,
@@ -767,15 +767,21 @@ export const useMapStore = create<MapState>()((set, get) => ({
     const { map } = get();
     const parent = map.nodes[from];
     if (map.kind !== "tree" || !parent) return null;
+    // The UI doesn't offer it then; this is the last word.
+    const refusal = nextStepRefusal(map, from);
+    if (refusal) {
+      useSyncNotice.getState().say(refusal);
+      return null;
+    }
     const offset = NEXT_STEP_OFFSET[map.direction];
     // A collapsed box opens first, so the new step shows (one undo step).
     const open = setCollapsed(map, [from], false);
     const added = addNextStep(open, from, at ?? { x: parent.x + offset.x, y: parent.y + offset.y });
     if (!added) return null;
-    // The only way a new step breaks a board: it would sit under a card.
-    if (linkedProblem(added.map)) {
-      const name = parent.name || "Untitled";
-      useSyncNotice.getState().say(`Not in a tree shared with Boardkit: “${name}” is a card, and cards have no next steps.`);
+    // The last guard: a linked tree that was already out of a board's shape.
+    const problem = linkedProblem(added.map);
+    if (problem) {
+      useSyncNotice.getState().say(`Not in a tree shared with Boardkit: ${problem}`);
       return null;
     }
     if (useLinkHold.getState().held[map.id]) return null;

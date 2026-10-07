@@ -13,11 +13,15 @@ import type { LinkId, LinkMap, MapKind, NodeId } from "./types";
  *    toolbar, menus and keys ask to offer it; the store asks again.
  *  - `canCollapse`: may this box's branch be folded away? Only a tree's
  *    box with next steps.
+ *  - `canAddNextStep`: may this box get a new next step? The toolbar, menu,
+ *    "Add box" and the connect dot ask to offer it; the store asks again.
  *  - `canPaste`: may copied boxes (with the arrows between them) be pasted
  *    or duplicated in? The UI asks to offer Copy, Paste and Duplicate; the
  *    store asks again before pasting.
  *
  * A new kind is one more entry in `RULES`, not edits spread through the UI.
+ * A tree linked to a Boardkit board (`linkedBoard`) gets its own, stricter
+ * set (`linkedTree`): it must keep a board's shape.
  */
 
 export type LinkRefusal =
@@ -31,7 +35,10 @@ export type LinkRefusal =
   | "start"
   /** Tree: the arrow would close a loop (the target already leads, step by
       step, back to where the arrow starts). */
-  | "loop";
+  | "loop"
+  /** Linked tree: the target already has its way in (a card is in one
+      list only). */
+  | "two-ways-in";
 
 export type LinkVerdict = { readonly ok: true } | { readonly ok: false; readonly reason: LinkRefusal };
 
@@ -42,6 +49,7 @@ interface KindRules {
   readonly canPaste: (map: LinkMap) => boolean;
   readonly canSetStatus: (map: LinkMap, id: NodeId) => boolean;
   readonly canCollapse: (map: LinkMap, id: NodeId) => boolean;
+  readonly canAddNextStep: (map: LinkMap, id: NodeId) => boolean;
 }
 
 const OK: LinkVerdict = { ok: true };
@@ -72,6 +80,34 @@ export function arrowsInto(map: LinkMap, id: NodeId): number {
  */
 export const isStart = (map: LinkMap, id: NodeId): boolean =>
   map.kind === "tree" && !!map.nodes[id] && arrowsInto(map, id) === 0;
+
+/** The deepest level a board has room for: start (the board), lists,
+    cards. */
+export const BOARD_LEVELS = 3;
+
+/**
+ * A box's level in a tree whose boxes each have one way in: the start is 1,
+ * its next steps 2, and so on, counted back along the arrows. `null` when
+ * the way back isn't a straight line to a start (a box with two ways in,
+ * or a loop): not a board's shape.
+ */
+export function levelOf(map: LinkMap, id: NodeId): number | null {
+  const parent = new Map<NodeId, NodeId | null>();
+  for (const link of Object.values(map.links)) {
+    if (!map.nodes[link.from]) continue;
+    parent.set(link.to, parent.has(link.to) ? null : link.from);
+  }
+  const seen = new Set<NodeId>([id]);
+  let level = 1;
+  let at = parent.get(id);
+  while (at !== undefined) {
+    if (at === null || seen.has(at)) return null;
+    seen.add(at);
+    level++;
+    at = parent.get(at);
+  }
+  return level;
+}
 
 /** Whether `from` can be reached from `to` by following arrows forward. */
 function leadsTo(map: LinkMap, to: NodeId, from: NodeId): boolean {
@@ -105,6 +141,8 @@ const connections: KindRules = {
   // Statuses are a decision tree's idea.
   canSetStatus: () => false,
   canCollapse: () => false,
+  // Next steps are a tree's idea; here a new box stands on its own.
+  canAddNextStep: () => false,
 };
 
 /**
@@ -133,20 +171,61 @@ const tree: KindRules = {
   // no status): only the steps after it are kept, weighed or cut.
   canSetStatus: (map, id) => !!map.nodes[id] && !isStart(map, id),
   canCollapse: (map, id) => !!map.nodes[id] && Object.values(map.links).some((l) => l.from === id && map.nodes[l.to]),
+  canAddNextStep: (map, id) => !!map.nodes[id],
+};
+
+/**
+ * A tree linked to a Boardkit board: the start is the board, its next steps
+ * lists, theirs cards, and nothing deeper (decided, PROJECT.md's Bridge
+ * mapping). So on top of the tree rules: no second way into a box (a card
+ * is in one list), and no next step under a card. Every box but the start
+ * already has its way in, so no arrow may be drawn between two boxes at
+ * all; a new step comes with its own arrow.
+ *
+ * The store still checks the board's shape after each edit (`linkedProblem`
+ * in bridge.ts) as the last guard: an edit these rules don't foresee, or a
+ * tree that arrived from another tab already out of shape.
+ */
+const linkedTree: KindRules = {
+  ...tree,
+  canLink: (map, from, to) => {
+    const verdict = tree.canLink(map, from, to);
+    if (!verdict.ok) return verdict;
+    return arrowsInto(map, to) > 0 ? refuse("two-ways-in") : OK;
+  },
+  canAddNextStep: (map, id) => {
+    if (!map.nodes[id]) return false;
+    const level = levelOf(map, id);
+    return level !== null && level < BOARD_LEVELS;
+  },
 };
 
 const RULES: Record<MapKind, KindRules> = { connections, tree };
 
+const rulesOf = (map: LinkMap): KindRules =>
+  map.kind === "tree" && map.linkedBoard !== undefined ? linkedTree : RULES[map.kind];
+
 export function canLink(map: LinkMap, from: NodeId, to: NodeId): LinkVerdict {
-  return RULES[map.kind].canLink(map, from, to);
+  return rulesOf(map).canLink(map, from, to);
 }
 
-export const canDeleteBox = (map: LinkMap, id: NodeId): boolean => RULES[map.kind].canDeleteBox(map, id);
+export const canDeleteBox = (map: LinkMap, id: NodeId): boolean => rulesOf(map).canDeleteBox(map, id);
 
-export const canDeleteLink = (map: LinkMap, id: LinkId): boolean => RULES[map.kind].canDeleteLink(map, id);
+export const canDeleteLink = (map: LinkMap, id: LinkId): boolean => rulesOf(map).canDeleteLink(map, id);
 
-export const canPaste = (map: LinkMap): boolean => RULES[map.kind].canPaste(map);
+export const canPaste = (map: LinkMap): boolean => rulesOf(map).canPaste(map);
 
-export const canSetStatus = (map: LinkMap, id: NodeId): boolean => RULES[map.kind].canSetStatus(map, id);
+export const canSetStatus = (map: LinkMap, id: NodeId): boolean => rulesOf(map).canSetStatus(map, id);
 
-export const canCollapse = (map: LinkMap, id: NodeId): boolean => RULES[map.kind].canCollapse(map, id);
+export const canCollapse = (map: LinkMap, id: NodeId): boolean => rulesOf(map).canCollapse(map, id);
+
+export const canAddNextStep = (map: LinkMap, id: NodeId): boolean => rulesOf(map).canAddNextStep(map, id);
+
+/** Why no next step may be added under `id`, in words; `null` when one
+    may (or the box is gone). For the message when it is refused anyway. */
+export function nextStepRefusal(map: LinkMap, id: NodeId): string | null {
+  const node = map.nodes[id];
+  if (!node || canAddNextStep(map, id)) return null;
+  if (map.kind !== "tree") return "Only a tree's boxes have next steps.";
+  return `“${node.name || "Untitled"}” is a card, and cards can't have next steps in Boardkit.`;
+}

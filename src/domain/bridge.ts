@@ -1,6 +1,6 @@
 import { isShownCard, MAX_CARDS_PER_LIST, type BoardContent, type BoardItem } from "./boardRecord";
 import { nextSteps } from "./order";
-import { arrowsInto } from "./rules";
+import { arrowsInto, BOARD_LEVELS } from "./rules";
 import { startOf } from "./tree";
 import type {
   ArrowLength,
@@ -139,9 +139,6 @@ export type BoardProblem =
   | { readonly kind: "changes-level"; readonly box: NodeId }
   /** A list with more cards than Boardkit allows. */
   | { readonly kind: "list-full"; readonly box: NodeId };
-
-/** The deepest level a board has room for: start, lists, cards. */
-export const BOARD_LEVELS = 3;
 
 /**
  * What stops `map` from being a board: every box with two ways in, and the

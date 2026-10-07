@@ -797,7 +797,7 @@ describe("a linked tree in the store", () => {
     expect(useMapStore.getState().map.linkedBoard).toBe("move");
     expect(useMapStore.getState().needsTidy).toBe(false);
     expect(useMapStore.getState().addNextStep(asNodeId("a"))).toBeNull();
-    expect(useSyncNotice.getState().message?.text).toMatch(/shared with Boardkit: “A” is a card/);
+    expect(useSyncNotice.getState().message?.text).toMatch(/“A” is a card, and cards can.t have next steps in Boardkit/);
     expect(useMapStore.getState().addNextStep(asNodeId("buy"))).not.toBeNull();
   });
 

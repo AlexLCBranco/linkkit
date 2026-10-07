@@ -4,7 +4,7 @@ import { memo, type CSSProperties, type MouseEvent, type PointerEvent } from "re
 
 import { InlineEditable } from "../../components/InlineEditable";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
-import { canCollapse, canDeleteBox, canSetStatus } from "../../domain/rules";
+import { canAddNextStep, canCollapse, canDeleteBox, canSetStatus } from "../../domain/rules";
 import { hiddenAfter } from "../../domain/shown";
 import { looksCut } from "../../domain/status";
 import type { NodeId, NodeStatus } from "../../domain/types";
@@ -36,7 +36,8 @@ const keepToButton = (e: PointerEvent | MouseEvent) => e.stopPropagation();
  * and a toolbar above it to rename, colour or delete it (Treekit's hover
  * toolbar; the prototype had a corner ×). Right-click opens the same
  * choices (BoxContextMenu). In a tree the toolbar also has "+" (add a
- * next step), and the start has no bin (it can't be deleted).
+ * next step; not on a card in a tree linked to Boardkit), and the start
+ * has no bin (it can't be deleted).
  *
  * A tree step can be marked keep / maybe / cut (the tag in the toolbar, or
  * the right-click menu): a badge on its top-left corner shows it, and a box
@@ -70,6 +71,7 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   const setBoxColor = useMapStore((s) => s.setBoxColor);
   const addNextStep = useMapStore((s) => s.addNextStep);
   const isTree = useMapStore((s) => s.map.kind === "tree");
+  const addable = useMapStore((s) => canAddNextStep(s.map, nodeId));
   const deletable = useMapStore((s) => canDeleteBox(s.map, nodeId));
   const statusable = useMapStore((s) => canSetStatus(s.map, nodeId));
   const isCut = useMapStore((s) => looksCut(s.map).has(nodeId));
@@ -132,17 +134,21 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
         </button>
       )}
 
-      {/* Drag from here to another box to draw an arrow. */}
-      <span
-        className={styles.dot}
-        onPointerDown={onDotPointerDown}
-        onDoubleClick={keepToButton}
-        title="Drag to another box to connect"
-        aria-hidden
-      />
+      {/* Drag from here to another box to draw an arrow. A card in a
+          linked tree has none: no arrow may start there (no next steps,
+          and every other box already has its one way in). */}
+      {(!isTree || addable) && (
+        <span
+          className={styles.dot}
+          onPointerDown={onDotPointerDown}
+          onDoubleClick={keepToButton}
+          title="Drag to another box to connect"
+          aria-hidden
+        />
+      )}
 
       <div className={styles.toolbar} onPointerDown={keepToButton} onDoubleClick={keepToButton}>
-        {isTree && (
+        {addable && (
           <button
             type="button"
             className={styles.toolbarButton}

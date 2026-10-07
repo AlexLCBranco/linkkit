@@ -11,6 +11,11 @@ const HINTS: Record<MapKind, string> = {
   tree: "Click a box to see the way that leads to it and what comes after. Use + on a box (or drag its dot onto the paper) to add a next step; drag the dot onto another box to give it a second way in; drag across the paper to select several.",
 };
 
+/** A tree linked to Boardkit: no second way in, and cards (level 3) take no
+    next steps, so its hint leaves both out. */
+const LINKED_HINT =
+  "Click a box to see the way that leads to it and what comes after. Use + on the board or a list (or drag its dot onto the paper) to add a next step: the board's next steps are lists in Boardkit, a list's are cards. Drag across the paper to select several.";
+
 /**
  * The status line's words: a hint while nothing is selected, how many boxes
  * while several are picked, otherwise the selected box's name and its two
@@ -24,6 +29,7 @@ const HINTS: Record<MapKind, string> = {
 export function ReachStatus() {
   const reach = useMapStore(selectReach);
   const kind = useMapStore((s) => s.map.kind);
+  const linked = useMapStore((s) => s.map.linkedBoard !== undefined);
   const name = useMapStore((s) => (s.selected ? s.map.nodes[s.selected]?.name : undefined));
   const picked = useMapStore((s) => s.group.length);
 
@@ -36,7 +42,7 @@ export function ReachStatus() {
     );
   }
 
-  if (!reach) return <span className={styles.hint}>{HINTS[kind]}</span>;
+  if (!reach) return <span className={styles.hint}>{linked ? LINKED_HINT : HINTS[kind]}</span>;
   const counts = reachCounts(reach);
   const words = REACH_MEANINGS[kind];
   return (

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.32 (queue item 5 done: linking planned as steps 20-27; step 20 next)_
+_Last updated: 2026-10-07, v0.0.33 (step 20 linked-tree rules done; step 21 next)_
 
 ## What it is
 
@@ -372,7 +372,12 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     a loop; it never deletes the start, nor an arrow that is a box's only
     way in, and never takes a paste. The drag (to show valid drop
     targets), the hover toolbar's bin, an arrow's ×, the menus and the
-    store all ask it
+    store all ask it. `canAddNextStep` (step 20): may this box get a next
+    step? Every tree box; never in a connections map. A tree linked to
+    Boardkit (`linkedBoard`) gets a third, stricter set, "linked tree":
+    the tree rules plus no second way into a box (reason `two-ways-in`)
+    and no next step under a card (level 3, `levelOf`, `BOARD_LEVELS`).
+    `nextStepRefusal` says why in words
   - `order.ts`: sibling order. `nextSteps(map, box)` reads a box's next
     steps in order, trusting the stored order only for boxes an arrow
     really leads to (the arrows stay the truth). Adding an arrow, deleting
@@ -782,15 +787,20 @@ tested by writing the records by hand, as in 3b3. Steps 24-25 are built in
 the Boardkit repo (`../Projects/boardkit`, its own CLAUDE.md), then this
 file is updated too.
 
-20. Linked-tree rules in `rules.ts`. Today a linked tree is held to the
-    board's shape only after an edit (`linkedProblem` in the store refuses
-    it with a toast). Move that up front: a third rule set, "linked tree"
-    (the tree rules plus: no second way into a box, no next step under a
-    card, no change of level), picked by `linkedBoard`. A new
-    `canAddNextStep` rule, so a card's toolbar and its dot offer no "+"
-    and no drop target, rather than a refusal after the fact. Refusal
-    reasons get words ("A card can't have next steps in Boardkit"). The
-    store's after-the-fact check stays as the last guard. Tests
+20. ~~Linked-tree rules in `rules.ts`~~ (done, v0.0.33; design OK'd by
+    the owner 2026-10-07 as proposed). A third rule set, "linked tree",
+    picked by `linkedBoard`: no second way into a box, no next step under
+    a card. In a linked tree a card has no "+" on its toolbar, no "Add
+    next step" in its menu and no connect dot; "Add box" with a card
+    selected is greyed out, its tooltip saying why ("'Flat in town' is a
+    card, and cards can't have next steps in Boardkit"). The board and
+    lists keep all of it. The store's after-the-fact check
+    (`linkedProblem`) stays as the last guard. Also changed: the hint
+    line under the header has its own wording for linked trees (the tree
+    one offered "a second way in"). "No change of level" needs no rule
+    yet: nothing moves a box to another parent until step 21. Tested in
+    the browser with a linked map and board written into storage by
+    hand (no real Boardkit beside it)
 21. Moving a box to another parent, in any tree. Needed because a linked
     tree refuses the second way in that today's two-step move uses, so a
     card couldn't change lists at all. Drag a box onto another box (or
