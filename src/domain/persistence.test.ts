@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { exampleMap, EXAMPLE_MAP_NAME, exampleTree } from "./example";
 import { readMap, serializeMap } from "./persistence";
-import { build } from "./testMaps";
+import { build, buildTree } from "./testMaps";
 
 const fallbackPage = { width: 980, height: 560 };
 
@@ -99,5 +99,25 @@ describe("readMap (tree)", () => {
     const map = exampleTree({ width: 900, height: 560 });
     expect(Object.values(map.links).every((l) => l.label === "")).toBe(true);
     expect(readMap(roundTrip(serializeMap(map)), fallbackPage)).toEqual({ status: "ok", map });
+  });
+});
+
+describe("readMap (damaged tree)", () => {
+  it("repairs a tree's shape as it opens, keeping every box", () => {
+    // Two starts ("job" and "other"), and a loop yes -> no -> yes.
+    const map = buildTree("job", ["yes", "no", "other"], [["job", "yes"], ["yes", "no"], ["no", "yes"]]);
+    const read = readMap(roundTrip(serializeMap(map)), fallbackPage);
+    expect(read.status).toBe("repaired");
+    if (read.status !== "repaired") return;
+    expect(read.fixes).toBe(2);
+    expect(Object.keys(read.map.nodes)).toEqual(Object.keys(map.nodes));
+    expect(Object.values(read.map.links).map((l) => `${l.from}>${l.to}`).sort()).toEqual([
+      "job>other",
+      "job>yes",
+      "yes>no",
+    ]);
+    expect(read.map.order).toEqual({ job: ["yes", "other"], yes: ["no"] });
+    // Read again, it is whole.
+    expect(readMap(roundTrip(serializeMap(read.map)), fallbackPage)).toEqual({ status: "ok", map: read.map });
   });
 });

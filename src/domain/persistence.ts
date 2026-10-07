@@ -16,6 +16,7 @@ import type {
 } from "./types";
 import { clampArrowLength } from "./map";
 import { isOrdered, normalizeOrder, sameOrder } from "./order";
+import { repairTree } from "./tree";
 import {
   ARROW_LENGTH_PRESETS,
   DEFAULT_LINK_LABELS,
@@ -85,8 +86,9 @@ const isSize = (value: number) => Number.isFinite(value) && value > 0;
  * `fallbackPage`); arrows every kind refuses (a missing end, a box linking
  * to itself, an exact repeat: `basicLinkCheck`) are dropped; an empty arrow
  * label becomes "needs" in a connections map (a tree's arrows have none).
- * A tree's own shape (one start, no loose boxes, no loops) is not repaired
- * yet: a damaged tree opens as it was saved. `unreadable` is kept for data with nothing to salvage,
+ * A tree's own shape (one start, no loose boxes, no loops) is repaired
+ * by `repairTree` (tree.ts): arrows dropped or added, never a box.
+ * `unreadable` is kept for data with nothing to salvage,
  * or with an unknown version or kind (possibly from a newer Linkkit --
  * "repairing" it would destroy what that version wrote).
  */
@@ -221,16 +223,23 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
   // A stored order is cleaned against the arrows (a box listed under a
   // parent that doesn't lead to it is dropped, one missing is added where
   // it sits); any change there counts as a repair.
-  let order: SiblingOrder = {};
+  //
+  // A tree's shape is repaired first (`repairTree`), so the order is
+  // cleaned against the repaired arrows; a box it attached to the start
+  // is listed last there, and order changes that follow from the repair
+  // are part of it, not fixes of their own.
+  let read: LinkMap = map;
   if (isOrdered(map)) {
     const stored = readOrder(raw.order, fix);
-    order = normalizeOrder({ ...map, order: stored }, direction);
-    if (raw.order !== undefined && !sameOrder(order, stored)) fix(null);
+    const repaired = repairTree({ ...map, order: stored });
+    fixes += repaired.fixes;
+    const order = normalizeOrder(repaired.map, direction);
+    if (raw.order !== undefined && repaired.fixes === 0 && !sameOrder(order, stored)) fix(null);
+    read = { ...repaired.map, order };
   } else if (raw.order !== undefined && !(isObject(raw.order) && Object.keys(raw.order).length === 0)) {
     fix(null);
   }
 
-  const read: LinkMap = { ...map, order };
   return fixes === 0 ? { status: "ok", map: read } : { status: "repaired", map: read, fixes };
 }
 

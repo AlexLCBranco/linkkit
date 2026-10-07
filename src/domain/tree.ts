@@ -1,7 +1,8 @@
 import { createLinkId, createNodeId } from "./ids";
+import { loopBreakingLinks } from "./layout";
 import { addNode, createMap, deleteNodes } from "./map";
-import { withNextStep } from "./order";
-import { arrowsInto, canDeleteBox } from "./rules";
+import { normalizeOrder, withNextStep } from "./order";
+import { arrowsInto, canCollapse, canDeleteBox } from "./rules";
 import { walk } from "./reach";
 import type { Link, LinkId, LinkMap, MapId, NodeId, Point, Size } from "./types";
 import { DEFAULT_LINK_LABELS } from "./types";
@@ -101,3 +102,64 @@ export function deleteBranches(map: LinkMap, ids: Iterable<NodeId>): LinkMap {
 
 /** Deletes a box and its branch (see `branchOf`). */
 export const deleteBranch = (map: LinkMap, id: NodeId): LinkMap => deleteBranches(map, [id]);
+
+/**
+ * Puts a damaged tree back into a tree's shape (one start, no loose boxes,
+ * no loops), for saved data a bug, a hand edit or an old version broke. No
+ * box is ever deleted; only arrows are dropped or added, in this order:
+ *
+ *  1. The start is the oldest box with nothing leading into it (or, when
+ *     every box has a way in -- a tree that is all loop -- the oldest box).
+ *  2. Arrows into the start are dropped.
+ *  3. Each loop loses the arrow that closes it: the one Tidy up already
+ *     sets aside (`loopBreakingLinks`). Its label goes with it.
+ *  4. Every other box with no way in (a second start with its branch, or a
+ *     lone box) becomes the start's last next step.
+ *
+ * Boxes keep their places (no tidy). Collapse is cleaned against the new
+ * arrows: a box left with no next steps can't be folded (part of the
+ * repair, not a fix of its own: a whole tree can have a folded box whose
+ * last next step was later deleted). `fixes` counts each arrow dropped or
+ * added; 0 means the map came back unchanged. Connections maps are
+ * returned as they are.
+ */
+export function repairTree(
+  map: LinkMap,
+  newLinkId: () => LinkId = createLinkId,
+): { map: LinkMap; fixes: number } {
+  const boxes = Object.keys(map.nodes) as NodeId[];
+  if (map.kind !== "tree" || boxes.length === 0) return { map, fixes: 0 };
+  let fixes = 0;
+  const hasWayIn = (m: LinkMap, id: NodeId) => Object.values(m.links).some((l) => l.to === id);
+
+  // 1 and 2.
+  const start = boxes.find((b) => !hasWayIn(map, b)) ?? boxes[0];
+  let links = Object.values(map.links).filter((l) => l.to !== start);
+  fixes += Object.keys(map.links).length - links.length;
+  let repaired: LinkMap = { ...map, links: Object.fromEntries(links.map((l) => [l.id, l])) as LinkMap["links"] };
+
+  // 3.
+  const loops = loopBreakingLinks(repaired);
+  if (loops.size > 0) {
+    links = links.filter((l) => !loops.has(l.id));
+    fixes += loops.size;
+    repaired = { ...repaired, links: Object.fromEntries(links.map((l) => [l.id, l])) as LinkMap["links"] };
+  }
+
+  // 4.
+  // The next steps already there keep their order (placed by position when
+  // none is stored), so attached boxes really come last.
+  let order = normalizeOrder(repaired, repaired.direction);
+  const added: Record<LinkId, Link> = {};
+  for (const box of boxes) {
+    if (box === start || hasWayIn(repaired, box)) continue;
+    const id = newLinkId();
+    added[id] = { id, from: start, to: box, label: DEFAULT_LINK_LABELS.tree };
+    order = withNextStep(order, start, box);
+    fixes++;
+  }
+  if (fixes === 0) return { map, fixes: 0 };
+  repaired = { ...repaired, links: { ...repaired.links, ...added }, order };
+  const collapsed = repaired.collapsed.filter((c) => canCollapse(repaired, c));
+  return { map: { ...repaired, collapsed }, fixes };
+}

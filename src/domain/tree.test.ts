@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { asLinkId, asMapId, asNodeId } from "./ids";
 import { canDeleteBox, canDeleteLink, canLink, isStart } from "./rules";
-import { addNextStep, branchesOf, branchOf, createTree, deleteBranch, deleteBranches, startOf } from "./tree";
+import { addNextStep, branchesOf, branchOf, createTree, deleteBranch, deleteBranches, repairTree, startOf } from "./tree";
 import { buildTree, ids } from "./testMaps";
 
 const id = asNodeId;
@@ -103,5 +103,82 @@ describe("adding a next step", () => {
 
   it("does nothing after a box that isn't there", () => {
     expect(addNextStep(job(), id("ghost"), { x: 0, y: 0 })).toBeNull();
+  });
+});
+
+describe("repairTree", () => {
+  let n = 0;
+  const newId = () => asLinkId(`new${++n}`);
+  const repair = (map: Parameters<typeof repairTree>[0]) => {
+    n = 0;
+    return repairTree(map, newId);
+  };
+  const arrows = (map: Parameters<typeof repairTree>[0]) =>
+    Object.values(map.links)
+      .map((l) => `${l.from}>${l.to}`)
+      .sort();
+
+  it("leaves a whole tree (two parents included) exactly as it is", () => {
+    const map = job();
+    expect(repair(map)).toEqual({ map, fixes: 0 });
+  });
+
+  it("leaves a connections map alone", () => {
+    const map = { ...buildTree("a", ["b"], [["b", "a"], ["a", "b"]]), kind: "connections" as const };
+    expect(repair(map).fixes).toBe(0);
+  });
+
+  it("drops arrows into the start", () => {
+    const { map, fixes } = repair(buildTree("job", ["yes"], [["job", "yes"], ["yes", "job"]]));
+    // All loop: the oldest box (job) is the start.
+    expect(arrows(map)).toEqual(["job>yes"]);
+    expect(fixes).toBe(1);
+    expect(startOf(map)).toBe(id("job"));
+  });
+
+  it("breaks each loop at the arrow that closes it, label and all", () => {
+    const { map, fixes } = repair(
+      buildTree("job", ["a", "b", "c"], [["job", "a"], ["a", "b"], ["b", "c"], ["c", "a", "again"]]),
+    );
+    expect(arrows(map)).toEqual(["a>b", "b>c", "job>a"]);
+    expect(Object.values(map.links).some((l) => l.label === "again")).toBe(false);
+    expect(fixes).toBe(1);
+  });
+
+  it("makes a second start (with its branch) and a lone box the start's last next steps", () => {
+    const { map, fixes } = repair(
+      buildTree("job", ["yes", "other", "after", "lone"], [["job", "yes"], ["other", "after"]]),
+    );
+    expect(arrows(map)).toEqual(["job>lone", "job>other", "job>yes", "other>after"]);
+    expect(map.order[id("job")]).toEqual(ids("yes", "other", "lone"));
+    expect(map.links[asLinkId("new1")]).toEqual({ id: asLinkId("new1"), from: id("job"), to: id("other"), label: "" });
+    expect(fixes).toBe(2);
+  });
+
+  it("starts at the oldest box with no way in, even when an older box is on a loop", () => {
+    // a <-> b is a loop with no way in; c is the only real start.
+    const { map } = repair(buildTree("a", ["b", "c", "d"], [["a", "b"], ["b", "a"], ["c", "d"]]));
+    expect(startOf(map)).toBe(id("c"));
+    expect(arrows(map)).toEqual(["a>b", "c>a", "c>d"]);
+  });
+
+  it("never deletes a box, and keeps every box where it is", () => {
+    const before = buildTree("job", ["a", "b", "lone"], [["a", "b"], ["b", "a"], ["b", "job"]]);
+    const { map } = repair(before);
+    expect(map.nodes).toBe(before.nodes);
+    // A whole tree again: one start, every box reached, nothing to fix.
+    expect(repair(map).fixes).toBe(0);
+  });
+
+  it("unfolds a collapsed box that is left with no next steps", () => {
+    const damaged = { ...buildTree("job", ["a", "b"], [["job", "a"], ["a", "b"], ["b", "a"]]), collapsed: ids("b", "a") };
+    expect(repair(damaged).map.collapsed).toEqual(ids("a"));
+  });
+});
+
+describe("repairTree (order)", () => {
+  it("lists attached boxes after the start's own next steps, even with no stored order", () => {
+    const damaged = { ...buildTree("job", ["yes", "lone"], [["job", "yes"]]), order: {} };
+    expect(repairTree(damaged).map.order[id("job")]).toEqual(ids("yes", "lone"));
   });
 });

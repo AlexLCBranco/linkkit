@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.28 (collapse, step 14d)_
+_Last updated: 2026-10-07, v0.0.29 (repairing a damaged tree, step 14e)_
 
 ## What it is
 
@@ -300,8 +300,16 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     undo step). Saved with the map, undoable; works together with Hide
     cut (hidden boxes are out of the highlight, its counts and Ctrl+A)
   - Top-down / Left-right, Arrows, Align, colours, undo, Tidy up and
-    saving work as in a connections map. A damaged saved tree opens as it
-    was (its shape isn't repaired yet)
+    saving work as in a connections map
+  - A damaged saved tree (two starts, a lone box, a loop, an arrow into
+    the start) is put back into a tree's shape as it opens, or as it is
+    restored from a file. No box is ever deleted, only arrows: the start
+    is the oldest box with no way in, arrows into it and each loop's
+    closing arrow (with its label) are dropped, and every other box with
+    no way in becomes the start's last next step. Boxes keep their
+    places. As for connections maps, the original is kept aside and the
+    console says so; nothing shows in the app (built as designed; a
+    banner was offered and is easy to add if wanted)
   - Sibling order: each box keeps its next steps in order (a new step
     goes last), and Tidy up lines them up that way, left to right (top to
     bottom in Left-right), so a tree doesn't reshuffle as it grows. A box
@@ -348,7 +356,8 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     boxes" true in one step: a new tree (just its start box), adding a
     next step (the box and its arrow together), which boxes a delete
     takes along (`branchOf`, or `branchesOf` for several picked
-    together), and deleting them
+    together), and deleting them; and `repairTree`, which puts a damaged
+    tree back into shape (used by `readMap`)
   - `map.ts`: every edit as a function that returns a new map (add /
     rename / move / colour / delete a box, add / relabel / delete an
     arrow, rename / duplicate the map, direction, arrow length, page),
@@ -390,7 +399,7 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     read; arrows every kind refuses are dropped: a missing end, a box
     linking to itself, an exact repeat), and the list of saved maps (with
     "(copy)" names). A tree's own shape (several starts, loose boxes,
-    loops) is not repaired yet: see What's next
+    loops) is repaired by `repairTree` in `tree.ts`
   - `example.ts`, `ids.ts`, `testMaps.ts`: the example map and example
     tree, ids, test fixtures
 
@@ -455,9 +464,8 @@ turning a connections map into a tree.
       Treekit, so it stays Linkkit's own view state when maps are shared
       (see Bridge mapping, Decided); a box with another parent still
       showing stays; Tidy up lays out only what shows)
-    - e. Repairing a damaged tree. Detailed design given to the owner on
-      2026-10-07, WAITING FOR THE OWNER'S OK (ask again before building).
-      As a tree opens (and when one is restored from a file), `readMap`
+    - e. ~~Repairing a damaged tree~~ (done; OK'd by the owner on
+      2026-10-07, "as described": no banner). As a tree opens (and when one is restored from a file), `readMap`
       repairs its shape with a new `repairTree` in `domain/tree.ts`. No
       box is ever deleted, only arrows dropped or added, in this order:
       1) the start is the oldest box with no way in (if every box has one,
@@ -501,8 +509,7 @@ PROJECT.md updated, pushed, and say what couldn't be tested.
 1. ~~Backup reminder dot~~ (done, step 19)
 2. Tree mode 14b-14e, one design summary per step, each checked against
    the Decided section and the field mapping: ~~14a2 sibling order~~,
-   ~~14b~~, ~~14c~~, ~~14d~~ (done); 14e is next (design above, waiting
-   for the OK)
+   ~~14b~~, ~~14c~~, ~~14d~~, ~~14e~~ (done)
 3. Step 18, Linkkit's trash (design needed): deleted boxes and branches
    with their arrows, plus whole maps; warns before overflow like
    Boardkit's
