@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.44 (usability pass U6: templates)_
+_Last updated: 2026-10-07, v0.0.44 (usability pass U0-U7 done; U7 is a report)_
 
 ## What it is
 
@@ -1094,6 +1094,16 @@ One commit per item. Short entries only.
   plan, Priorities (must / should / could / won't), Five whys,
   Brainstorm (all with tree rules on) and What it depends on (a
   connections map). Not in "Export all maps" or automatic backups yet
+- ~~U7. Tree rules vs Treekit~~ (report only, nothing built). Has: drag
+  branches (box drag or an arrow's end, plus sibling reorder), keep /
+  maybe / cut (with Hide cut), collapse, 8 colours, undo / redo (also
+  across tabs and Boardkit), trash (wider than Treekit's: boxes,
+  branches and maps). Partly: several trees (one start per map; several
+  maps instead of several roots on one board); collapse has no "expand
+  all". Missing: notes on boxes, fork a branch (copy / paste is off with
+  tree rules; "Duplicate this map" copies everything), export PNG / SVG /
+  Mermaid (only "Export all maps" as JSON), import Mermaid, zoom (the
+  camera is locked by design; the page scrolls)
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 
