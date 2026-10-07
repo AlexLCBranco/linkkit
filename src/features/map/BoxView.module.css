@@ -234,7 +234,8 @@
 
 /* Over a place in the tree it could move to: see-through, so the box it
    would go under (its ring) shows beneath. */
-.box[data-dragging][data-dropping] {
+.box[data-dragging][data-dropping],
+.box[data-dragging][data-drop-refused] {
   opacity: var(--drop-lift-opacity);
 }
 
@@ -242,9 +243,18 @@
    under this box). */
 .box[data-connect-target] {
   border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) var(--target-tint), var(--surface-raised));
   box-shadow:
     0 0 0 var(--target-ring-width) var(--focus-ring),
     var(--shadow-md);
+}
+
+/* The dragged box itself while over a box that refuses it (it holds the
+   pointer, so its cursor is the one that shows). */
+.box[data-drop-refused] {
+  border-color: var(--refused);
+  border-style: dashed;
+  cursor: not-allowed;
 }
 
 /* Something dragged over this box that it refuses: a red dashed ring, so
@@ -343,4 +353,11 @@
 .box[data-direction="LR"] .folded {
   top: calc(50% + var(--box-handle-size) / 2 + var(--space-1));
   left: calc(100% - var(--fold-badge-size) / 2);
+}
+
+/* A box something is dragged over always shows in full, even when the
+   highlight has faded it: its ring is the answer to "can I drop here?". */
+.box[data-connect-target],
+.box[data-refused-target] {
+  opacity: 1;
 }

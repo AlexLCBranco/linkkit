@@ -33,6 +33,12 @@
   transform: translate(var(--drop-chip-offset), var(--drop-chip-offset));
 }
 
+/* Already there: letting go changes nothing, so the chip is quiet. */
+.chip[data-already] {
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
+}
+
 /* Letting go here is refused: the "not here" colour, saying why. */
 .chip[data-refused] {
   border-color: var(--refused);

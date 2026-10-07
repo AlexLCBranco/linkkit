@@ -14,7 +14,7 @@ export function DropPreview() {
   const dropping = useMapStore((s) => s.dropping);
   const parentName = useMapStore((s) => (s.dropping ? s.map.nodes[s.dropping.parent]?.name : undefined));
   if (!dropping) return null;
-  const { bar, refusal, at } = dropping;
+  const { bar, refusal, at, already } = dropping;
 
   return (
     <>
@@ -23,8 +23,8 @@ export function DropPreview() {
           <line className={styles.bar} x1={bar.from.x} y1={bar.from.y} x2={bar.to.x} y2={bar.to.y} />
         </svg>
       )}
-      <div className={styles.chip} data-refused={refusal ? true : undefined} style={{ left: at.x, top: at.y }} role="status">
-        {refusal ?? `Move under “${parentName || "Untitled"}”`}
+      <div className={styles.chip} data-refused={refusal ? true : undefined} data-already={already || undefined} style={{ left: at.x, top: at.y }} role="status">
+        {refusal ?? (already ? `Already under “${parentName || "Untitled"}”` : `Move under “${parentName || "Untitled"}”`)}
       </div>
     </>
   );

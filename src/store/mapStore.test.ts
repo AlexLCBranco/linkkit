@@ -895,6 +895,8 @@ describe("a linked tree in the store", () => {
     const { useMapStore, useSyncNotice } = await linkedStore();
     useMapStore.getState().moveToParent(asNodeId("a"), asNodeId("buy"), null);
     expect(Object.values(useMapStore.getState().map.links).find((l) => l.to === "a")?.from).toBe("buy");
+    // Picked, so its new way back to the start lights up.
+    expect(useMapStore.getState().selected).toBe("a");
     const before = useMapStore.getState().map;
     useMapStore.getState().moveToParent(asNodeId("rent"), asNodeId("buy"), null);
     expect(useMapStore.getState().map).toBe(before);

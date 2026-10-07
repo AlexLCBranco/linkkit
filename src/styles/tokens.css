@@ -86,6 +86,8 @@
   --select-ring-width: 2px;
   /* The ring round a box an arrow being dragged would connect to. */
   --target-ring-width: 3px;
+  /* ... and how much of the accent tints that box, so it stands out. */
+  --target-tint: 22%;
   /* How much of a box or arrow outside the highlight still shows (0-1). */
   --faded-opacity: 0.25;
   /* The dashed preview arrow while connecting. */

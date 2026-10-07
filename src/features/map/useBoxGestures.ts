@@ -82,7 +82,9 @@ export function useBoxGestures(id: NodeId) {
         // One tree box on its own may also be dropped onto another box or
         // between siblings, to move it there (with its branch).
         if (moving.size === 1) {
-          store.setDropping(dropTargetAt(store.map, id, { x: ev.clientX, y: ev.clientY }, at, sizes));
+          const center = to.get(id)!;
+          const dragged = { center, size: sizes.get(id) ?? MAP_LAYOUT.fallbackSize };
+          store.setDropping(dropTargetAt(store.map, id, { x: ev.clientX, y: ev.clientY }, at, sizes, dragged));
         }
       };
       const end = (ev: PointerEvent) => {
@@ -97,12 +99,13 @@ export function useBoxGestures(id: NodeId) {
         if (dropping) {
           useMapStore.getState().setDropping(null);
           if (ev.type !== "pointerup") return;
-          if (dropping.refusal === null) {
+          if (dropping.refusal === null && !dropping.already) {
             useMapStore.getState().moveToParent(id, dropping.parent, dropping.before, gesture);
           } else {
-            // Let go on a box it can't go under: back where it started,
-            // rather than left on top of that box.
+            // Let go on a box it can't go under (or is already under):
+            // back where it started, rather than left on top of that box.
             useMapStore.getState().moveBoxes(from, gesture);
+            if (dropping.refusal) useHint.getState().show(dropping.refusal, dropping.at);
           }
           return;
         }

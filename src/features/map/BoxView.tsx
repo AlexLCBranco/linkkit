@@ -74,9 +74,11 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   const isSource = useMapStore((s) => s.connecting?.from === nodeId);
   // Dragged onto this box, it would become its next step.
   const isDropTarget = useMapStore(
-    (s) => s.dropping?.parent === nodeId && s.dropping.bar === null && s.dropping.refusal === null,
+    (s) => s.dropping?.parent === nodeId && s.dropping.bar === null && s.dropping.refusal === null && !s.dropping.already,
   );
   const isDropping = useMapStore((s) => s.dropping?.box === nodeId && s.dropping.refusal === null);
+  // Dragged over a box that refuses it: the pointer says "not allowed" too.
+  const isDropRefused = useMapStore((s) => s.dropping?.box === nodeId && s.dropping.refusal !== null);
   const startEditing = useMapStore((s) => s.startEditing);
   const stopEditing = useMapStore((s) => s.stopEditing);
   const renameBox = useMapStore((s) => s.renameBox);
@@ -112,6 +114,7 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
       data-connect-target={isTarget || isDropTarget || undefined}
       data-refused-target={isRefusedTarget || undefined}
       data-dropping={isDropping || undefined}
+      data-drop-refused={isDropRefused || undefined}
       data-connect-source={isSource || undefined}
       data-cut={isCut || undefined}
       data-direction={direction}

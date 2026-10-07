@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.39 (usability pass U1: arrows can be picked, deleted and reconnected)_
+_Last updated: 2026-10-07, v0.0.40 (usability pass U2: dragging a box to a new parent shows clearly)_
 
 ## What it is
 
@@ -1037,6 +1037,19 @@ One commit per item. Short entries only.
   step under a card. Choice made: in a tree both ends of an arrow do the
   same thing (the brief named the child end; the parent end is where
   people grab too, and re-parenting is the only change a tree allows)
+- ~~U2. Moving a box to another parent~~ (done, v0.0.40). Step 21's drag
+  worked, but felt like it didn't, for three reasons found in the browser:
+  after the re-tidy the moved box often lands where it was (only its arrow
+  changes); the drop target followed the pointer, so a box grabbed near
+  its edge could sit right on a box with nothing lit; a refused box showed
+  no ring. Now: the box the dragged box mostly covers counts when the
+  pointer is over none (`mostCovered` in `drop.ts`); the target is tinted
+  and ringed and never faded by the highlight; a refused target, and the
+  dragged box itself, get a red dashed border, a not-allowed pointer and
+  the reason, and letting go there puts the box back with a hint; over its
+  own parent the chip says "Already under …" and letting go puts it back;
+  after a move the moved box is picked, so its new path lights up. Linked
+  trees still sync through the same `moveToParent`
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 

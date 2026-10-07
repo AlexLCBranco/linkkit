@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { dropSlotAt, type SiblingRow } from "./drop";
+import { dropSlotAt, mostCovered, type SiblingRow } from "./drop";
 import { asNodeId } from "./ids";
+import type { NodeId } from "./types";
 
 const n = asNodeId;
 const options = { reach: 32, minGap: 24 };
@@ -71,5 +72,23 @@ describe("dropSlotAt", () => {
       before: n("b"),
       bar: { from: { x: 60, y: 150 }, to: { x: 140, y: 150 } },
     });
+  });
+});
+
+describe("mostCovered", () => {
+  const box = (x: number, y: number) => ({ center: { x, y }, size: { width: 100, height: 40 } });
+  const boxes: [NodeId, ReturnType<typeof box>][] = [
+    [asNodeId("a"), box(0, 0)],
+    [asNodeId("b"), box(90, 0)],
+  ];
+
+  it("picks the box the dragged box covers most", () => {
+    expect(mostCovered(box(70, 5), boxes, 0.35)).toBe("b");
+    expect(mostCovered(box(20, 5), boxes, 0.35)).toBe("a");
+  });
+
+  it("picks none when it only grazes a box", () => {
+    expect(mostCovered(box(0, 36), boxes, 0.35)).toBeNull();
+    expect(mostCovered(box(300, 0), boxes, 0.35)).toBeNull();
   });
 });

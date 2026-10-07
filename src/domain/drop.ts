@@ -91,3 +91,38 @@ export function dropSlotAt(
   }
   return best === null ? null : (best as { slot: DropSlot }).slot;
 }
+
+/**
+ * The box a dragged box mostly covers, when the pointer itself is not over
+ * one: the box the user sees it sitting on (grabbed near its edge, the
+ * dragged box can cover a box the pointer is beside). Only a box covered by
+ * at least `share` of the smaller of the two; the most covered wins.
+ */
+export function mostCovered(
+  dragged: Box,
+  boxes: Iterable<readonly [NodeId, Box]>,
+  share: number,
+): NodeId | null {
+  const edges = (b: Box) => ({
+    left: b.center.x - b.size.width / 2,
+    right: b.center.x + b.size.width / 2,
+    top: b.center.y - b.size.height / 2,
+    bottom: b.center.y + b.size.height / 2,
+  });
+  const d = edges(dragged);
+  let best: NodeId | null = null;
+  let bestArea = 0;
+  for (const [id, box] of boxes) {
+    const b = edges(box);
+    const w = Math.min(d.right, b.right) - Math.max(d.left, b.left);
+    const h = Math.min(d.bottom, b.bottom) - Math.max(d.top, b.top);
+    if (w <= 0 || h <= 0) continue;
+    const area = w * h;
+    const smaller = Math.min(dragged.size.width * dragged.size.height, box.size.width * box.size.height);
+    if (area >= share * smaller && area > bestArea) {
+      best = id;
+      bestArea = area;
+    }
+  }
+  return best;
+}

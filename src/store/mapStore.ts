@@ -132,6 +132,9 @@ export interface Dropping {
   readonly bar: { readonly from: Point; readonly to: Point } | null;
   /** Why letting go here would move nothing, in words; `null` if it may. */
   readonly refusal: string | null;
+  /** Over the box it is already under: letting go puts it back where it
+      was (the chip says so), rather than leaving it on top of its parent. */
+  readonly already?: boolean;
 }
 
 /** One end of an arrow being dragged to another box, not yet let go. */
@@ -1041,7 +1044,10 @@ export const useMapStore = create<MapState>()((set, get) => ({
       // next step).
       const next = moveUnder(setCollapsed(s.map, [parent], false), id, parent, before);
       if (next === s.map) return {};
-      return { ...commit(s, next, gesture ?? null), settleRequest: s.settleRequest + 1 };
+      // The moved box ends up picked, so its new way back to the start
+      // lights up: after the re-tidy it may sit where it was before, and
+      // only its arrow would show that anything happened.
+      return { ...commit(s, next, gesture ?? null), ...selecting([id]), settleRequest: s.settleRequest + 1 };
     }),
   // A tree makes room for a new or changed label at once (the label and
   // the room are one undo step, see settleRequest), so it never covers a box.
