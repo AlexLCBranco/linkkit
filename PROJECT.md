@@ -580,6 +580,73 @@ PROJECT.md updated, pushed, and say what couldn't be tested.
    code, give the owner the design, including how existing Boardkit
    boards and Linkkit maps are migrated, and how a failed save behaves in
    each app
+   Design (2026-10-07, AWAITING the owner's OK; nothing built yet):
+   - What it rests on: sharing works only where both apps share one
+     address, the gauntlet site (gauntlet-home.vercel.app/linkkit and
+     /boardkit share one localStorage). At linkkit-lake / boardkit-iota
+     each app has its own storage, so Linkkit offers linking only where
+     Boardkit's data is present (`boardkit:registry` exists)
+   - Where shared data lives (recommended): in Boardkit's own board
+     record, `boardkit:board:<id>`, which already holds every shared field
+     (titles, list and card order, trash). A linked map's
+     `linkkit:map:<id>` then holds only Linkkit's own parts (box places
+     and colours, arrow labels keyed by the box they point into, so a
+     moved card keeps its label, collapse, hide cut, direction, arrow
+     length) plus `linkedBoard`. The tree is built from the board each
+     time it opens. One copy of the shared data, nothing to keep in step,
+     and Boardkit barely changes. Rejected: a new neutral `gauntlet:` key,
+     which would split every linked board in two and still have to hold
+     dividers and notes (they sit in `cardOrder`)
+   - Linkkit writes a linked board by reading the stored record, changing
+     only the shared fields it owns and writing it back, so pregame /
+     postgame text, dividers, notes, colours, background survive untouched
+   - Code: the board <-> tree conversion is pure functions in Linkkit's
+     `domain/` with tests. Boardkit's record format stays Boardkit's; Linkkit
+     reads it through one module (`store/persistBoard.ts`-like), so a
+     Boardkit format change touches one file in Linkkit
+   - Version guard: Boardkit's record gets version 2 (adds `status` on
+     lists and cards, and `rev`, a number raised by every write). An app
+     that finds a version newer than it knows opens that board read-only
+     with a message ("made by a newer Boardkit, reload"). Today Boardkit
+     calls a newer version "unreadable" and offers to continue empty, which
+     would wipe it; that changes first. Boardkit ships before Linkkit
+   - Two tabs at once (Linkkit and Boardkit side by side, or two tabs of
+     one app, which today overwrite each other): both apps listen for the
+     browser's `storage` event and reload a record another tab changed.
+     Linked boards save at once, not after 400ms. Before each write the
+     app checks `rev`: if another tab wrote since, it takes their version
+     and re-applies its own last change on top when that touches other
+     items; when both changed the same item, theirs stays and a message
+     names it ("'Rent' was just changed in Boardkit"), the rule already
+     decided for undo
+   - Migration: none forced. Existing boards load as before (no `status`
+     = none, `rev` starts at 0); existing maps stay unlinked and unchanged.
+     A map turns into the linked form only through "Link to Boardkit"
+     (queue item 5), which creates the board from the tree and slims the
+     map's record in one go, keeping the old record aside until both
+     writes are stored. Moving data to the gauntlet address uses what
+     exists: Linkkit's "Export all maps" / "Restore all maps from a file",
+     Boardkit's backup folder restore
+   - A failed save, Boardkit: unchanged (banner, unsaved copy in memory,
+     "Try again", leave-site prompt), except a retry goes through the
+     `rev` check, so it never overwrites what Linkkit stored meanwhile
+   - A failed save, Linkkit (linked map): shared part first, Linkkit's
+     part second. Shared write fails: Linkkit's part isn't written either,
+     the usual banner shows, the change waits in memory, and Boardkit's
+     tab simply doesn't see it yet; "Try again" goes through the `rev`
+     check. Linkkit's part fails after the shared one stored: Boardkit is
+     already right; new boxes just lack places, which Linkkit fills by
+     tidying them in on the next open. Leaving the page while a save is
+     failing asks first, as Boardkit does
+   - A linked board deleted in Boardkit (boards are erased, after its
+     question): Linkkit keeps its last copy as an ordinary unlinked tree,
+     so nothing is lost; Boardkit's delete question names the linked map
+   - Built in two steps: 3a Boardkit (version 2, `status` kept, newer
+     version read-only, `rev`, reload on `storage` events), 3b Linkkit
+     (the conversion functions and tests, linked map storage, `rev`-checked
+     writes, `storage` events, failed saves). Nothing visible changes until
+     "Link to Boardkit" exists (item 5's steps), except that two tabs of
+     one app stop overwriting each other
 5. Only plan, don't build: turn the linking work into numbered steps in
    "What's next": the "Link to Boardkit" action, the stricter rules for
    linked trees in rules.ts, the cut badge in Boardkit, and cross-app undo
