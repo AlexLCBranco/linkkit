@@ -380,6 +380,9 @@ export interface MapState {
   newTree(): void;
   /** Adds a fresh example tree and opens it, tidied. */
   addExampleTree(): void;
+  /** Opens `map` (made from a template: fresh ids, boxes not yet placed)
+      as a new map, tidied once measured. */
+  newFromTemplate(map: LinkMap): void;
   switchMap(id: MapId): void;
   /** Renames the open map. Not an undo step: undo is about the map's
       content, and the name is right there to click and change back. An
@@ -1146,6 +1149,11 @@ export const useMapStore = create<MapState>()((set, get) => ({
     flushSave();
     const map = exampleTree(newPageSize());
     set((s) => open(s, map, upsertMap(s.maps, { id: map.id, name: map.name }), true));
+  },
+  newFromTemplate: (map) => {
+    get().stopEditing();
+    flushSave();
+    set((s) => open(s, map, createStored(map, s.maps), true));
   },
   switchMap: (id) => {
     if (id === get().map.id) return;

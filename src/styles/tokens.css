@@ -98,6 +98,13 @@
   --drop-bar-width: 4px;
   --drop-chip-offset: 16px;
   --drop-lift-opacity: 0.7;
+  /* "New from template": the narrowest a card gets, its thumbnail's
+     height, and the thumbnail's lines (in the thumbnail's own units,
+     where a box is 90 wide). */
+  --template-card-min: 150px;
+  --template-thumb-height: 84px;
+  --template-thumb-stroke: 2;
+  --template-thumb-line: 3;
   /* The hint shown where a refused action happened. */
   --hint-max-width: 260px;
   --hint-offset: 12px;

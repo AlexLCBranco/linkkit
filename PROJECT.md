@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.43 (usability pass U5: paste an outline)_
+_Last updated: 2026-10-07, v0.0.44 (usability pass U6: templates)_
 
 ## What it is
 
@@ -1083,6 +1083,17 @@ One commit per item. Short entries only.
   "add"). Single-line paste is unchanged. Choice made: a connections map
   re-tidies as a whole after an outline paste (new boxes need places;
   undo restores the old layout)
+- ~~U6. Templates~~ (done, v0.0.44). Map menu: "New from template…" opens
+  a gallery of cards, each with a small picture of the template's shape
+  (`TemplateThumb`, laid out by `layoutMap`); one click makes a new map
+  from it (fresh ids, ordinary boxes, tidied as it opens). "Save this map
+  as a template" keeps the open map (no trash, never linked; named after
+  its start box while the map is untitled) in `linkkit:templates`, shown
+  under "Your templates" with a two-click "Remove". Built in
+  (`domain/templates.ts`, written as outlines): Weigh a decision, Project
+  plan, Priorities (must / should / could / won't), Five whys,
+  Brainstorm (all with tree rules on) and What it depends on (a
+  connections map). Not in "Export all maps" or automatic backups yet
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 

@@ -1,0 +1,101 @@
+/* "New from template": a grid of cards, each a thumbnail and a name. */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.heading {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--weight-medium);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--template-card-min), 1fr));
+  gap: var(--space-2);
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+}
+
+.card:hover,
+.card:focus-visible {
+  border-color: var(--accent);
+  background: var(--surface-hover);
+}
+
+.thumb {
+  width: 100%;
+  height: var(--template-thumb-height);
+  border-radius: var(--radius-sm);
+  background: var(--page-paper);
+}
+
+.thumbBox {
+  fill: var(--surface-raised);
+  stroke: var(--border-strong);
+  stroke-width: var(--template-thumb-stroke);
+}
+
+.thumbLine {
+  stroke: var(--edge-stroke);
+  stroke-width: var(--template-thumb-line);
+}
+
+.name {
+  font-size: var(--font-size-sm);
+  font-weight: var(--weight-medium);
+  line-height: var(--line-tight);
+}
+
+.blurb {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-tight);
+}
+
+/* A saved template's "Remove": asks once more ("Remove?") before it goes. */
+.remove {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+.card:hover .remove,
+.card:focus-within .remove,
+.remove[data-asking] {
+  opacity: 1;
+}
+
+.remove[data-asking] {
+  background: var(--palette-red);
+  color: var(--ink-light);
+}
+
+.empty {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+}

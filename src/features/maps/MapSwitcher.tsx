@@ -23,6 +23,8 @@ import { useBackupStore } from "../../store/backupStore";
 import { hasBoardList } from "../../store/persistBoard";
 import { linkPreview, useMapStore, type LinkPreview } from "../../store/mapStore";
 import { LinkDialog, UnlinkDialog } from "./BoardLink";
+import { TemplateGallery } from "./TemplateGallery";
+import { useTemplates } from "../../store/templates";
 import { BackupMenuItems } from "./BackupMenuItems";
 import { exportAllMaps, restoreFrom } from "./backupFile";
 import styles from "./MapSwitcher.module.css";
@@ -74,6 +76,7 @@ export function MapSwitcher() {
   const [boardkitHere, setBoardkitHere] = useState(false);
   const [linking, setLinking] = useState<LinkPreview | null>(null);
   const [unlinking, setUnlinking] = useState(false);
+  const [templates, setTemplates] = useState(false);
   // Empty: only the untouched starter example. Only then is restoring
   // offered, so a backup is never mixed into maps already in use.
   const empty = useMapStore((s) => s.maps.length === 1 && s.maps[0].id === s.starter);
@@ -175,7 +178,11 @@ export function MapSwitcher() {
             + New map
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => (newTreeAfterClose.current = true)}>+ New map with tree rules</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setTemplates(true)}>New from template…</DropdownMenuItem>
           <DropdownMenuItem onSelect={duplicateMap}>Duplicate this map</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => useTemplates.getState().save(useMapStore.getState().map)}>
+            Save this map as a template
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={addExampleMap}>Add example map</DropdownMenuItem>
           <DropdownMenuItem onSelect={addExampleTree}>Add example map with tree rules</DropdownMenuItem>
           {isTree && !linked && boardkitHere && (
@@ -212,6 +219,7 @@ export function MapSwitcher() {
 
       <LinkDialog preview={linking} onClose={() => setLinking(null)} />
       <UnlinkDialog open={unlinking} onClose={() => setUnlinking(false)} />
+      <TemplateGallery open={templates} onOpenChange={setTemplates} />
 
       <AlertDialog open={report !== null} onOpenChange={(open) => !open && setReport(null)}>
         <AlertDialogContent>

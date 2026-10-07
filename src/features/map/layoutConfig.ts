@@ -71,6 +71,10 @@ export const TIDY_GLIDE_MS = 220;
     one a drop spot reaches, and the narrowest a gap's spot gets. */
 export const DROP_SLOTS = { reach: 32, minGap: 24 };
 
+/** A template's thumbnail ("New from template"): every box drawn this size
+    and this round, the gaps between them, and the margin round the whole. */
+export const TEMPLATE_THUMB = { box: { width: 90, height: 34 }, radius: 8, rowGap: 40, columnGap: 18, padding: 12 };
+
 /** A picked arrow's round end handles (dragged to reconnect it): their
     radius, and how far each sits back along the line from the box it
     touches, so the box doesn't cover it. */
