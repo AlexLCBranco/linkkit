@@ -697,6 +697,27 @@ describe("map store (arrows)", () => {
   });
 });
 
+describe("map store (a map named after its start)", () => {
+  it("follows the start box's name until the map is renamed by hand", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().newTree();
+    useMapStore.getState().placeAll(new Map());
+    const start = Object.keys(useMapStore.getState().map.nodes)[0] as NodeId;
+    const listed = () => useMapStore.getState().maps.find((m) => m.id === useMapStore.getState().map.id)?.name;
+    useMapStore.getState().renameBox(start, "Party");
+    expect(useMapStore.getState().map.name).toBe("Party");
+    expect(listed()).toBe("Party");
+    useMapStore.getState().renameBox(start, "Big party");
+    expect(useMapStore.getState().map.name).toBe("Big party");
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.name).toBe("Party");
+    expect(listed()).toBe("Party");
+    useMapStore.getState().renameMap("My plans");
+    useMapStore.getState().renameBox(start, "Small party");
+    expect(useMapStore.getState().map.name).toBe("My plans");
+  });
+});
+
 describe("map store (pasting an outline)", () => {
   it("builds a tree from a pasted outline in one undo step, joined to the new step's own", async () => {
     const useMapStore = await freshStore();

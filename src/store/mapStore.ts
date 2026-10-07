@@ -60,7 +60,7 @@ import {
   type MapTrash,
   type TrashSummary,
 } from "../domain/trash";
-import { addNextStep, branchesOf, createTree, moveToParent as moveUnder, startOf } from "../domain/tree";
+import { addNextStep, branchesOf, createTree, followStartName, moveToParent as moveUnder, startOf } from "../domain/tree";
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
 import { ARROW_LENGTH_PRESETS, type LinkId, type LinkMap, type MapId, type NodeId, type NodeStatus, type PaletteColor, type Point, type Size } from "../domain/types";
@@ -582,7 +582,8 @@ function linkSpot(map: LinkMap, id: LinkId): Point {
 function commit(s: MapState, edited: LinkMap, key: string | null = null): Partial<MapState> {
   if (edited === s.map || refused(s, edited)) return {};
   // A linked tree's name is its start box's: renaming one renames both.
-  const next = withStartName(edited);
+  // Any other map with tree rules follows its start until named by hand.
+  const next = followStartName(s.map, withStartName(edited), UNTITLED_MAP);
   const join = key !== null && key === s.stepKey;
   return {
     ...forget(s, next),
@@ -688,7 +689,13 @@ function stepping(s: MapState, step: history.Step | null, action: "undo" | "redo
     useSyncNotice.getState().say(`Can't ${action} further: ${problem}`);
     return { history: action === "undo" ? { past: [], future: s.history.future } : { past: s.history.past, future: [] }, stepKey: null };
   }
-  const apply = (st: MapState): Partial<MapState> => ({ ...forget(st, step.map), history: step.history, stepKey: null });
+  const apply = (st: MapState): Partial<MapState> => ({
+    ...forget(st, step.map),
+    // An undone rename of the map (or of the start it follows) shows in the list too.
+    ...(step.map.name !== st.map.name ? { maps: upsertMap(st.maps, { id: step.map.id, name: step.map.name }) } : {}),
+    history: step.history,
+    stepKey: null,
+  });
   const erased = boardErasing(s.map, step.map);
   if (erased.length === 0) return apply(s);
   const run = () => useMapStore.setState((st) => (st.map === s.map && st.history === s.history ? apply(st) : {}));

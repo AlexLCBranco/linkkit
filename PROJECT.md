@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.45 (U8: an outline pasted without tree rules moves nothing else)_
+_Last updated: 2026-10-07, v0.0.46 (U9: a map with tree rules is named after its start box)_
 
 ## What it is
 
@@ -1110,6 +1110,14 @@ One commit per item. Short entries only.
   centred, top-down; to its right left-right; the other side, then
   further out, while taken: `placeBlockBeside` in `page.ts`). Nothing
   else moves; still one undo step
+- ~~U9. Map name follows the start box~~ (done, v0.0.46). With tree
+  rules on, renaming the start box renames the map while the map is
+  still "Untitled map" or still the start's old name; once renamed by
+  hand to something else, that name sticks (`followStartName` in
+  `tree.ts`; no new stored field: the rule is read from the names). Part
+  of the same undo step; an undo now also updates the map list's name.
+  A blank start leaves the name alone; linked maps unchanged (always the
+  start's name)
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 
