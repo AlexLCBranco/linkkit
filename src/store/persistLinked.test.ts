@@ -4,6 +4,7 @@ import { boardToTree, type LinkedView } from "../domain/bridge";
 import { asMapId, asNodeId } from "../domain/ids";
 import { moveNode, renameNode } from "../domain/map";
 import { serializeStored } from "../domain/persistence";
+import { moveToParent } from "../domain/tree";
 import type { LinkMap } from "../domain/types";
 import { useLinkHold } from "./linkHold";
 import { memoryStorage } from "./memoryStorage";
@@ -131,6 +132,16 @@ describe("saving a linked tree", () => {
     saveMap(moveNode(map, id("a"), { x: 7, y: 8 }));
     expect(storedBoard().rev).toBe(1);
     expect(storedCopy().map.nodes[id("a")]).toMatchObject({ x: 7, y: 8 });
+  });
+
+  it("moves a card to another list (step 21's drag), keeping what Boardkit has on it", () => {
+    const map = loadMap(MAP_ID, PAGE)!;
+    saveMap(moveToParent(map, id("a"), id("buy"), id("c")));
+    const { rev, board } = storedBoard();
+    expect(rev).toBe(2);
+    expect(board.cardOrder).toEqual({ rent: ["b"], buy: ["a", "c"] });
+    expect(board.cards.a).toEqual({ id: "a", title: "A", description: "pregame" });
+    expect(board.trash).toEqual([]);
   });
 
   it("renames the board in Boardkit's list when the start box is renamed", () => {

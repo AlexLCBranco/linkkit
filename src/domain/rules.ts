@@ -1,3 +1,5 @@
+import { MAX_CARDS_PER_LIST } from "./boardRecord";
+import { nextSteps } from "./order";
 import type { LinkId, LinkMap, MapKind, NodeId } from "./types";
 
 /**
@@ -15,6 +17,8 @@ import type { LinkId, LinkMap, MapKind, NodeId } from "./types";
  *    box with next steps.
  *  - `canAddNextStep`: may this box get a new next step? The toolbar, menu,
  *    "Add box" and the connect dot ask to offer it; the store asks again.
+ *  - `canMove`: may this box (with its branch) become a next step of that
+ *    box? The drag asks to show a drop target; the store asks again.
  *  - `canPaste`: may copied boxes (with the arrows between them) be pasted
  *    or duplicated in? The UI asks to offer Copy, Paste and Duplicate; the
  *    store asks again before pasting.
@@ -40,7 +44,28 @@ export type LinkRefusal =
       list only). */
   | "two-ways-in";
 
-export type LinkVerdict = { readonly ok: true } | { readonly ok: false; readonly reason: LinkRefusal };
+export type MoveRefusal =
+  /** One of the boxes does not exist. */
+  | "missing"
+  /** Only a tree's boxes have a parent. */
+  | "not-tree"
+  /** The start has no parent: it is the question itself. */
+  | "start"
+  /** A box can't go under itself. */
+  | "self"
+  /** The new parent is inside the branch being moved: a loop. */
+  | "inside"
+  /** The box has two ways in and the new parent is neither: which way in
+      would it replace? (Reordering under either parent is fine.) */
+  | "two-ways-in"
+  /** Linked tree: a list stays a list and a card a card. */
+  | "level"
+  /** Linked tree: the list already shows Boardkit's most cards. */
+  | "full";
+
+export type MoveVerdict = { readonly ok: true } | { readonly ok: false; readonly reason: MoveRefusal };
+
+export type LinkVerdict ={ readonly ok: true } | { readonly ok: false; readonly reason: LinkRefusal };
 
 interface KindRules {
   readonly canLink: (map: LinkMap, from: NodeId, to: NodeId) => LinkVerdict;
@@ -50,10 +75,20 @@ interface KindRules {
   readonly canSetStatus: (map: LinkMap, id: NodeId) => boolean;
   readonly canCollapse: (map: LinkMap, id: NodeId) => boolean;
   readonly canAddNextStep: (map: LinkMap, id: NodeId) => boolean;
+  readonly canMove: (map: LinkMap, id: NodeId, parent: NodeId) => MoveVerdict;
 }
 
 const OK: LinkVerdict = { ok: true };
 const refuse = (reason: LinkRefusal): LinkVerdict => ({ ok: false, reason });
+const MOVE_OK: MoveVerdict = { ok: true };
+const refuseMove = (reason: MoveRefusal): MoveVerdict => ({ ok: false, reason });
+
+/** The boxes leading into `id`. */
+export function parentsOf(map: LinkMap, id: NodeId): NodeId[] {
+  const out: NodeId[] = [];
+  for (const link of Object.values(map.links)) if (link.to === id && !out.includes(link.from)) out.push(link.from);
+  return out;
+}
 
 /** The checks every kind shares: both boxes exist, two different boxes,
     not an exact repeat. */
@@ -143,6 +178,8 @@ const connections: KindRules = {
   canCollapse: () => false,
   // Next steps are a tree's idea; here a new box stands on its own.
   canAddNextStep: () => false,
+  // Boxes have no parent here; a drag only moves them on the page.
+  canMove: () => refuseMove("not-tree"),
 };
 
 /**
@@ -172,6 +209,18 @@ const tree: KindRules = {
   canSetStatus: (map, id) => !!map.nodes[id] && !isStart(map, id),
   canCollapse: (map, id) => !!map.nodes[id] && Object.values(map.links).some((l) => l.from === id && map.nodes[l.to]),
   canAddNextStep: (map, id) => !!map.nodes[id],
+  // The arrow in gets a new start, so the box keeps its one way in. With
+  // two ways in it can only be reordered under one of them: there is no
+  // telling which way in a new parent would replace.
+  canMove: (map, id, parent) => {
+    if (!map.nodes[id] || !map.nodes[parent]) return refuseMove("missing");
+    if (id === parent) return refuseMove("self");
+    const parents = parentsOf(map, id);
+    if (parents.length === 0) return refuseMove("start");
+    if (leadsTo(map, id, parent)) return refuseMove("inside");
+    if (parents.length > 1 && !parents.includes(parent)) return refuseMove("two-ways-in");
+    return MOVE_OK;
+  },
 };
 
 /**
@@ -197,6 +246,20 @@ const linkedTree: KindRules = {
     if (!map.nodes[id]) return false;
     const level = levelOf(map, id);
     return level !== null && level < BOARD_LEVELS;
+  },
+  // A move never changes level (decided): a card goes to another list or
+  // is reordered, a list is only reordered. A list takes at most
+  // Boardkit's number of cards (counted here as the cards the tree shows;
+  // the board's hidden dividers and notes are checked when it is written).
+  canMove: (map, id, parent) => {
+    const verdict = tree.canMove(map, id, parent);
+    if (!verdict.ok) return verdict;
+    const level = levelOf(map, id);
+    const parentLevel = levelOf(map, parent);
+    if (level === null || parentLevel === null || parentLevel + 1 !== level) return refuseMove("level");
+    const home = parentsOf(map, id)[0];
+    if (home !== parent && nextSteps(map, parent).length >= MAX_CARDS_PER_LIST) return refuseMove("full");
+    return MOVE_OK;
   },
 };
 
@@ -228,4 +291,36 @@ export function nextStepRefusal(map: LinkMap, id: NodeId): string | null {
   if (!node || canAddNextStep(map, id)) return null;
   if (map.kind !== "tree") return "Only a tree's boxes have next steps.";
   return `“${node.name || "Untitled"}” is a card, and cards can't have next steps in Boardkit.`;
+}
+
+export const canMove = (map: LinkMap, id: NodeId, parent: NodeId): MoveVerdict =>
+  rulesOf(map).canMove(map, id, parent);
+
+/** Why `id` may not go under `parent`, in words: the chip beside the
+    pointer while dragging, and the message if the store refuses anyway. */
+export function moveRefusalText(map: LinkMap, id: NodeId, parent: NodeId, reason: MoveRefusal): string {
+  const name = (box: NodeId) => `“${map.nodes[box]?.name || "Untitled"}”`;
+  switch (reason) {
+    case "missing":
+      return "That box is gone.";
+    case "not-tree":
+      return "Only a tree's boxes have next steps.";
+    case "start":
+      return `${name(id)} is the start: it can't go under another box.`;
+    case "self":
+      return "A box can't go under itself.";
+    case "inside":
+      return `${name(parent)} is inside the branch you're moving.`;
+    case "two-ways-in":
+      return `${name(id)} has two ways in: delete one to move it elsewhere.`;
+    case "level":
+      if (levelOf(map, parent) === BOARD_LEVELS) {
+        return `${name(parent)} is a card, and cards can't have next steps in Boardkit.`;
+      }
+      return levelOf(map, id) === BOARD_LEVELS
+        ? `${name(id)} is a card in Boardkit: it can only go into a list.`
+        : `${name(id)} is a list in Boardkit: lists can only be reordered.`;
+    case "full":
+      return `${name(parent)} already has ${MAX_CARDS_PER_LIST} cards, Boardkit's most.`;
+  }
 }

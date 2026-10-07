@@ -64,6 +64,11 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   const isEditing = useMapStore((s) => s.editing?.kind === "box" && s.editing.id === nodeId);
   const isTarget = useMapStore((s) => s.connecting?.target === nodeId);
   const isSource = useMapStore((s) => s.connecting?.from === nodeId);
+  // Dragged onto this box, it would become its next step.
+  const isDropTarget = useMapStore(
+    (s) => s.dropping?.parent === nodeId && s.dropping.bar === null && s.dropping.refusal === null,
+  );
+  const isDropping = useMapStore((s) => s.dropping?.box === nodeId && s.dropping.refusal === null);
   const startEditing = useMapStore((s) => s.startEditing);
   const stopEditing = useMapStore((s) => s.stopEditing);
   const renameBox = useMapStore((s) => s.renameBox);
@@ -96,7 +101,8 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
       data-picked={isPicked || undefined}
       data-editing={isEditing || undefined}
       data-dragging={dragging || undefined}
-      data-connect-target={isTarget || undefined}
+      data-connect-target={isTarget || isDropTarget || undefined}
+      data-dropping={isDropping || undefined}
       data-connect-source={isSource || undefined}
       data-cut={isCut || undefined}
       data-direction={direction}

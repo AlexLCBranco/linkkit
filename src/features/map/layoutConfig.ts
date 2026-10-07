@@ -66,3 +66,7 @@ export const ADD_SPOT = { step: 24, clearance: 8 };
 
 /** How long Tidy up's glide takes (Treekit's glide length). */
 export const TIDY_GLIDE_MS = 220;
+
+/** Dragging a tree box between siblings: how far past the first or last
+    one a drop spot reaches, and the narrowest a gap's spot gets. */
+export const DROP_SLOTS = { reach: 32, minGap: 24 };

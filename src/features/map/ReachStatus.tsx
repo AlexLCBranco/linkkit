@@ -8,13 +8,13 @@ import styles from "./ReachStatus.module.css";
 const HINTS: Record<MapKind, string> = {
   connections:
     "Click any box to see what it needs and what breaks without it. Double-click the paper to add a box; drag a box's dot onto another to connect them; drag across the paper to select several.",
-  tree: "Click a box to see the way that leads to it and what comes after. Use + on a box (or drag its dot onto the paper) to add a next step; drag the dot onto another box to give it a second way in; drag across the paper to select several.",
+  tree: "Click a box to see the way that leads to it and what comes after. Use + on a box (or drag its dot onto the paper) to add a next step; drag the dot onto another box to give it a second way in; drag a box onto another (or between two) to move it there; drag across the paper to select several.",
 };
 
 /** A tree linked to Boardkit: no second way in, and cards (level 3) take no
     next steps, so its hint leaves both out. */
 const LINKED_HINT =
-  "Click a box to see the way that leads to it and what comes after. Use + on the board or a list (or drag its dot onto the paper) to add a next step: the board's next steps are lists in Boardkit, a list's are cards. Drag across the paper to select several.";
+  "Click a box to see the way that leads to it and what comes after. Use + on the board or a list (or drag its dot onto the paper) to add a next step: the board's next steps are lists in Boardkit, a list's are cards. Drag a card onto another list (or between two cards) to move it there; drag across the paper to select several.";
 
 /**
  * The status line's words: a hint while nothing is selected, how many boxes

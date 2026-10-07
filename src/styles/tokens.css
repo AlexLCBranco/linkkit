@@ -90,6 +90,12 @@
   --faded-opacity: 0.25;
   /* The dashed preview arrow while connecting. */
   --connect-dash: 6 5;
+  /* Dragging a tree box to another place in the tree: the bar in a gap
+     between siblings, the chip beside the pointer, and how see-through
+     the dragged box gets so the box it would go under shows. */
+  --drop-bar-width: 4px;
+  --drop-chip-offset: 16px;
+  --drop-lift-opacity: 0.7;
 
   /* ---- The page ---- */
   /* Treekit's canvas dots: 1.5px across, every 24px. */

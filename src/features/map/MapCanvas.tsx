@@ -23,6 +23,7 @@ import { useViewStore } from "../../store/viewStore";
 import { BoxContextMenu } from "./BoxContextMenu";
 import { BoxView, type BoxFlowNode } from "./BoxView";
 import { ConnectPreview } from "./ConnectPreview";
+import { DropPreview } from "./DropPreview";
 import {
   ARROW,
   DRAG_THRESHOLD,
@@ -476,6 +477,7 @@ function MapCanvasInner() {
             attributionPosition="top-right"
           />
           <ConnectPreview boxes={boxes} />
+          <DropPreview />
           {marquee && (
             <div
               className={styles.marquee}

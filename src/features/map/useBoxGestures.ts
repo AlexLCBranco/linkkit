@@ -5,6 +5,7 @@ import { clampGroupMove, pageSize } from "../../domain/page";
 import { canLink } from "../../domain/rules";
 import type { NodeId, Point } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
+import { dropTargetAt } from "./dropTarget";
 import { DRAG_THRESHOLD, MAP_LAYOUT, PAGE_INSETS } from "./layoutConfig";
 import { BOX_ID_ATTRIBUTE, boxSizes, MAP_PAGE_ATTRIBUTE, MAP_VIEW_ATTRIBUTE, screenSize } from "./pageMarkers";
 
@@ -18,7 +19,9 @@ let dragCount = 0;
  *   selection or takes it out); past a few pixels it becomes a drag that
  *   moves the box -- or, if the box is one of several picked, all of them
  *   together, as one block -- kept on the screen (or on the bigger page
- *   that other boxes already make).
+ *   that other boxes already make). In a tree, one box let go over
+ *   another box becomes that box's last next step, and let go in a gap
+ *   between siblings goes there (`dropTargetAt`); the tree re-tidies.
  * - Press on the box's dot: drags out a dashed arrow; letting go over
  *   another box draws the arrow, if the rules allow it. In a tree, letting
  *   go on empty paper adds a next step there.
@@ -73,13 +76,35 @@ export function useBoxGestures(id: NodeId) {
         const wanted = { x: at.x - start.x, y: at.y - start.y };
         const d = room ? clampGroupMove(boxes, wanted, room, PAGE_INSETS) : wanted;
         const to = new Map<NodeId, Point>([...from].map(([n, p]) => [n, { x: p.x + d.x, y: p.y + d.y }]));
-        useMapStore.getState().moveBoxes(to, gesture);
+        const store = useMapStore.getState();
+        store.moveBoxes(to, gesture);
+        // One tree box on its own may also be dropped onto another box or
+        // between siblings, to move it there (with its branch).
+        if (moving.size === 1) {
+          store.setDropping(dropTargetAt(store.map, id, { x: ev.clientX, y: ev.clientY }, at, sizes));
+        }
       };
       const end = (ev: PointerEvent) => {
         el.removeEventListener("pointermove", move);
         el.removeEventListener("pointerup", end);
         el.removeEventListener("pointercancel", end);
         setDragging(false);
+        // Where it is let go counts, even if no move event came after the
+        // pointer's last step.
+        if (moved && ev.type === "pointerup") move(ev);
+        const { dropping } = useMapStore.getState();
+        if (dropping) {
+          useMapStore.getState().setDropping(null);
+          if (ev.type !== "pointerup") return;
+          if (dropping.refusal === null) {
+            useMapStore.getState().moveToParent(id, dropping.parent, dropping.before, gesture);
+          } else {
+            // Let go on a box it can't go under: back where it started,
+            // rather than left on top of that box.
+            useMapStore.getState().moveBoxes(from, gesture);
+          }
+          return;
+        }
         if (moved || ev.type !== "pointerup") return;
         const store = useMapStore.getState();
         if (ev.shiftKey) store.toggleSelected(id);

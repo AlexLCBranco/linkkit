@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.33 (step 20 linked-tree rules done; step 21 next)_
+_Last updated: 2026-10-07, v0.0.34 (step 21 moving a box to another parent done; step 22 next)_
 
 ## What it is
 
@@ -346,10 +346,29 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   - Sibling order: each box keeps its next steps in order (a new step
     goes last), and Tidy up lines them up that way, left to right (top to
     bottom in Left-right), so a tree doesn't reshuffle as it grows. A box
-    with two parents sits under the middle of both, as before. There is
-    no way to reorder them by hand yet (Treekit has none either); the
-    order is what Boardkit's column and card order will map onto. Trees
-    saved earlier keep the order they show
+    with two parents sits under the middle of both, as before. The order
+    is what Boardkit's column and card order map onto. Trees saved
+    earlier keep the order they show
+  - Moving a box to another place in the tree (step 21): drag one box.
+    Let go over another box and it becomes that box's last next step;
+    let go in a gap between siblings (or just before the first / after
+    the last) and it goes there, which is also how siblings are
+    reordered by hand. Its whole branch comes along and its arrow keeps
+    its label. While dragging, the box it would go under gets the target
+    ring (the dragged box turns see-through and rides on top), a gap
+    shows a bar, and a chip beside the pointer says "Move under 'Buy'".
+    Over a box it can't go under (its own branch; the start can't move
+    at all), the chip says why in grey, and letting go puts the box back
+    where it started. A box with two ways in can only be reordered under
+    either parent. A collapsed box opens when something is dropped on
+    it. The tree then re-tidies with its glide; the drag, the move and
+    the tidy are one undo step. Let go on bare paper (or somewhere that
+    would change nothing): the box just moves on the page, as before.
+    Several picked boxes, and connections maps, only move on the page.
+    In a tree linked to Boardkit a card can go to another list or be
+    reordered, a list only reordered among lists ("'Rent' is a list in
+    Boardkit: lists can only be reordered"), and a list already showing
+    50 cards takes no more
 - The engine underneath: pure TypeScript in `src/domain/` (no React, no
   store), each file with a Vitest test beside it:
   - `types.ts`: the model. A map is `{ id, name, kind, page, direction,
@@ -377,7 +396,12 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     Boardkit (`linkedBoard`) gets a third, stricter set, "linked tree":
     the tree rules plus no second way into a box (reason `two-ways-in`)
     and no next step under a card (level 3, `levelOf`, `BOARD_LEVELS`).
-    `nextStepRefusal` says why in words
+    `nextStepRefusal` says why in words. `canMove(map, box, parent)`
+    (step 21): may this box, with its branch, become that box's next
+    step? Never in a connections map; in a tree never the start, never
+    into its own branch, and a box with two ways in only under one of
+    them; a linked tree also keeps every box's level and a list's 50
+    cards. `moveRefusalText` says why in words
   - `order.ts`: sibling order. `nextSteps(map, box)` reads a box's next
     steps in order, trusting the stored order only for boxes an arrow
     really leads to (the arrows stay the truth). Adding an arrow, deleting
@@ -394,7 +418,10 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     boxes" true in one step: a new tree (just its start box), adding a
     next step (the box and its arrow together), which boxes a delete
     takes along (`branchOf`, or `branchesOf` for several picked
-    together), and deleting them; and `repairTree`, which puts a damaged
+    together), and deleting them; `moveToParent` (step 21: the arrow in
+    gets a new start, keeping its id and label, and the box takes its
+    place in the new parent's order, or a new place in the same one);
+    and `repairTree`, which puts a damaged
     tree back into shape (used by `readMap`)
   - `map.ts`: every edit as a function that returns a new map (add /
     rename / move / colour / delete a box, add / relabel / delete an
@@ -429,6 +456,10 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     page (`clampGroupMove`)
   - `geometry.ts` and `labels.ts`: where an arrow starts and ends on a
     box's edge (opposite arrows side by side), and sliding labels apart
+  - `drop.ts` (step 21): `dropSlotAt`, the gap between siblings (or
+    just before the first / after the last) under the pointer while a
+    tree box is dragged, and where its bar goes; where two parents' rows
+    meet, the nearer bar wins. Left-right swaps x and y
   - `glide.ts`: the easing of Tidy up's glide
   - `history.ts`: undo steps (each stores only what changed; a drag
     joined into one step)
@@ -801,7 +832,10 @@ file is updated too.
     yet: nothing moves a box to another parent until step 21. Tested in
     the browser with a linked map and board written into storage by
     hand (no real Boardkit beside it)
-21. Moving a box to another parent, in any tree. Needed because a linked
+21. ~~Moving a box to another parent, in any tree~~ (done, v0.0.34;
+    design OK'd by the owner 2026-10-07 as proposed, with all three
+    recommendations: re-tidy after a drop, a box with two ways in only
+    reordered, no "Move to…" menu yet). Needed because a linked
     tree refuses the second way in that today's two-step move uses, so a
     card couldn't change lists at all. Drag a box onto another box (or
     between two siblings) to make it that box's next step at that place;
@@ -810,7 +844,18 @@ file is updated too.
     label (decided). Linked trees: `canMove` refuses a change of level;
     the divider rule is `arrangeCards` (built in 3b1). Design summary must
     show how the drag looks and how it differs from today's drag (which
-    only moves a box on the page)
+    only moves a box on the page). Built as described under What works
+    now. Choices made while building: the target ring is the connect
+    target's (accent blue, not teal as the design sketch said, so one
+    ring means "letting go here does it"); a drop that would change
+    nothing shows nothing and just moves the box on the page; letting go
+    on a refused box puts the dragged box back; the dragged box now rides
+    above the others (it used to slide under boxes later in the page).
+    The 50-card check counts the cards the tree shows; Boardkit's hidden
+    dividers and notes are still caught when the board is written. Not
+    tested by hand: a linked tree with a real Boardkit beside it (the
+    store and the board write are unit-tested), and a real mouse's drag
+    in the browser pane (driven by the pane's drag and by pointer events)
 22. A linked map's deletes go only to Boardkit's trash. Today they land
     in both: `treeToBoard` already trashes them on the board, and Linkkit
     also adds its own trash entry. Then: no Linkkit trash entry for a

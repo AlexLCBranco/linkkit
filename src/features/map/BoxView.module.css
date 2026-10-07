@@ -226,7 +226,20 @@
     var(--shadow-lifted);
 }
 
-/* Letting go here would draw the arrow. */
+/* A dragged box rides above the others, so dropping it onto one shows it
+   on top, not hidden underneath. */
+:global(.react-flow__node):has(> .box[data-dragging]) {
+  z-index: var(--z-sticky) !important;
+}
+
+/* Over a place in the tree it could move to: see-through, so the box it
+   would go under (its ring) shows beneath. */
+.box[data-dragging][data-dropping] {
+  opacity: var(--drop-lift-opacity);
+}
+
+/* Letting go here would draw the arrow (or, dragging a tree box, put it
+   under this box). */
 .box[data-connect-target] {
   border-color: var(--accent);
   box-shadow:

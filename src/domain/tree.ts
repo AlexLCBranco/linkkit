@@ -1,7 +1,7 @@
 import { createLinkId, createNodeId } from "./ids";
 import { loopBreakingLinks } from "./layout";
 import { addNode, createMap, deleteNodes } from "./map";
-import { normalizeOrder, withNextStep } from "./order";
+import { nextSteps, normalizeOrder, withNextStep, withoutNextStep } from "./order";
 import { arrowsInto, canCollapse, canDeleteBox } from "./rules";
 import { walk } from "./reach";
 import type { Link, LinkId, LinkMap, MapId, NodeId, Point, Size } from "./types";
@@ -102,6 +102,31 @@ export function deleteBranches(map: LinkMap, ids: Iterable<NodeId>): LinkMap {
 
 /** Deletes a box and its branch (see `branchOf`). */
 export const deleteBranch = (map: LinkMap, id: NodeId): LinkMap => deleteBranches(map, [id]);
+
+/**
+ * Makes `id` (with its branch) a next step of `parent`, just before
+ * `before` among `parent`'s next steps (`null`, or a box that isn't one of
+ * them: last). The arrow into `id` keeps its id and label and only gets a
+ * new start (decided: a moved card keeps "if yes"); under the same parent
+ * this is a reorder. Boxes keep their places: the canvas re-tidies.
+ *
+ * Ask `canMove` first: this only refuses (returning the same map) what it
+ * can't do at all -- a box with no way in, or with two and `parent`
+ * neither. Also the same map when nothing would change.
+ */
+export function moveToParent(map: LinkMap, id: NodeId, parent: NodeId, before: NodeId | null): LinkMap {
+  if (!map.nodes[id] || !map.nodes[parent] || id === parent) return map;
+  const into = Object.values(map.links).filter((l) => l.to === id);
+  const link = into.find((l) => l.from === parent) ?? (into.length === 1 ? into[0] : undefined);
+  if (!link) return map;
+  const links = link.from === parent ? map.links : { ...map.links, [link.id]: { ...link, from: parent } };
+  const siblings = nextSteps({ ...map, links }, parent).filter((c) => c !== id);
+  const at = before === null ? -1 : siblings.indexOf(before);
+  siblings.splice(at === -1 ? siblings.length : at, 0, id);
+  if (links === map.links && nextSteps(map, parent).join() === siblings.join()) return map;
+  const order = { ...withoutNextStep(map.order, link.from, id), [parent]: siblings };
+  return { ...map, links, order };
+}
 
 /**
  * Puts a damaged tree back into a tree's shape (one start, no loose boxes,

@@ -32,7 +32,15 @@ import {
   setPage,
 } from "../domain/map";
 import { defaultPageSize } from "../domain/page";
-import { canCollapse, canDeleteLink, canPaste, canSetStatus, nextStepRefusal } from "../domain/rules";
+import {
+  canCollapse,
+  canDeleteLink,
+  canMove,
+  canPaste,
+  canSetStatus,
+  moveRefusalText,
+  nextStepRefusal,
+} from "../domain/rules";
 import { shownMap } from "../domain/shown";
 import {
   emptyTrash,
@@ -48,7 +56,7 @@ import {
   type MapTrash,
   type TrashSummary,
 } from "../domain/trash";
-import { addNextStep, branchesOf, createTree, startOf } from "../domain/tree";
+import { addNextStep, branchesOf, createTree, moveToParent as moveUnder, startOf } from "../domain/tree";
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
 import { ARROW_LENGTH_PRESETS, type LinkId, type LinkMap, type MapId, type NodeId, type NodeStatus, type PaletteColor, type Point, type Size } from "../domain/types";
@@ -90,6 +98,22 @@ export interface Connecting {
   readonly at: Point;
   /** The box under the pointer, if the rules allow an arrow to it. */
   readonly target: NodeId | null;
+}
+
+/** A tree box being dragged over a place it could move to: another box (it
+    would become that box's last next step) or a gap between siblings. */
+export interface Dropping {
+  readonly box: NodeId;
+  /** The pointer, in page pixels: the chip follows it. */
+  readonly at: Point;
+  /** The box it would become a next step of. */
+  readonly parent: NodeId;
+  /** The sibling it would go just before; `null`: last. */
+  readonly before: NodeId | null;
+  /** Aiming at a gap: the bar drawn there. `null` when over a box. */
+  readonly bar: { readonly from: Point; readonly to: Point } | null;
+  /** Why letting go here would move nothing, in words; `null` if it may. */
+  readonly refusal: string | null;
 }
 
 /** A delete waiting on the "trash is full" warning: what it would erase
@@ -146,6 +170,7 @@ export interface MapState {
   readonly clipboard: { readonly fragment: MapFragment; readonly pastes: number } | null;
   readonly editing: Editing | null;
   readonly connecting: Connecting | null;
+  readonly dropping: Dropping | null;
   /** Bumped by the "Tidy up" button. The canvas, which knows every box's
       measured size, watches it, tidies and glides the boxes there. */
   readonly tidyRequest: TidyRequest;
@@ -271,6 +296,13 @@ export interface MapState {
       map's rules allow it. */
   connect(from: NodeId, to: NodeId): boolean;
   setConnecting(connecting: Connecting | null): void;
+  setDropping(dropping: Dropping | null): void;
+  /** Makes a tree box (with its branch) a next step of `parent`, just
+      before `before` (`null`: last), opening `parent` if it is collapsed;
+      the tree re-tidies. `gesture` joins the drag's own undo step, so the
+      drag, the move and the tidy undo together. Refused, saying why, when
+      the rules say no. */
+  moveToParent(id: NodeId, parent: NodeId, before: NodeId | null, gesture?: string): void;
   /** An emptied label goes back to the kind's default. */
   setLinkLabel(id: LinkId, label: string): void;
   /** Only where the rules allow it (never a tree box's only way in). */
@@ -404,6 +436,7 @@ function open(s: MapState, map: LinkMap, maps: Registry, needsTidy = takeUnplace
     group: [],
     editing: null,
     connecting: null,
+    dropping: null,
     confirmingDelete: null,
     editAfterTidy: null,
   };
@@ -569,6 +602,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
   clipboard: null,
   editing: null,
   connecting: null,
+  dropping: null,
   tidyRequest: { count: 0, direction: "TB", arrowLength: ARROW_LENGTH_PRESETS.medium, gesture: null },
   history: history.EMPTY_HISTORY,
   stepKey: null,
@@ -800,6 +834,20 @@ export const useMapStore = create<MapState>()((set, get) => ({
     return true;
   },
   setConnecting: (connecting) => set({ connecting }),
+  setDropping: (dropping) => set({ dropping }),
+  moveToParent: (id, parent, before, gesture) =>
+    set((s) => {
+      const verdict = canMove(s.map, id, parent);
+      if (!verdict.ok) {
+        useSyncNotice.getState().say(moveRefusalText(s.map, id, parent, verdict.reason));
+        return {};
+      }
+      // A collapsed box opens first, so the moved box shows (as for a new
+      // next step).
+      const next = moveUnder(setCollapsed(s.map, [parent], false), id, parent, before);
+      if (next === s.map) return {};
+      return { ...commit(s, next, gesture ?? null), settleRequest: s.settleRequest + 1 };
+    }),
   // A tree makes room for a new or changed label at once (the label and
   // the room are one undo step, see settleRequest), so it never covers a box.
   setLinkLabel: (id, label) =>

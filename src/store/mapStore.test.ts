@@ -466,6 +466,32 @@ describe("map store (tree)", () => {
     expect(useMapStore.getState().map).toEqual(before);
   });
 
+  it("moves a box under another, opening it, in one undo step with the drag, and asks for room", async () => {
+    const useMapStore = await treeStore();
+    const raise = named(useMapStore, "Ask for a raise");
+    const mortgage = named(useMapStore, "Take out a mortgage");
+    useMapStore.getState().toggleCollapsed([raise]);
+    const before = useMapStore.getState().map;
+    const settle = useMapStore.getState().settleRequest;
+    useMapStore.getState().moveBoxes(new Map([[mortgage, { x: 5, y: 5 }]]), "drag:t");
+    useMapStore.getState().moveToParent(mortgage, raise, null, "drag:t");
+    const { map, settleRequest } = useMapStore.getState();
+    expect(Object.values(map.links).filter((l) => l.to === mortgage).map((l) => l.from)).toEqual([raise]);
+    expect(map.collapsed).not.toContain(raise);
+    expect(settleRequest).toBe(settle + 1);
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map).toEqual(before);
+  });
+
+  it("refuses to move a box into its own branch, saying why", async () => {
+    const useMapStore = await treeStore();
+    const { useSyncNotice } = await import("./syncNotice");
+    const before = useMapStore.getState().map;
+    useMapStore.getState().moveToParent(named(useMapStore, "Yes, take it"), named(useMapStore, "Walk to work"), null);
+    expect(useMapStore.getState().map).toBe(before);
+    expect(useSyncNotice.getState().message?.text).toBe("“Walk to work” is inside the branch you're moving.");
+  });
+
   it("labels a tree arrow and makes room for it, in one undo step with the room", async () => {
     const useMapStore = await treeStore();
     const before = useMapStore.getState().map;
@@ -799,6 +825,16 @@ describe("a linked tree in the store", () => {
     expect(useMapStore.getState().addNextStep(asNodeId("a"))).toBeNull();
     expect(useSyncNotice.getState().message?.text).toMatch(/“A” is a card, and cards can.t have next steps in Boardkit/);
     expect(useMapStore.getState().addNextStep(asNodeId("buy"))).not.toBeNull();
+  });
+
+  it("moves a card to another list, but never a list under another", async () => {
+    const { useMapStore, useSyncNotice } = await linkedStore();
+    useMapStore.getState().moveToParent(asNodeId("a"), asNodeId("buy"), null);
+    expect(Object.values(useMapStore.getState().map.links).find((l) => l.to === "a")?.from).toBe("buy");
+    const before = useMapStore.getState().map;
+    useMapStore.getState().moveToParent(asNodeId("rent"), asNodeId("buy"), null);
+    expect(useMapStore.getState().map).toBe(before);
+    expect(useSyncNotice.getState().message?.text).toBe("“Rent” is a list in Boardkit: lists can only be reordered.");
   });
 
   it("refuses a second way into a card", async () => {
