@@ -3,6 +3,7 @@ import { serializeBackup } from "../../domain/backup";
 import { useBackupStore } from "../../store/backupStore";
 import { idbDelete, idbGet, idbSet } from "../../store/idb";
 import { mapsForExport, useMapStore } from "../../store/mapStore";
+import { loadTemplates, useTemplates } from "../../store/templates";
 
 /**
  * Automatic backup to a folder the user picks (File System Access API, so
@@ -64,6 +65,10 @@ export function initAutoBackup(): void {
     // keeps that from writing an identical file.
     if (state.map !== previous.map || state.maps !== previous.maps) scheduleBackup();
   });
+  // A template saved, removed or restored is in the backup too.
+  useTemplates.subscribe((state, previous) => {
+    if (state.saved !== previous.saved) scheduleBackup();
+  });
 }
 
 async function restoreFolder(): Promise<void> {
@@ -115,11 +120,12 @@ async function writeBackupFile(target: Folder): Promise<void> {
   // Nothing to keep yet (the first visit's example before its first tidy):
   // an empty file would only push a good backup out of the last 20.
   if (maps.length === 0) return;
-  const signature = JSON.stringify(maps);
+  const templates = loadTemplates();
+  const signature = JSON.stringify([maps, templates]);
   if (signature === lastWritten) return;
   const now = new Date();
   const name = backupFileName(now);
-  const text = JSON.stringify(serializeBackup(maps, now), null, 2);
+  const text = JSON.stringify(serializeBackup(maps, now, templates), null, 2);
   try {
     // `createWritable` writes to a temporary file and replaces the real one
     // only on `close()`, so a crash mid-write can't leave half a backup.

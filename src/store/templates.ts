@@ -1,5 +1,6 @@
 import { create } from "zustand";
 
+import { templatesToRestore } from "../domain/backup";
 import { createMapId } from "../domain/ids";
 import { readTemplates, serializeTemplates, templateOf, type SavedTemplate } from "../domain/templates";
 import type { LinkMap } from "../domain/types";
@@ -8,6 +9,11 @@ import { useSyncNotice } from "./syncNotice";
 /** Where saved templates live, beside the maps (every Linkkit key starts
     with "linkkit:"). */
 const TEMPLATES_KEY = "linkkit:templates";
+
+/** The saved templates as stored now (another tab may have added one). */
+export function loadTemplates(): SavedTemplate[] {
+  return load();
+}
 
 function load(): SavedTemplate[] {
   try {
@@ -37,6 +43,8 @@ export const useTemplates = create<{
   reload: () => void;
   save: (map: LinkMap) => void;
   remove: (id: string) => void;
+  /** Adds the templates from a backup that aren't here yet; how many. */
+  restore: (incoming: readonly SavedTemplate[]) => number;
 }>()((set) => ({
   saved: load(),
   reload: () => set({ saved: load() }),
@@ -50,6 +58,13 @@ export const useTemplates = create<{
     }
     set({ saved: next });
     say(`Saved “${template.name}” as a template: it is under “New from template…”.`);
+  },
+  restore: (incoming) => {
+    const now = load();
+    const add = templatesToRestore(now, incoming);
+    if (add.length === 0 || !store([...now, ...add])) return 0;
+    set({ saved: [...now, ...add] });
+    return add.length;
   },
   remove: (id) => {
     const next = load().filter((t) => t.id !== id);

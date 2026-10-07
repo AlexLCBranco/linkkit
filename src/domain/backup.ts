@@ -1,5 +1,6 @@
 import { readMap, serializeMap, type PersistedMap } from "./persistence";
 import type { Registry } from "./registry";
+import { readTemplates, TEMPLATES_VERSION, type SavedTemplate } from "./templates";
 import type { LinkMap, Size } from "./types";
 
 /**
@@ -21,15 +22,29 @@ export interface Backup {
   readonly exportedAt: string;
   /** Oldest first, like the list of maps. */
   readonly maps: readonly PersistedMap[];
+  /** The user's saved templates (U10). Added without a new version: older
+      files have none, and an older Linkkit reading a newer file just
+      leaves them out. */
+  readonly templates?: readonly SavedTemplate[];
 }
 
-export function serializeBackup(maps: readonly LinkMap[], exportedAt: Date): Backup {
-  return { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: exportedAt.toISOString(), maps: maps.map((map) => serializeMap(map)) };
+export function serializeBackup(
+  maps: readonly LinkMap[],
+  exportedAt: Date,
+  templates: readonly SavedTemplate[] = [],
+): Backup {
+  return { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: exportedAt.toISOString(), maps: maps.map((map) => serializeMap(map)), templates };
 }
 
 export type BackupRead =
   /** `damaged`: maps in the file that could not be read at all. */
-  | { readonly status: "ok"; readonly maps: readonly LinkMap[]; readonly damaged: number }
+  | {
+      readonly status: "ok";
+      readonly maps: readonly LinkMap[];
+      readonly damaged: number;
+      /** Saved templates in the file (none in an older one); any not whole is left out. */
+      readonly templates: readonly SavedTemplate[];
+    }
   | { readonly status: "not-a-backup" };
 
 /** Reads a backup file's contents. A map that appears twice is kept once. */
@@ -51,7 +66,8 @@ export function readBackup(data: unknown, fallbackPage: Size): BackupRead {
       maps.push(map);
     }
   }
-  return { status: "ok", maps, damaged };
+  const templates = readTemplates({ version: TEMPLATES_VERSION, templates: file.templates ?? [] });
+  return { status: "ok", maps, damaged, templates };
 }
 
 /**
@@ -59,6 +75,13 @@ export function readBackup(data: unknown, fallbackPage: Size): BackupRead {
  * id. That is what makes restoring never overwrite a map, and restoring
  * the same file twice add nothing the second time.
  */
+/** Which saved templates from a backup to add: those not here already
+    (by id), so restoring twice adds nothing the second time. */
+export function templatesToRestore(existing: readonly SavedTemplate[], incoming: readonly SavedTemplate[]): SavedTemplate[] {
+  const here = new Set(existing.map((t) => t.id));
+  return incoming.filter((t) => !here.has(t.id));
+}
+
 export function mapsToRestore(
   existing: Registry,
   incoming: readonly LinkMap[],

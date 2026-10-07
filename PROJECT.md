@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.46 (U9: a map with tree rules is named after its start box)_
+_Last updated: 2026-10-07, v0.0.47 (U10: saved templates are backed up and restored)_
 
 ## What it is
 
@@ -1118,6 +1118,12 @@ One commit per item. Short entries only.
   of the same undo step; an undo now also updates the map list's name.
   A blank start leaves the name alone; linked maps unchanged (always the
   start's name)
+- ~~U10. Templates in backups~~ (done, v0.0.47). "Export all maps" and
+  automatic backups also hold the saved templates (`templates` in the
+  file, same version 1: older files read as none, an older Linkkit
+  ignores them); a template change also schedules an automatic backup.
+  Restoring adds the templates not here yet (by id; twice adds nothing)
+  and says how many came back. Replaces U6's "not in backups yet"
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 

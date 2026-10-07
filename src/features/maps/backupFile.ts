@@ -1,6 +1,7 @@
 import { readBackup, serializeBackup, type BackupRead } from "../../domain/backup";
 import { useBackupStore } from "../../store/backupStore";
 import { mapsForExport, newPageSize, useMapStore } from "../../store/mapStore";
+import { loadTemplates, useTemplates } from "../../store/templates";
 
 /**
  * The browser side of "Export all maps" and "Restore all maps from a
@@ -8,12 +9,12 @@ import { mapsForExport, newPageSize, useMapStore } from "../../store/mapStore";
  * maps. The format itself is `domain/backup.ts`.
  */
 
-/** Downloads every map as one file, e.g. `linkkit-maps-2026-10-06.json`.
-    Returns how many maps it holds. */
+/** Downloads every map (and every saved template) as one file, e.g.
+    `linkkit-maps-2026-10-06.json`. Returns how many maps it holds. */
 export function exportAllMaps(): number {
   const now = new Date();
   const maps = mapsForExport();
-  const text = JSON.stringify(serializeBackup(maps, now), null, 2);
+  const text = JSON.stringify(serializeBackup(maps, now, loadTemplates()), null, 2);
   const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
   // A link clicked from code is how a page starts a download.
   const link = document.createElement("a");
@@ -52,12 +53,14 @@ export async function restoreFrom(file: File): Promise<{ title: string; text: st
     };
   }
   const { added, alreadyHere } = useMapStore.getState().restoreMaps(read.maps);
+  const templates = useTemplates.getState().restore(read.templates);
   const notes = [
+    templates > 0 && `${plural(templates, "saved template")} came back too.`,
     alreadyHere > 0 && `${plural(alreadyHere, "map")} already here (or in the trash) ${alreadyHere === 1 ? "was" : "were"} left as ${alreadyHere === 1 ? "it was" : "they were"}.`,
     read.damaged > 0 && `${plural(read.damaged, "map")} in the file couldn’t be read.`,
   ].filter(Boolean);
   return {
-    title: added > 0 ? `Restored ${plural(added, "map")}` : "Nothing new to restore",
+    title: added > 0 ? `Restored ${plural(added, "map")}` : templates > 0 ? `Restored ${plural(templates, "template")}` : "Nothing new to restore",
     text: notes.join(" ") || "Every map in the file is back.",
   };
 }
