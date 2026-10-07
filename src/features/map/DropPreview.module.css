@@ -33,8 +33,8 @@
   transform: translate(var(--drop-chip-offset), var(--drop-chip-offset));
 }
 
-/* Letting go here moves nothing: grey, saying why. */
+/* Letting go here is refused: the "not here" colour, saying why. */
 .chip[data-refused] {
-  border-color: var(--border-strong);
-  color: var(--text-secondary);
+  border-color: var(--refused);
+  color: var(--text-primary);
 }

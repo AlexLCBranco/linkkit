@@ -3,6 +3,7 @@ import type { NodeId } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { ARROW } from "./layoutConfig";
 import styles from "./ConnectPreview.module.css";
+import drop from "./DropPreview.module.css";
 
 /** Where the pointer is, as a box with no size, so the same arrow maths
     reaches it. */
@@ -27,9 +28,17 @@ export function ConnectPreview({ boxes }: { readonly boxes: ReadonlyMap<NodeId, 
   const [tip, left, right] = g.head;
 
   return (
-    <svg className={styles.preview} aria-hidden>
-      <path className={styles.line} d={`M${g.start.x} ${g.start.y}L${g.end.x} ${g.end.y}`} />
-      <path className={styles.head} d={`M${tip.x} ${tip.y}L${left.x} ${left.y}L${right.x} ${right.y}Z`} />
-    </svg>
+    <>
+      <svg className={styles.preview} aria-hidden>
+        <path className={styles.line} d={`M${g.start.x} ${g.start.y}L${g.end.x} ${g.end.y}`} />
+        <path className={styles.head} d={`M${tip.x} ${tip.y}L${left.x} ${left.y}L${right.x} ${right.y}Z`} />
+      </svg>
+      {/* Over a box that refuses the arrow: why, before letting go. */}
+      {connecting.refused && (
+        <div className={drop.chip} data-refused style={{ left: connecting.at.x, top: connecting.at.y }} role="status">
+          {connecting.refused.text}
+        </div>
+      )}
+    </>
   );
 }

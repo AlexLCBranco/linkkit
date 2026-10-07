@@ -38,6 +38,7 @@ function focusedBox(target: EventTarget | null): NodeId | null {
  *   Ctrl/Cmd+V                 paste what was copied
  *   Esc                        clear the selection
  *   Enter on a focused box     select it (as in the prototype)
+ *   Delete, Backspace          delete the picked arrow (a click on its line)
  * On the selected box, or every box of a group:
  *   Delete, Backspace          delete (with their arrows)
  *   1-8, 0                     set a palette colour; 0 clears it
@@ -91,6 +92,11 @@ export function useMapShortcuts() {
       }
 
       const picked = selectionOf(store);
+      if (store.selectedLink && picked.length === 0 && !store.editing && (key === "delete" || key === "backspace")) {
+        e.preventDefault();
+        store.deleteLink(store.selectedLink);
+        return;
+      }
       if (picked.length === 0 || store.editing) return;
       if (key === "delete" || key === "backspace") {
         e.preventDefault();

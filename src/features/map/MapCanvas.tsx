@@ -24,6 +24,9 @@ import { BoxContextMenu } from "./BoxContextMenu";
 import { BoxView, type BoxFlowNode } from "./BoxView";
 import { ConnectPreview } from "./ConnectPreview";
 import { DropPreview } from "./DropPreview";
+import { HintBubble } from "./HintBubble";
+import { RelinkPreview } from "./RelinkPreview";
+import { useHint } from "../../store/hint";
 import {
   ARROW,
   DRAG_THRESHOLD,
@@ -49,6 +52,8 @@ const edgeTypes = { link: LinkEdgeView };
 /** A node's position is its centre, matching how the map stores boxes. */
 const CENTER_ORIGIN: NodeOrigin = [0.5, 0.5];
 const NO_DATA = {};
+/** Double-clicking a tree's paper adds nothing: the hint says how instead. */
+const PAPER_REFUSAL = "In a tree every box needs a parent: use a box’s + button, or drag its dot onto the paper.";
 /** The page before the screen is first measured. */
 const FILL = { width: "100%", height: "100%" };
 
@@ -208,10 +213,13 @@ function MapCanvasInner() {
     (e: MouseEvent) => {
       const page = pageRef.current;
       if (!page || !(e.target as Element).classList.contains("react-flow__pane")) return;
-      // A tree grows only from its boxes ("+", or a box's dot): a box
-      // added on its own would be loose.
-      if (useMapStore.getState().map.kind === "tree") return;
       const at = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      // A tree grows only from its boxes ("+", or a box's dot): a box
+      // added on its own would be loose. Said where it was tried.
+      if (useMapStore.getState().map.kind === "tree") {
+        useHint.getState().show(PAPER_REFUSAL, at);
+        return;
+      }
       // Not measured yet: a typical box's size keeps it on the page for now.
       addBox(clampToPage(at, MAP_LAYOUT.fallbackSize, page, PAGE_INSETS));
     },
@@ -477,7 +485,9 @@ function MapCanvasInner() {
             attributionPosition="top-right"
           />
           <ConnectPreview boxes={boxes} />
+          <RelinkPreview boxes={boxes} />
           <DropPreview />
+          <HintBubble />
           {marquee && (
             <div
               className={styles.marquee}

@@ -62,7 +62,15 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   const highlight = useMapStore((s) => selectNodeHighlight(s, nodeId));
   const isPicked = useMapStore((s) => s.group.includes(nodeId));
   const isEditing = useMapStore((s) => s.editing?.kind === "box" && s.editing.id === nodeId);
-  const isTarget = useMapStore((s) => s.connecting?.target === nodeId);
+  const isTarget = useMapStore((s) => s.connecting?.target === nodeId || s.relinking?.target === nodeId);
+  // Something dragged over this box that it refuses: the ring says no
+  // before the mouse is let go (the chip beside the pointer says why).
+  const isRefusedTarget = useMapStore(
+    (s) =>
+      s.connecting?.refused?.box === nodeId ||
+      s.relinking?.refused?.box === nodeId ||
+      (s.dropping?.parent === nodeId && s.dropping.bar === null && s.dropping.refusal !== null),
+  );
   const isSource = useMapStore((s) => s.connecting?.from === nodeId);
   // Dragged onto this box, it would become its next step.
   const isDropTarget = useMapStore(
@@ -102,6 +110,7 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
       data-editing={isEditing || undefined}
       data-dragging={dragging || undefined}
       data-connect-target={isTarget || isDropTarget || undefined}
+      data-refused-target={isRefusedTarget || undefined}
       data-dropping={isDropping || undefined}
       data-connect-source={isSource || undefined}
       data-cut={isCut || undefined}

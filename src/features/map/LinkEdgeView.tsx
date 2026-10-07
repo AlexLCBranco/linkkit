@@ -1,16 +1,25 @@
-import { BaseEdge, EdgeLabelRenderer, type Edge, type EdgeProps } from "@xyflow/react";
+import { BaseEdge, EdgeLabelRenderer, useReactFlow, type Edge, type EdgeProps } from "@xyflow/react";
 import { X } from "lucide-react";
 import { memo, useCallback, useState } from "react";
 
 import { InlineEditable } from "../../components/InlineEditable";
 
 import type { LinkGeometry } from "../../domain/geometry";
-import { canDeleteLink } from "../../domain/rules";
 import { looksCut } from "../../domain/status";
 import type { LinkId, Point, Size } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { selectLinkHighlight } from "../../store/selectors";
 import styles from "./LinkEdgeView.module.css";
+import { LINK_HANDLE_INSET, LINK_HANDLE_RADIUS } from "./layoutConfig";
+import { LINK_ID_ATTRIBUTE } from "./pageMarkers";
+import { useRelink } from "./useRelink";
+
+/** `from` moved `by` pixels towards `to` (where an end handle sits, clear
+    of the box it touches). */
+function towards(from: Point, to: Point, by: number): Point {
+  const len = Math.hypot(to.x - from.x, to.y - from.y) || 1;
+  return { x: from.x + ((to.x - from.x) / len) * by, y: from.y + ((to.y - from.y) / len) * by };
+}
 
 export interface LinkEdgeData extends Record<string, unknown> {
   /** Where the line and head go; `null` when the boxes overlap (or are
@@ -41,6 +50,12 @@ export type LinkFlowEdge = Edge<LinkEdgeData, "link">;
  *
  * Mouse (as in the prototype): click the label to type a new one (left
  * empty, it goes back to "needs"); the × on its corner deletes the arrow.
+ * Click the line itself to pick the arrow (Delete then deletes it, and
+ * right-click offers the same): a picked arrow, or one the pointer is on,
+ * shows a round handle on each end. Drag a handle onto another box to
+ * reconnect that end (`useRelink`); in a tree, either end moves the box
+ * the arrow leads to under that box. Where the rules refuse a delete (a
+ * tree box's only way in) the × still shows, and says why when pressed.
  *
  * An arrow without a label (a tree's, until one is typed) has no pill.
  * Pointing at it shows a small chip in its middle: "+ label" opens a field
@@ -61,7 +76,11 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
   const stopEditing = useMapStore((s) => s.stopEditing);
   const setLinkLabel = useMapStore((s) => s.setLinkLabel);
   const deleteLink = useMapStore((s) => s.deleteLink);
-  const deletable = useMapStore((s) => canDeleteLink(s.map, linkId));
+  const isPicked = useMapStore((s) => s.selectedLink === linkId);
+  const isRelinking = useMapStore((s) => s.relinking?.link === linkId);
+  const selectLink = useMapStore((s) => s.selectLink);
+  const relink = useRelink(linkId);
+  const { screenToFlowPosition } = useReactFlow();
   const kind = useMapStore((s) => s.map.kind);
   // The box it leads to looks cut: the arrow fades and dashes with it.
   const isCut = useMapStore((s) => {
@@ -100,13 +119,16 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
   const line = `M${g.start.x} ${g.start.y}L${g.end.x} ${g.end.y}`;
   const spot = { transform: `translate(-50%, -50%) translate(${at.x}px, ${at.y}px)` };
   const hasPill = label !== "" || isEditing;
-  const deleteButton = deletable && (
+  const showEnds = isPicked || hot || isRelinking;
+  const fromEnd = towards(g.start, tip, LINK_HANDLE_INSET);
+  const toEnd = towards(tip, g.start, LINK_HANDLE_INSET);
+  const deleteButton = (
     <button
       type="button"
       className={styles.delete}
       onClick={(e) => {
         e.stopPropagation();
-        deleteLink(linkId);
+        deleteLink(linkId, screenToFlowPosition({ x: e.clientX, y: e.clientY }));
       }}
       aria-label="Delete arrow"
       title="Delete arrow"
@@ -117,22 +139,48 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
 
   return (
     <>
-      <BaseEdge id={id} path={line} className={styles.line} data-highlight={highlight} data-cut={isCut || undefined} />
+      <BaseEdge
+        id={id}
+        path={line}
+        className={styles.line}
+        data-highlight={highlight}
+        data-cut={isCut || undefined}
+        data-picked={isPicked || undefined}
+        data-relinking={isRelinking || undefined}
+      />
       <path
         className={styles.head}
         data-highlight={highlight}
         data-cut={isCut || undefined}
+        data-picked={isPicked || undefined}
+        data-relinking={isRelinking || undefined}
         d={`M${tip.x} ${tip.y}L${left.x} ${left.y}L${right.x} ${right.y}Z`}
       />
-      {!hasPill && (
-        // A wider, invisible line to point at.
+      {/* The line and its end handles, in one group so moving from the line
+          onto a handle keeps them shown. The hit line is wider than the
+          drawn one, easy to point at and click. */}
+      <g onPointerEnter={() => setHot(true)} onPointerLeave={() => setHot(false)} {...{ [LINK_ID_ATTRIBUTE]: linkId }}>
         <path
           className={styles.hit}
           d={line}
-          onPointerEnter={() => setHot(true)}
-          onPointerLeave={() => setHot(false)}
-        />
-      )}
+          onClick={(e) => {
+            e.stopPropagation();
+            selectLink(linkId);
+          }}
+        >
+          <title>Click to pick this arrow; drag its ends to reconnect it</title>
+        </path>
+        {showEnds && (
+          <>
+            <circle className={styles.end} cx={fromEnd.x} cy={fromEnd.y} r={LINK_HANDLE_RADIUS} onPointerDown={relink("from")}>
+              <title>Drag onto another box</title>
+            </circle>
+            <circle className={styles.end} cx={toEnd.x} cy={toEnd.y} r={LINK_HANDLE_RADIUS} onPointerDown={relink("to")}>
+              <title>Drag onto another box</title>
+            </circle>
+          </>
+        )}
+      </g>
       <EdgeLabelRenderer>
         {!hasPill ? (
           // Keyed apart from the pill, so switching between them swaps the
@@ -142,9 +190,15 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
           <div
             key="chip"
             className={`${styles.bare} nodrag nopan`}
-            data-hot={hot || undefined}
+            {...{ [LINK_ID_ATTRIBUTE]: linkId }}
+            data-hot={hot || isPicked || undefined}
             data-highlight={highlight}
             style={spot}
+            // The spot sits on the line's middle: a click there picks the
+            // arrow, as anywhere else on the line.
+            onClick={() => selectLink(linkId)}
+            onPointerEnter={() => setHot(true)}
+            onPointerLeave={() => setHot(false)}
             onDoubleClick={(e) => e.stopPropagation()}
           >
             <div className={styles.chip}>
@@ -166,6 +220,7 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
           <div
             key="pill"
             ref={measure}
+            {...{ [LINK_ID_ATTRIBUTE]: linkId }}
             // React Flow's opt-out classes: a press here is the label's own.
             className={`${styles.label} nodrag nopan`}
             data-highlight={highlight}

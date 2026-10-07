@@ -201,3 +201,43 @@ path.line[data-highlight="faded"],
 .label[data-highlight="faded"] {
   opacity: var(--faded-opacity);
 }
+
+/* ---- A picked arrow, and its end handles ---- */
+
+/* The hit line takes clicks (to pick the arrow) on every arrow. */
+path.hit {
+  cursor: pointer;
+}
+
+path.line[data-picked] {
+  stroke: var(--accent);
+  stroke-width: var(--edge-width-lit);
+}
+
+.head[data-picked] {
+  fill: var(--accent);
+}
+
+/* While one of its ends is being dragged elsewhere, the arrow as it is
+   fades: the dashed preview shows what it would become. */
+path.line[data-relinking],
+.head[data-relinking] {
+  opacity: var(--faded-opacity);
+}
+
+/* A round handle on each end: drag it onto another box. */
+.end {
+  fill: var(--surface-raised);
+  stroke: var(--accent);
+  stroke-width: var(--edge-width-lit);
+  cursor: grab;
+  pointer-events: all;
+}
+
+.end:hover {
+  fill: var(--accent);
+}
+
+.end:active {
+  cursor: grabbing;
+}

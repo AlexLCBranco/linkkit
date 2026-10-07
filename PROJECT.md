@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.38 (usability pass U0: undo data bug fixed)_
+_Last updated: 2026-10-07, v0.0.39 (usability pass U1: arrows can be picked, deleted and reconnected)_
 
 ## What it is
 
@@ -1021,6 +1021,22 @@ One commit per item. Short entries only.
   undo / redo is now refused up front with the reason. Everyday run: 150
   seeds (2,250 runs, ~2s); `STRESS_SEEDS=5000 npm test` for a long one
   (75,000 runs, all pass)
+- ~~U1. Arrows~~ (done, v0.0.39). Click an arrow's line to pick it
+  (accent colour, a round handle on each end); Delete, the right-click
+  menu ("Change label" / "Delete arrow") or its × delete it. Drag a
+  handle onto another box: in a connections map that end moves there
+  (id and label kept); in a tree either end moves the box the arrow
+  leads to under that box, with its branch (one way in: `canMove`; one of
+  several ways in: just that arrow). Refusals never pass silently: a box
+  that refuses shows a red dashed ring and a chip saying why before
+  letting go, and a short hint (`store/hint.ts`, `HintBubble`) appears
+  where the user acted: deleting a box's only way in ("In a tree every
+  box needs a parent: drag the box to a new parent, or delete the box."),
+  the start's delete or status, copy / paste in a tree, double-clicking a
+  tree's paper, a refused connect, folding a box with no next steps, a
+  step under a card. Choice made: in a tree both ends of an arrow do the
+  same thing (the brief named the child end; the parent end is where
+  people grab too, and re-parenting is the only change a tree allows)
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 

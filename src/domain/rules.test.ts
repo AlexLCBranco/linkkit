@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
 
 import { asLinkId, asNodeId } from "./ids";
-import { canAddNextStep, canDeleteBox, canDeleteLink, canLink, canPaste, levelOf, nextStepRefusal } from "./rules";
+import {
+  boxDeleteRefusal,
+  canAddNextStep,
+  canDeleteBox,
+  canDeleteLink,
+  canLink,
+  canPaste,
+  levelOf,
+  linkDeleteRefusal,
+  linkRefusalText,
+  nextStepRefusal,
+} from "./rules";
 import { build, buildTree, ids } from "./testMaps";
 
 const a = asNodeId("a");
@@ -85,5 +96,27 @@ describe("linked trees (a tree shared with a Boardkit board)", () => {
   it("leaves unlinked trees and connections maps as they were", () => {
     expect(canAddNextStep(tree, c)).toBe(true);
     expect(canAddNextStep(build(["a"]), a)).toBe(false);
+  });
+});
+
+describe("refusal texts", () => {
+  it("says why a tree arrow can't be deleted, and nothing for one that can", () => {
+    const t = buildTree("s", ["a", "b"], [["s", "a"], ["s", "b"], ["a", "b"]]);
+    expect(linkDeleteRefusal(t, asLinkId("s>a"))).toMatch(/every box needs a parent/);
+    expect(linkDeleteRefusal(t, asLinkId("a>b"))).toBeNull();
+    expect(linkDeleteRefusal(build(["a", "b"], [["a", "b"]]), asLinkId("a>b"))).toBeNull();
+  });
+
+  it("names the start when it can't be deleted", () => {
+    const t = buildTree("s", ["a"], [["s", "a"]]);
+    expect(boxDeleteRefusal(t, asNodeId("s"))).toMatch(/“s” is the start/);
+    expect(boxDeleteRefusal(t, asNodeId("a"))).toBeNull();
+  });
+
+  it("says why an arrow is refused", () => {
+    const t = buildTree("s", ["a"], [["s", "a"]]);
+    const verdict = canLink(t, asNodeId("a"), asNodeId("s"));
+    expect(verdict.ok).toBe(false);
+    if (!verdict.ok) expect(linkRefusalText(t, asNodeId("a"), asNodeId("s"), verdict.reason)).toMatch(/is the start/);
   });
 });

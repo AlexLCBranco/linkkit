@@ -19,6 +19,8 @@ import {
   moveNode,
   moveNodes,
   pasteFragment,
+  reconnectLink,
+  relinkCheck,
   renameMap,
   renameNode,
   setArrowLength,
@@ -34,11 +36,12 @@ import {
 } from "../domain/map";
 import { defaultPageSize } from "../domain/page";
 import {
+  boxDeleteRefusal,
   canCollapse,
-  canDeleteLink,
   canMove,
   canPaste,
   canSetStatus,
+  linkDeleteRefusal,
   moveRefusalText,
   nextStepRefusal,
 } from "../domain/rules";
@@ -73,6 +76,7 @@ import {
   withStartName,
   type BoardErased,
 } from "../domain/bridge";
+import { useHint } from "./hint";
 import { useLinkHold } from "./linkHold";
 import { boardExists, boardIdOfKey, hasBoardList, isBoardListKey, loadBoard } from "./persistBoard";
 import { useMissingMaps } from "./missingMaps";
@@ -110,6 +114,8 @@ export interface Connecting {
   readonly at: Point;
   /** The box under the pointer, if the rules allow an arrow to it. */
   readonly target: NodeId | null;
+  /** A box under the pointer the rules refuse, and why in words. */
+  readonly refused?: { readonly box: NodeId; readonly text: string } | null;
 }
 
 /** A tree box being dragged over a place it could move to: another box (it
@@ -126,6 +132,19 @@ export interface Dropping {
   readonly bar: { readonly from: Point; readonly to: Point } | null;
   /** Why letting go here would move nothing, in words; `null` if it may. */
   readonly refusal: string | null;
+}
+
+/** One end of an arrow being dragged to another box, not yet let go. */
+export interface Relinking {
+  readonly link: LinkId;
+  /** Which end: "from" (where the arrow leaves) or "to" (its head). */
+  readonly end: "from" | "to";
+  /** The pointer, in page pixels. */
+  readonly at: Point;
+  /** The box under the pointer, if letting go there would do something. */
+  readonly target: NodeId | null;
+  /** A box under the pointer that refuses it, and why in words. */
+  readonly refused: { readonly box: NodeId; readonly text: string } | null;
 }
 
 /** A delete waiting on the "trash is full" warning: what it would erase
@@ -188,6 +207,10 @@ export interface MapState {
   readonly editing: Editing | null;
   readonly connecting: Connecting | null;
   readonly dropping: Dropping | null;
+  /** The arrow picked by clicking its line (its ends then show handles to
+      drag), or `null`. Picking a box lets it go, and the other way round. */
+  readonly selectedLink: LinkId | null;
+  readonly relinking: Relinking | null;
   /** Bumped by the "Tidy up" button. The canvas, which knows every box's
       measured size, watches it, tidies and glides the boxes there. */
   readonly tidyRequest: TidyRequest;
@@ -322,8 +345,18 @@ export interface MapState {
   moveToParent(id: NodeId, parent: NodeId, before: NodeId | null, gesture?: string): void;
   /** An emptied label goes back to the kind's default. */
   setLinkLabel(id: LinkId, label: string): void;
-  /** Only where the rules allow it (never a tree box's only way in). */
-  deleteLink(id: LinkId): void;
+  /** Only where the rules allow it (never a tree box's only way in); when
+      refused, a hint says why at `at` (the arrow's middle if not given). */
+  deleteLink(id: LinkId, at?: Point): void;
+  /** Picks an arrow (`null` lets it go), letting go of any picked box. */
+  selectLink(id: LinkId | null): void;
+  setRelinking(relinking: Relinking | null): void;
+  /** One end of arrow `id` let go on `box`. A connections map moves that
+      end there (the arrow keeps its id and label). In a tree either end
+      means the same: the box the arrow leads to moves under `box`, with
+      its branch (the one-parent rule holds). Refused with a hint at `at`
+      when the rules say no. One undo step. */
+  reconnect(id: LinkId, end: "from" | "to", box: NodeId, at: Point): void;
 
   /* Several maps. Each one finishes typing and writes the pending save
      first, so the outgoing map's last edits are kept before anything else
@@ -466,6 +499,8 @@ function open(s: MapState, map: LinkMap, maps: Registry, needsTidy = takeUnplace
     editing: null,
     connecting: null,
     dropping: null,
+    selectedLink: null,
+    relinking: null,
     confirmingDelete: null,
     editAfterTidy: null,
   };
@@ -483,8 +518,9 @@ const UNTITLED_TREE = "Untitled tree";
 
 /** The selection as `selected` and `group`: two or more boxes are a
     group, one is just selected. */
-function selecting(ids: readonly NodeId[]): Pick<MapState, "selected" | "group"> {
-  return ids.length > 1 ? { selected: null, group: ids } : { selected: ids[0] ?? null, group: [] };
+function selecting(ids: readonly NodeId[]): Pick<MapState, "selected" | "group" | "selectedLink"> {
+  const boxes = ids.length > 1 ? { selected: null, group: ids } : { selected: ids[0] ?? null, group: [] };
+  return { ...boxes, selectedLink: null };
 }
 
 /** Every selected box: the group, else the one selected box, else none. */
@@ -494,13 +530,29 @@ export function selectionOf(s: Pick<MapState, "selected" | "group">): readonly N
 
 /** Drops view state that points at something no longer on the map, or
     no longer shown on it (a cut box with "hide cut" on). */
-function forget(s: MapState, map: LinkMap): Pick<MapState, "map" | "selected" | "group" | "editing"> {
+function forget(s: MapState, map: LinkMap): Pick<MapState, "map" | "selected" | "group" | "editing" | "selectedLink"> {
   const shown = shownMap(map);
   const gone = (e: Editing | null) => e !== null && !(e.kind === "box" ? shown.nodes[e.id] : shown.links[e.id]);
   const kept = selectionOf(s).filter((id) => shown.nodes[id]);
   // A group that lost boxes stays a group only while two are left.
   const selection = kept.length === selectionOf(s).length ? { selected: s.selected, group: s.group } : selecting(kept);
-  return { map, ...selection, editing: gone(s.editing) ? null : s.editing };
+  const selectedLink = s.selectedLink && shown.links[s.selectedLink] ? s.selectedLink : null;
+  return { map, ...selection, selectedLink, editing: gone(s.editing) ? null : s.editing };
+}
+
+/** A tree has no copy and paste: a pasted box would arrive with no way in. */
+const PASTE_REFUSAL = "Copy and paste are off in a tree: a pasted box would have no parent. Drag a box to move it.";
+const STATUS_REFUSAL = (map: LinkMap, id: NodeId) =>
+  `“${map.nodes[id]?.name || "Untitled"}” is the start, the question itself: it has no keep / maybe / cut.`;
+
+/** Where a hint about box `id` (or arrow) shows when the action came from
+    the keyboard: its centre, or the arrow's middle. */
+const boxSpot = (map: LinkMap, id: NodeId): Point => map.nodes[id] ?? { x: 0, y: 0 };
+function linkSpot(map: LinkMap, id: LinkId): Point {
+  const link = map.links[id];
+  const from = link && map.nodes[link.from];
+  const to = link && map.nodes[link.to];
+  return from && to ? { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 } : { x: 0, y: 0 };
 }
 
 /**
@@ -728,6 +780,8 @@ export const useMapStore = create<MapState>()((set, get) => ({
   editing: null,
   connecting: null,
   dropping: null,
+  selectedLink: null,
+  relinking: null,
   tidyRequest: { count: 0, direction: "TB", arrowLength: ARROW_LENGTH_PRESETS.medium, gesture: null },
   history: history.EMPTY_HISTORY,
   stepKey: null,
@@ -750,7 +804,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
       }
       return commit(s, next, gesture && `arrows:${gesture}`);
     }),
-  select: (id) => set({ selected: id, group: [] }),
+  select: (id) => set({ selected: id, group: [], selectedLink: null }),
   selectGroup: (ids) => set((s) => selecting(ids.filter((id) => s.map.nodes[id]))),
   toggleSelected: (id) =>
     set((s) => {
@@ -818,7 +872,11 @@ export const useMapStore = create<MapState>()((set, get) => ({
       // A tree asks first when the delete takes boxes after these along.
       const branch = branchesOf(s.map, ids);
       const picked = ids.filter((id) => branch.has(id));
-      if (picked.length === 0) return {};
+      if (picked.length === 0) {
+        const start = ids.find((id) => boxDeleteRefusal(s.map, id));
+        if (start) useHint.getState().show(boxDeleteRefusal(s.map, start)!, boxSpot(s.map, start));
+        return {};
+      }
       return branch.size > picked.length
         ? { confirmingDelete: { ids: picked, count: branch.size } }
         : trashing(s, branch);
@@ -829,7 +887,11 @@ export const useMapStore = create<MapState>()((set, get) => ({
   toggleCut: (ids) =>
     set((s) => {
       const settable = ids.filter((id) => canSetStatus(s.map, id));
-      if (settable.length === 0) return {};
+      if (settable.length === 0) {
+        const box = ids.find((id) => s.map.nodes[id]);
+        if (box && s.map.kind === "tree") useHint.getState().show(STATUS_REFUSAL(s.map, box), boxSpot(s.map, box));
+        return {};
+      }
       // All cut already: uncut them. Otherwise: cut them all.
       const allCut = settable.every((id) => s.map.nodes[id].status === "cut");
       return withRoomMade(s, setNodesStatus(s.map, settable, allCut ? null : "cut"));
@@ -838,13 +900,22 @@ export const useMapStore = create<MapState>()((set, get) => ({
   toggleCollapsed: (ids) =>
     set((s) => {
       const foldable = ids.filter((id) => canCollapse(s.map, id));
-      if (foldable.length === 0) return {};
+      if (foldable.length === 0) {
+        const box = ids.find((id) => s.map.nodes[id]);
+        const name = box ? s.map.nodes[box].name || "Untitled" : "";
+        if (box) useHint.getState().show(`“${name}” has no next steps to fold away.`, boxSpot(s.map, box));
+        return {};
+      }
       // All collapsed already: expand them. Otherwise: collapse them all.
       const all = foldable.every((id) => s.map.collapsed.includes(id));
       return withRoomMade(s, setCollapsed(s.map, foldable, !all));
     }),
   copyBoxes: (ids) =>
     set((s) => {
+      if (!canPaste(s.map) && ids[0] && s.map.nodes[ids[0]]) {
+        useHint.getState().show(PASTE_REFUSAL, boxSpot(s.map, ids[0]));
+        return {};
+      }
       const fragment = copyFragment(s.map, ids);
       return canPaste(s.map) && fragment.nodes.length > 0 ? { clipboard: { fragment, pastes: 0 } } : {};
     }),
@@ -855,7 +926,12 @@ export const useMapStore = create<MapState>()((set, get) => ({
   },
   paste: (at) =>
     set((s) => {
-      if (!s.clipboard || !canPaste(s.map)) return {};
+      if (!s.clipboard) return {};
+      if (!canPaste(s.map)) {
+        const start = startOf(s.map);
+        useHint.getState().show(PASTE_REFUSAL, at ?? (start ? boxSpot(s.map, start) : { x: 0, y: 0 }));
+        return {};
+      }
       const { fragment, pastes } = s.clipboard;
       const center = fragmentCenter(fragment);
       const step = PASTE_STEP * (pastes + 1);
@@ -923,7 +999,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
     // The UI doesn't offer it then; this is the last word.
     const refusal = nextStepRefusal(map, from);
     if (refusal) {
-      useSyncNotice.getState().say(refusal);
+      useHint.getState().show(refusal, at ?? boxSpot(map, from));
       return null;
     }
     const offset = NEXT_STEP_OFFSET[map.direction];
@@ -975,7 +1051,38 @@ export const useMapStore = create<MapState>()((set, get) => ({
       const settle = next !== s.map && next.kind === "tree" ? 1 : 0;
       return { ...commit(s, next), settleRequest: s.settleRequest + settle };
     }),
-  deleteLink: (id) => set((s) => (canDeleteLink(s.map, id) ? commit(s, deleteLink(s.map, id)) : {})),
+  deleteLink: (id, at) =>
+    set((s) => {
+      const refusal = linkDeleteRefusal(s.map, id);
+      if (refusal) {
+        useHint.getState().show(refusal, at ?? linkSpot(s.map, id));
+        return {};
+      }
+      if (!s.map.links[id]) return {};
+      return { ...commit(s, deleteLink(s.map, id)), selectedLink: null };
+    }),
+  selectLink: (id) => set({ selectedLink: id, selected: null, group: [] }),
+  setRelinking: (relinking) => set({ relinking }),
+  reconnect: (id, end, box, at) =>
+    set((s) => {
+      const link = s.map.links[id];
+      const check = relinkCheck(s.map, id, end, box);
+      if (!link || check.kind === "same") return {};
+      if (check.kind === "refused") {
+        useHint.getState().show(check.text, at);
+        return {};
+      }
+      if (s.map.kind !== "tree") return { ...commit(s, reconnectLink(s.map, id, end, box).map), selectedLink: id };
+      // A tree: the box the arrow leads to goes under `box`. One of several
+      // ways in only changes this arrow; an only way in moves the branch.
+      const child = link.to;
+      const several = Object.values(s.map.links).filter((l) => l.to === child).length > 1;
+      const open = setCollapsed(s.map, [box], false);
+      const next = several ? reconnectLink(open, id, "from", box).map : moveUnder(open, child, box, null);
+      if (next === s.map) return {};
+      // The moved box ends up picked: its new way back to the start lights up.
+      return { ...commit(s, next), ...selecting([child]), settleRequest: s.settleRequest + 1 };
+    }),
 
   newMap: () => {
     get().stopEditing();

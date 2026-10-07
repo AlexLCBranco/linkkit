@@ -70,3 +70,9 @@ export const TIDY_GLIDE_MS = 220;
 /** Dragging a tree box between siblings: how far past the first or last
     one a drop spot reaches, and the narrowest a gap's spot gets. */
 export const DROP_SLOTS = { reach: 32, minGap: 24 };
+
+/** A picked arrow's round end handles (dragged to reconnect it): their
+    radius, and how far each sits back along the line from the box it
+    touches, so the box doesn't cover it. */
+export const LINK_HANDLE_RADIUS = 6;
+export const LINK_HANDLE_INSET = 9;

@@ -1,5 +1,5 @@
 import { createLinkId, createNodeId } from "./ids";
-import { canCollapse, canLink, canSetStatus, type LinkVerdict } from "./rules";
+import { canCollapse, canLink, canMove, canSetStatus, linkRefusalText, moveRefusalText, type LinkVerdict } from "./rules";
 import { isOrdered, withNextStep, withoutBoxes, withoutNextStep } from "./order";
 import type {
   ArrowLength,
@@ -244,4 +244,68 @@ export function setCollapsed(map: LinkMap, ids: Iterable<NodeId>, on: boolean): 
   }
   if (now.size === map.collapsed.length && map.collapsed.every((id) => now.has(id))) return map;
   return { ...map, collapsed: [...now] };
+}
+
+/**
+ * Moves one end of an arrow onto another box (a connections map: drag an
+ * arrow's end to reconnect it). The arrow keeps its id and label. Refused,
+ * saying why, when the rules don't allow the arrow it would become (asked
+ * without the arrow itself, so moving an end back to where it was, or
+ * swapping nothing, is not "already there"). In a tree an arrow's end
+ * moves its box instead (`moveToParent` in tree.ts).
+ */
+export function reconnectLink(
+  map: LinkMap,
+  id: LinkId,
+  end: "from" | "to",
+  box: NodeId,
+): { map: LinkMap; verdict: LinkVerdict } {
+  const link = map.links[id];
+  if (!link) return { map, verdict: { ok: false, reason: "missing" } };
+  if (link[end] === box) return { map, verdict: { ok: true } };
+  const from = end === "from" ? box : link.from;
+  const to = end === "to" ? box : link.to;
+  const without = deleteLink(map, id);
+  const verdict = canLink(without, from, to);
+  if (!verdict.ok) return { map, verdict };
+  const order = isOrdered(map) ? withNextStep(without.order, from, to) : map.order;
+  return { map: { ...without, links: { ...without.links, [id]: { ...link, from, to } }, order }, verdict };
+}
+
+export type RelinkCheck =
+  /** Letting go there changes nothing (the end is already on that box). */
+  | { readonly kind: "same" }
+  | { readonly kind: "ok" }
+  | { readonly kind: "refused"; readonly text: string };
+
+/**
+ * What letting go of arrow `id`'s `end` on `box` would do: the drag's
+ * preview (a ring, or a not-allowed chip before letting go) and the store
+ * ask the same question. A connections map moves that end. In a tree
+ * either end means one thing: the box the arrow leads to goes under `box`
+ * (`canMove`), or, for one of several ways in, just this arrow starts
+ * from `box` (`canLink`).
+ */
+export function relinkCheck(map: LinkMap, id: LinkId, end: "from" | "to", box: NodeId): RelinkCheck {
+  const link = map.links[id];
+  if (!link || !map.nodes[box]) return { kind: "refused", text: "That box is gone." };
+  if (map.kind !== "tree") {
+    if (link[end] === box) return { kind: "same" };
+    const done = reconnectLink(map, id, end, box);
+    if (done.verdict.ok) return { kind: "ok" };
+    const from = end === "from" ? box : link.from;
+    const to = end === "to" ? box : link.to;
+    return { kind: "refused", text: linkRefusalText(map, from, to, done.verdict.reason) };
+  }
+  const child = link.to;
+  if (box === link.from) return { kind: "same" };
+  const into = Object.values(map.links).filter((l) => l.to === child).length;
+  if (into > 1) {
+    const done = reconnectLink(map, id, "from", box);
+    return done.verdict.ok
+      ? { kind: "ok" }
+      : { kind: "refused", text: linkRefusalText(map, box, child, done.verdict.reason) };
+  }
+  const verdict = canMove(map, child, box);
+  return verdict.ok ? { kind: "ok" } : { kind: "refused", text: moveRefusalText(map, child, box, verdict.reason) };
 }

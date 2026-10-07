@@ -622,6 +622,67 @@ describe("map store (tree)", () => {
   });
 });
 
+describe("map store (arrows)", () => {
+  async function treeWith() {
+    const useMapStore = await freshStore();
+    useMapStore.getState().addExampleTree();
+    useMapStore.getState().placeAll(new Map());
+    const { useHint } = await import("./hint");
+    return { useMapStore, useHint };
+  }
+  const named = (useMapStore: Awaited<ReturnType<typeof freshStore>>, name: string) =>
+    Object.values(useMapStore.getState().map.nodes).find((n) => n.name === name)!.id;
+  const arrowInto = (useMapStore: Awaited<ReturnType<typeof freshStore>>, to: NodeId) =>
+    Object.values(useMapStore.getState().map.links).find((l) => l.to === to)!;
+
+  it("picks an arrow, letting go of a picked box, and the other way round", async () => {
+    const { useMapStore } = await treeWith();
+    const raise = named(useMapStore, "Ask for a raise");
+    useMapStore.getState().select(raise);
+    useMapStore.getState().selectLink(arrowInto(useMapStore, raise).id);
+    expect(useMapStore.getState().selected).toBeNull();
+    useMapStore.getState().select(raise);
+    expect(useMapStore.getState().selectedLink).toBeNull();
+  });
+
+  it("refuses to delete a tree box's only way in, saying why where it was tried", async () => {
+    const { useMapStore, useHint } = await treeWith();
+    const before = useMapStore.getState().map;
+    const link = arrowInto(useMapStore, named(useMapStore, "Ask for a raise"));
+    useMapStore.getState().deleteLink(link.id, { x: 10, y: 20 });
+    expect(useMapStore.getState().map).toBe(before);
+    expect(useHint.getState().hint).toMatchObject({ text: expect.stringMatching(/every box needs a parent/), at: { x: 10, y: 20 } });
+  });
+
+  it("dragging a tree arrow's end onto a box moves the box it leads to there, as one undo step", async () => {
+    const { useMapStore, useHint } = await treeWith();
+    const before = useMapStore.getState().map;
+    const raise = named(useMapStore, "Ask for a raise");
+    const rent = named(useMapStore, "Rent a flat");
+    const link = arrowInto(useMapStore, raise);
+    useMapStore.getState().reconnect(link.id, "to", rent, { x: 0, y: 0 });
+    expect(arrowInto(useMapStore, raise)).toMatchObject({ id: link.id, from: rent });
+    expect(useMapStore.getState().selected).toBe(raise);
+    // Under its own branch: refused, with the reason.
+    const yes = named(useMapStore, "Yes, take it");
+    useMapStore.getState().reconnect(arrowInto(useMapStore, yes).id, "from", rent, { x: 0, y: 0 });
+    expect(useHint.getState().hint?.text).toMatch(/inside the branch/);
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.links).toEqual(before.links);
+  });
+
+  it("moves either end of a connections arrow, keeping its label", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().placeAll(new Map());
+    const link = Object.values(useMapStore.getState().map.links).find((l) => l.label === "managed by")!;
+    const other = Object.values(useMapStore.getState().map.nodes).find((n) => n.name === "Internet connection")!.id;
+    useMapStore.getState().reconnect(link.id, "to", other, { x: 0, y: 0 });
+    expect(useMapStore.getState().map.links[link.id]).toMatchObject({ from: link.from, to: other, label: "managed by" });
+    useMapStore.getState().deleteLink(link.id);
+    expect(useMapStore.getState().map.links[link.id]).toBeUndefined();
+  });
+});
+
 describe("map store (several boxes)", () => {
   async function exampleStore() {
     const useMapStore = await freshStore();
@@ -821,11 +882,12 @@ describe("a linked tree in the store", () => {
   }
 
   it("opens from the board and refuses a step under a card, saying why", async () => {
-    const { useMapStore, useSyncNotice } = await linkedStore();
+    const { useMapStore } = await linkedStore();
     expect(useMapStore.getState().map.linkedBoard).toBe("move");
     expect(useMapStore.getState().needsTidy).toBe(false);
     expect(useMapStore.getState().addNextStep(asNodeId("a"))).toBeNull();
-    expect(useSyncNotice.getState().message?.text).toMatch(/“A” is a card, and cards can.t have next steps in Boardkit/);
+    const { useHint } = await import("./hint");
+    expect(useHint.getState().hint?.text).toMatch(/“A” is a card, and cards can.t have next steps in Boardkit/);
     expect(useMapStore.getState().addNextStep(asNodeId("buy"))).not.toBeNull();
   });
 

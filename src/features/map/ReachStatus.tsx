@@ -7,8 +7,8 @@ import styles from "./ReachStatus.module.css";
 /** What the status line says while nothing is selected. */
 const HINTS: Record<MapKind, string> = {
   connections:
-    "Click any box to see what it needs and what breaks without it. Double-click the paper to add a box; drag a box's dot onto another to connect them; drag across the paper to select several.",
-  tree: "Click a box to see the way that leads to it and what comes after. Use + on a box (or drag its dot onto the paper) to add a next step; drag the dot onto another box to give it a second way in; drag a box onto another (or between two) to move it there; drag across the paper to select several.",
+    "Click any box to see what it needs and what breaks without it. Double-click the paper to add a box; drag a box's dot onto another to connect them; click an arrow, then drag its ends to reconnect it; drag across the paper to select several.",
+  tree: "Click a box to see the way that leads to it and what comes after. Use + on a box (or drag its dot onto the paper) to add a next step; drag the dot onto another box to give it a second way in; drag a box onto another (or between two), or an arrow's end onto a box, to move it there; drag across the paper to select several.",
 };
 
 /** A tree linked to Boardkit: no second way in, and cards (level 3) take no

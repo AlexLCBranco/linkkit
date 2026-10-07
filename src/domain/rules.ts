@@ -324,3 +324,36 @@ export function moveRefusalText(map: LinkMap, id: NodeId, parent: NodeId, reason
       return `${name(parent)} already has ${MAX_CARDS_PER_LIST} cards, Boardkit's most.`;
   }
 }
+
+/** Why an arrow may not go from `from` to `to`, in words: the chip while
+    an arrow is dragged over a box, and the hint if it is let go there. */
+export function linkRefusalText(map: LinkMap, from: NodeId, to: NodeId, reason: LinkRefusal): string {
+  const name = (box: NodeId) => `“${map.nodes[box]?.name || "Untitled"}”`;
+  switch (reason) {
+    case "missing":
+      return "That box is gone.";
+    case "self":
+      return "An arrow can't lead from a box to itself.";
+    case "duplicate":
+      return `${name(from)} already has that arrow to ${name(to)}.`;
+    case "start":
+      return `${name(to)} is the start: nothing leads into it.`;
+    case "loop":
+      return `${name(to)} already leads to ${name(from)}: that would go round in a circle.`;
+    case "two-ways-in":
+      return `${name(to)} already has its way in: in Boardkit a card is in one list only.`;
+  }
+}
+
+/** Why the arrow `id` may not be deleted, in words (`null` when it may):
+    in a tree it is a box's only way in, and every box needs a parent. */
+export function linkDeleteRefusal(map: LinkMap, id: LinkId): string | null {
+  if (!map.links[id] || canDeleteLink(map, id)) return null;
+  return "In a tree every box needs a parent: drag the box to a new parent, or delete the box.";
+}
+
+/** Why the box `id` may not be deleted, in words (`null` when it may). */
+export function boxDeleteRefusal(map: LinkMap, id: NodeId): string | null {
+  if (!map.nodes[id] || canDeleteBox(map, id)) return null;
+  return `“${map.nodes[id].name || "Untitled"}” is the start, the question itself: rename it rather than delete it.`;
+}

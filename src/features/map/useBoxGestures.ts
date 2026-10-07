@@ -2,7 +2,8 @@ import { useReactFlow } from "@xyflow/react";
 import { useCallback, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 import { clampGroupMove, pageSize } from "../../domain/page";
-import { canLink } from "../../domain/rules";
+import { canLink, linkRefusalText } from "../../domain/rules";
+import { useHint } from "../../store/hint";
 import type { NodeId, Point } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { dropTargetAt } from "./dropTarget";
@@ -125,11 +126,23 @@ export function useBoxGestures(id: NodeId) {
       const el = e.currentTarget;
       el.setPointerCapture(e.pointerId);
 
-      /** The box under the pointer, if an arrow to it is allowed. */
-      const targetAt = (x: number, y: number): NodeId | null => {
+      /** The box under the pointer (not the one the arrow starts from). */
+      const boxAt = (x: number, y: number): NodeId | null => {
         const hit = document.elementFromPoint(x, y)?.closest(`[${BOX_ID_ATTRIBUTE}]`);
         const to = hit?.getAttribute(BOX_ID_ATTRIBUTE) as NodeId | undefined;
+        return to && to !== id ? to : null;
+      };
+      /** The box under the pointer, if an arrow to it is allowed. */
+      const targetAt = (x: number, y: number): NodeId | null => {
+        const to = boxAt(x, y);
         return to && canLink(useMapStore.getState().map, id, to).ok ? to : null;
+      };
+      /** The box under the pointer that refuses the arrow, and why. */
+      const refusedAt = (x: number, y: number) => {
+        const to = boxAt(x, y);
+        const { map } = useMapStore.getState();
+        const verdict = to ? canLink(map, id, to) : null;
+        return to && verdict && !verdict.ok ? { box: to, text: linkRefusalText(map, id, to, verdict.reason) } : null;
       };
       /** Over the bare paper of a tree (not a box, arrow or label). */
       const onPaper = (x: number, y: number) =>
@@ -140,6 +153,7 @@ export function useBoxGestures(id: NodeId) {
           from: id,
           at: screenToFlowPosition({ x: ev.clientX, y: ev.clientY }),
           target: targetAt(ev.clientX, ev.clientY),
+          refused: refusedAt(ev.clientX, ev.clientY),
         });
 
       const end = (ev: PointerEvent) => {
@@ -148,8 +162,10 @@ export function useBoxGestures(id: NodeId) {
         el.removeEventListener("pointercancel", end);
         const { setConnecting, connect } = useMapStore.getState();
         const to = ev.type === "pointerup" ? targetAt(ev.clientX, ev.clientY) : null;
+        const refused = ev.type === "pointerup" ? refusedAt(ev.clientX, ev.clientY) : null;
         setConnecting(null);
         if (to) connect(id, to);
+        else if (refused) useHint.getState().show(refused.text, screenToFlowPosition({ x: ev.clientX, y: ev.clientY }));
         else if (ev.type === "pointerup" && onPaper(ev.clientX, ev.clientY)) {
           useMapStore.getState().addNextStep(id, screenToFlowPosition({ x: ev.clientX, y: ev.clientY }));
         }

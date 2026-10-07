@@ -247,6 +247,17 @@
     var(--shadow-md);
 }
 
+/* Something dragged over this box that it refuses: a red dashed ring, so
+   "not here" shows before the mouse is let go. */
+.box[data-refused-target] {
+  border-color: var(--refused);
+  border-style: dashed;
+  box-shadow:
+    0 0 0 var(--target-ring-width) var(--refused-ring),
+    var(--shadow-md);
+  cursor: not-allowed;
+}
+
 /* ---- Keep / maybe / cut (trees) ---- */
 
 /* The status badge: a small circle straddling the top-left corner, so it

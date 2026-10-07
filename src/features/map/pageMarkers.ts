@@ -13,6 +13,10 @@ export const MAP_VIEW_ATTRIBUTE = "data-map-view";
     to the box under it. */
 export const BOX_ID_ATTRIBUTE = "data-box-id";
 
+/** The same for arrows (the line, its label or chip): the right-click menu
+    finds the arrow it is about by it. */
+export const LINK_ID_ATTRIBUTE = "data-link-id";
+
 /** The screen's size: the scrolling area, without its scrollbars. */
 export function screenSize(view: Element): Size {
   return { width: view.clientWidth, height: view.clientHeight };

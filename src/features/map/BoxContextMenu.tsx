@@ -1,5 +1,5 @@
 import { useReactFlow } from "@xyflow/react";
-import { ChevronsDownUp, ChevronsUpDown, ClipboardPaste, Copy, CopyPlus, Pencil, Plus, Scissors, Trash2 } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, ClipboardPaste, Copy, CopyPlus, Pencil, Plus, Scissors, Tag, Trash2 } from "lucide-react";
 import { useRef, useState, type MouseEvent, type ReactElement } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -13,25 +13,27 @@ import {
   ContextMenuTrigger,
 } from "../../components/ui/context-menu";
 import { canAddNextStep, canCollapse, canDeleteBox, canPaste, canSetStatus } from "../../domain/rules";
-import type { NodeId, Point } from "../../domain/types";
+import type { LinkId, NodeId, Point } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { selectGroupColor, selectGroupStatus } from "../../store/selectors";
 import { StatusRow } from "./StatusRow";
 import { SwatchRow } from "./SwatchRow";
-import { BOX_ID_ATTRIBUTE } from "./pageMarkers";
+import { BOX_ID_ATTRIBUTE, LINK_ID_ATTRIBUTE } from "./pageMarkers";
 
 /** What the menu is about: one box, the picked group, or empty paper (where
     it only offers to paste, at the spot clicked). */
 type Target =
   | { readonly kind: "box"; readonly id: NodeId }
   | { readonly kind: "group" }
+  | { readonly kind: "link"; readonly id: LinkId; readonly at: Point }
   | { readonly kind: "paper"; readonly at: Point };
 
 /**
  * The right-click menu. On a box: rename, copy, duplicate, colour, delete
  * (in a tree, also "Add next step" and keep / maybe / cut; the start has
  * neither a status nor delete, and nothing is copied). On a box that is one of several picked: the same for the whole
- * group. On empty paper: "Paste here", once something has been copied.
+ * group. On an arrow (its line or label): its label, and delete. On empty
+ * paper: "Paste here", once something has been copied.
  *
  * One menu wraps the whole canvas rather than one per box (as in Treekit):
  * on right-click it looks up which box is under the pointer, so there is a
@@ -55,7 +57,15 @@ export function BoxContextMenu({ children }: { readonly children: ReactElement }
     const store = useMapStore.getState();
     const box = (event.target as HTMLElement).closest(`[${BOX_ID_ATTRIBUTE}]`);
     const id = box?.getAttribute(BOX_ID_ATTRIBUTE) as NodeId | null | undefined;
-    if (id && store.group.includes(id)) {
+    const link = (event.target as Element).closest(`[${LINK_ID_ATTRIBUTE}]`)?.getAttribute(LINK_ID_ATTRIBUTE) as
+      | LinkId
+      | null
+      | undefined;
+    if (!id && link && store.map.links[link]) {
+      // Picked too, so it is obvious which arrow the menu is about.
+      store.selectLink(link);
+      setTarget({ kind: "link", id: link, at: screenToFlowPosition({ x: event.clientX, y: event.clientY }) });
+    } else if (id && store.group.includes(id)) {
       setTarget({ kind: "group" });
     } else if (id) {
       // Selected too, so it is obvious which box the menu is about.
@@ -93,6 +103,7 @@ export function BoxContextMenu({ children }: { readonly children: ReactElement }
       >
         {target?.kind === "box" && <BoxMenuItems nodeId={target.id} runAfterClose={runAfterClose} />}
         {target?.kind === "group" && <GroupMenuItems />}
+        {target?.kind === "link" && <LinkMenuItems linkId={target.id} at={target.at} runAfterClose={runAfterClose} />}
         {target?.kind === "paper" && <PaperMenuItems at={target.at} />}
       </ContextMenuContent>
     </ContextMenu>
@@ -246,6 +257,35 @@ function GroupMenuItems() {
           </ContextMenuItem>
         </>
       )}
+    </>
+  );
+}
+
+/** An arrow's menu: its label, and delete. Delete shows in a tree too:
+    where the arrow is a box's only way in, it says why it can't go. */
+function LinkMenuItems({
+  linkId,
+  at,
+  runAfterClose,
+}: {
+  readonly linkId: LinkId;
+  readonly at: Point;
+  readonly runAfterClose: (action: () => void) => void;
+}) {
+  const hasLabel = useMapStore((s) => !!s.map.links[linkId]?.label);
+  const { startEditing, deleteLink } = useMapStore.getState();
+  return (
+    <>
+      <ContextMenuItem onSelect={() => runAfterClose(() => startEditing({ kind: "link", id: linkId }))}>
+        <Tag aria-hidden />
+        {hasLabel ? "Change label" : "Add label"}
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem variant="destructive" onSelect={() => deleteLink(linkId, at)}>
+        <Trash2 aria-hidden />
+        Delete arrow
+        <ContextMenuShortcut>Del</ContextMenuShortcut>
+      </ContextMenuItem>
     </>
   );
 }

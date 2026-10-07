@@ -10,6 +10,8 @@ import {
   duplicateMap,
   moveNode,
   moveNodes,
+  reconnectLink,
+  relinkCheck,
   renameMap,
   renameNode,
   setArrowLength,
@@ -18,7 +20,7 @@ import {
   setDirection,
   setPage,
 } from "./map";
-import { build } from "./testMaps";
+import { build, buildTree } from "./testMaps";
 
 const a = asNodeId("a");
 const b = asNodeId("b");
@@ -106,5 +108,51 @@ describe("map edits", () => {
 
   it("tidies whitespace in names", () => {
     expect(cleanName(" a \n  b\t")).toBe("a b");
+  });
+});
+
+describe("reconnectLink", () => {
+  const [a, b, c] = [asNodeId("a"), asNodeId("b"), asNodeId("c")];
+  const ab = asLinkId("a>b");
+
+  it("moves either end, keeping the arrow's id and label", () => {
+    const m = build(["a", "b", "c"], [["a", "b", "uses"]]);
+    const to = reconnectLink(m, ab, "to", c);
+    expect(to.verdict.ok).toBe(true);
+    expect(to.map.links[ab]).toEqual({ id: ab, from: a, to: c, label: "uses" });
+    const from = reconnectLink(m, ab, "from", c);
+    expect(from.map.links[ab]).toMatchObject({ from: c, to: b });
+  });
+
+  it("refuses an arrow the rules refuse, and changes nothing", () => {
+    const m = build(["a", "b", "c"], [["a", "b"], ["a", "c"]]);
+    const repeat = reconnectLink(m, ab, "to", c);
+    expect(repeat.verdict).toEqual({ ok: false, reason: "duplicate" });
+    expect(repeat.map).toBe(m);
+    expect(reconnectLink(m, ab, "to", a).verdict).toEqual({ ok: false, reason: "self" });
+  });
+
+  it("an end let go where it already was changes nothing", () => {
+    const m = build(["a", "b"], [["a", "b"]]);
+    expect(reconnectLink(m, ab, "to", b).map).toBe(m);
+  });
+});
+
+describe("relinkCheck", () => {
+  it("connections: same end, a move, a refusal", () => {
+    const m = build(["a", "b", "c"], [["a", "b"], ["a", "c"]]);
+    const ab = asLinkId("a>b");
+    expect(relinkCheck(m, ab, "to", asNodeId("b")).kind).toBe("same");
+    expect(relinkCheck(m, ab, "from", asNodeId("c")).kind).toBe("ok");
+    expect(relinkCheck(m, ab, "to", asNodeId("c"))).toMatchObject({ kind: "refused", text: expect.stringMatching(/already has/) });
+  });
+
+  it("tree: either end moves the child under the box, refused into its own branch", () => {
+    const t = buildTree("s", ["a", "b", "c"], [["s", "a"], ["s", "b"], ["a", "c"]]);
+    const sa = asLinkId("s>a");
+    expect(relinkCheck(t, sa, "to", asNodeId("b")).kind).toBe("ok");
+    expect(relinkCheck(t, sa, "from", asNodeId("b")).kind).toBe("ok");
+    expect(relinkCheck(t, sa, "from", asNodeId("s")).kind).toBe("same");
+    expect(relinkCheck(t, sa, "to", asNodeId("c"))).toMatchObject({ kind: "refused", text: expect.stringMatching(/inside the branch/) });
   });
 });
