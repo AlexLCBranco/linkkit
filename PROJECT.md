@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.30 (a trash for deleted boxes and maps, step 18)_
+_Last updated: 2026-10-07, v0.0.30 (shared store: Boardkit side 3a1 done, 3a2 next)_
 
 ## What it is
 
