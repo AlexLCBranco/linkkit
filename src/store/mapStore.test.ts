@@ -933,6 +933,51 @@ describe("a linked tree in the store", () => {
     expect(linkPreview(useMapStore.getState().map)).toEqual({ kind: "unavailable" });
   });
 
+  /** Boardkit renames a card: the board record as Boardkit would store it. */
+  function boardkitRenames(card: string, title: string) {
+    const stored = JSON.parse(localStorage.getItem("boardkit:board:move")!);
+    stored.board.cards[card] = { ...stored.board.cards[card], title };
+    localStorage.setItem("boardkit:board:move", JSON.stringify({ ...stored, rev: stored.rev + 1 }));
+  }
+
+  it("keeps undo after taking in a Boardkit change, and undoes only its own item", async () => {
+    const { useMapStore } = await linkedStore();
+    const { saveMap } = await import("./persistMap");
+    useMapStore.getState().renameBox(asNodeId("rent"), "Renting");
+    saveMap(useMapStore.getState().map);
+    boardkitRenames("a", "A from Boardkit");
+    // The next save takes Boardkit's change in.
+    useMapStore.getState().moveBox(asNodeId("buy"), { x: 7, y: 7 });
+    saveMap(useMapStore.getState().map);
+    await new Promise((r) => queueMicrotask(() => r(null)));
+    expect(useMapStore.getState().map.nodes[asNodeId("a")].name).toBe("A from Boardkit");
+    expect(useMapStore.getState().history.past).toHaveLength(2);
+    useMapStore.getState().undo();
+    useMapStore.getState().undo();
+    const { map } = useMapStore.getState();
+    expect(map.nodes[asNodeId("rent")].name).toBe("Rent");
+    expect(map.nodes[asNodeId("a")].name).toBe("A from Boardkit");
+  });
+
+  it("refuses an undo whose card Boardkit changed too, naming it", async () => {
+    const { useMapStore, useSyncNotice } = await linkedStore();
+    const { saveMap } = await import("./persistMap");
+    useMapStore.getState().renameBox(asNodeId("a"), "Mine");
+    saveMap(useMapStore.getState().map);
+    boardkitRenames("a", "Theirs");
+    useMapStore.getState().moveBox(asNodeId("buy"), { x: 7, y: 7 });
+    saveMap(useMapStore.getState().map);
+    await new Promise((r) => queueMicrotask(() => r(null)));
+    useMapStore.getState().undo();
+    const before = useMapStore.getState().map;
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map).toBe(before);
+    expect(useMapStore.getState().map.nodes[asNodeId("a")].name).toBe("Theirs");
+    expect(useMapStore.getState().history.past).toEqual([]);
+    expect(useMapStore.getState().history.future).toHaveLength(1);
+    expect(useSyncNotice.getState().message?.text).toBe("Can't undo further: “Theirs” was changed in Boardkit or another tab.");
+  });
+
   it("changes nothing while its board can't be written", async () => {
     const { useMapStore, useLinkHold } = await linkedStore();
     useLinkHold.getState().hold(asMapId("m1"), "damaged");

@@ -61,7 +61,7 @@ import { addNextStep, branchesOf, createTree, moveToParent as moveUnder, startOf
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
 import { ARROW_LENGTH_PRESETS, type LinkId, type LinkMap, type MapId, type NodeId, type NodeStatus, type PaletteColor, type Point, type Size } from "../domain/types";
-import { mergeMaps, shareUnchanged } from "../domain/merge";
+import { mergeMaps, shareUnchanged, type MergeConflict } from "../domain/merge";
 import {
   boardProblems,
   linkedProblem,
@@ -582,17 +582,32 @@ function boardErasing(map: LinkMap, next: LinkMap): readonly BoardErased[] {
   return result.ok ? result.erased : [];
 }
 
+/** "Can't undo further: “Rent” was changed in another tab." A linked
+    tree's change may have come from Boardkit or another Linkkit tab. */
+export function refusedStepText(map: LinkMap, conflicts: readonly MergeConflict[], action: "undo" | "redo"): string {
+  const [first] = conflicts;
+  const name = first.kind === "arrow" ? first.title : `“${first.title}”`;
+  const where = map.linkedBoard ? "in Boardkit or another tab" : "in another tab";
+  return `Can't ${action} further: ${name} was changed ${where}.`;
+}
+
 /**
  * An undo or redo step taken, or, in a linked map whose board's trash it
  * would overfill (undoing an "add" puts the box in that trash), asked about
  * first. The asked-for step runs only if nothing changed meanwhile.
  */
-function stepping(
-  s: MapState,
-  step: { readonly map: LinkMap; readonly history: MapState["history"] } | null,
-  action: "undo" | "redo",
-): Partial<MapState> {
+function stepping(s: MapState, step: history.Step | null, action: "undo" | "redo"): Partial<MapState> {
   if (!step) return {};
+  if (step.conflicts.length) {
+    // Changed from outside since (step 26): refused, and the history stops here.
+    useSyncNotice.getState().say(refusedStepText(s.map, step.conflicts, action));
+    return { history: step.history, stepKey: null };
+  }
+  const problem = linkedProblem(step.map);
+  if (problem) {
+    useSyncNotice.getState().say(`Can't ${action} further: ${problem}`);
+    return { history: action === "undo" ? { past: [], future: s.history.future } : { past: s.history.past, future: [] }, stepKey: null };
+  }
   const apply = (st: MapState): Partial<MapState> => ({ ...forget(st, step.map), history: step.history, stepKey: null });
   const erased = boardErasing(s.map, step.map);
   if (erased.length === 0) return apply(s);
@@ -1107,10 +1122,9 @@ export const useMapStore = create<MapState>()((set, get) => ({
  *    same address when one tab writes, brings another tab's save in at
  *    once, merged with whatever this tab has not saved yet.
  *
- * Taking in another tab's change clears this map's undo history: an undo
- * step stores whole parts of the map as they were before, so undoing would
- * quietly put back what the other tab just changed. (Undo that steps
- * around the other tab's changes is a later step of the shared-store plan.)
+ * Taking in another tab's change keeps this map's undo history (step 26):
+ * an undo then puts back only the items its step changed, and is refused
+ * when one of them was changed in the other tab too (`domain/history.ts`).
  */
 
 /** Puts `map` on screen as the open map, keeping every object that didn't
@@ -1126,7 +1140,8 @@ function adoptMap(map: LinkMap): void {
       ...forget(s, next),
       settleRequest: s.settleRequest + (arrived ? 1 : 0),
       maps: upsertMap(s.maps, { id: next.id, name: next.name }),
-      history: history.EMPTY_HISTORY,
+      // Undo keeps working: a step is undone item by item from now on, and
+      // one whose item changed here too is refused (`domain/history.ts`).
       stepKey: null,
       confirmingDelete: null,
     };

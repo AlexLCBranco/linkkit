@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.36 (steps 24-25 done in Boardkit, v0.0.84-85; step 26 next)_
+_Last updated: 2026-10-07, v0.0.37 (step 26 cross-app undo in Linkkit done; step 27 next, in Boardkit)_
 
 ## What it is
 
@@ -132,8 +132,15 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   tab, so that version was kept."), Boardkit's wording. A map deleted in
   one tab closes in the other, which opens the newest map left and says
   "“…” was deleted in another tab." New, renamed and deleted maps show in
-  the other tab's map list and trash. Taking in another tab's change
-  clears that map's undo history (as in Boardkit)
+  the other tab's map list and trash. Taking in another tab's (or
+  Boardkit's) change keeps undo working (step 26): an undo puts back only
+  what its own step changed, keeping what came in. An undo whose box,
+  arrow or setting was also changed elsewhere since is refused ("Can't
+  undo further: “Rent” was changed in another tab", or "in Boardkit or
+  another tab" for a linked tree), and that step and every older one are
+  dropped; what was already undone can still be redone. A redo is refused
+  the same way (nothing is left to redo then). Changing different things
+  on one box (a move here, a rename there) is no clash
 - When a save fails (the browser's storage for the site is full), a
   banner under the header says changes aren't being saved and stays
   until they are. It offers "Export all maps" (the file holds the open
@@ -498,7 +505,9 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     meet, the nearer bar wins. Left-right swaps x and y
   - `glide.ts`: the easing of Tidy up's glide
   - `history.ts`: undo steps (each stores only what changed; a drag
-    joined into one step)
+    joined into one step). After a change from outside, a step is undone
+    as a three-way merge (`mergeMaps`: as the step left it, as before it,
+    as now), refused on a clash (step 26)
   - `trash.ts`: the trash. `trashBoxes` (delete into one entry, with
     the arrows and sibling places), `restoreFromTrash` (put back, arrows
     re-checked, a tree repaired by `repairTree`), `forgetTrashEntry`,
@@ -965,7 +974,20 @@ file is updated too.
     copy as an ordinary tree"). Boardkit finds it by reading Linkkit's
     records for a `linkedBoard` equal to the board's id (reading only;
     Linkkit's keys are still written only by Linkkit)
-26. Cross-app undo in Linkkit. Today taking in another tab's or app's
+26. ~~Cross-app undo in Linkkit~~ (done, v0.0.37; design OK'd by the
+    owner 2026-10-07 as proposed, with the recommended wording). Built as
+    a merge rather than marking steps: an undo step whose parts are still
+    exactly as it left them is undone as before; otherwise it is undone
+    with `mergeMaps` (base = the map as the step left it, mine = before
+    it, theirs = now), so only its own items go back, and a clash with an
+    outside change is the refusal. Same result as the plan, no second
+    bookkeeping. Wording: "in another tab" for an ordinary map, "in
+    Boardkit or another tab" for a linked one (Linkkit can't tell which).
+    Also: a linked tree's undo that would break the board's shape is
+    refused with that reason; linking and unlinking still clear undo. Not
+    tested by hand: a real second tab or a real Boardkit (simulated in the
+    browser pane by writing storage and firing the `storage` event). The
+    plan as first written: today taking in another tab's or app's
     change clears the map's undo history. Instead (decided under Bridge
     mapping): each undo step knows which items it touches; an item changed
     from outside marks the steps that touch it; undoing a marked step is
