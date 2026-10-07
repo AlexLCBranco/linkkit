@@ -1,0 +1,74 @@
+.page {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: var(--space-4);
+  background: var(--surface-app);
+  color: var(--text-primary);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 480px;
+  text-align: center;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-xl);
+  font-weight: var(--weight-bold);
+}
+
+.body,
+.note {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-lg);
+  line-height: var(--line-normal);
+}
+
+.note {
+  font-size: var(--font-size-sm);
+}
+
+.primary,
+.secondary {
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.primary {
+  padding: var(--space-3) var(--space-6);
+  background: var(--accent);
+  color: var(--text-inverted);
+  font-size: var(--font-size-lg);
+  text-decoration: none;
+}
+
+.primary:hover {
+  background: var(--accent-hover);
+}
+
+.secondary {
+  padding: var(--space-1) var(--space-3);
+  border-color: var(--border-strong);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.secondary:hover {
+  background: var(--surface-hover);
+}
+
+.primary:focus-visible,
+.secondary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}

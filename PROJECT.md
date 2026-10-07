@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.47 (U10: saved templates are backed up and restored)_
+_Last updated: 2026-10-07, v0.0.48 (old addresses show a "Linkkit moved" notice)_
 
 ## What it is
 
@@ -14,7 +14,7 @@ will slowly take over Treekit's job. Mouse-first, for
 normal users. Sibling of Boardkit, Treekit and Vennkit, whose stack and
 look it mirrors; built and used on its own. Repo:
 github.com/AlexLCBranco/linkkit; every push to main deploys on Vercel
-(https://linkkit-lake.vercel.app, also at
+(https://linkkit-lake.vercel.app, which now only shows a "moved" notice; also at
 https://linkkit-lake.vercel.app/linkkit/). It is moving to the shared
 gauntlet site, https://gauntlet-home.vercel.app/linkkit, next to
 Boardkit at /boardkit; that site forwards /linkkit to this Vercel
@@ -544,6 +544,16 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     loops) is repaired by `repairTree` in `tree.ts`
   - `example.ts`, `ids.ts`, `testMaps.ts`: the example map and example
     tree, ids, test fixtures
+
+- **Old addresses show "Linkkit moved"** (v0.0.48): on any address
+  other than gauntlet-home.vercel.app or localhost (e.g. the old
+  linkkit-lake.vercel.app, Vercel previews) a full-screen notice replaces
+  the app: a big button to gauntlet-home.vercel.app/linkkit/ and a small
+  "Export everything saved here" (the same file "Restore all maps from a
+  file" reads; saved templates included, the trash is not). It only
+  links, never redirects, so nothing can loop; autosave and automatic
+  backups don't run there and no storage is cleared. Check:
+  `domain/address.ts` (tested).
 
 ## What's next
 
