@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-06, v0.0.26 (arrow labels in trees, step 14b)_
+_Last updated: 2026-10-07, v0.0.27 (keep / maybe / cut, step 14c)_
 
 ## What it is
 
@@ -39,11 +39,12 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
 ## What works now
 
 - Dark header (with the map switcher, "Add box", "Tidy up", undo /
-  redo, the Top-down / Left-right switch, "Arrows" and "Align"), status
-  line, version badge. On a phone-sized window
+  redo, the Top-down / Left-right switch, "Arrows", "Align" and, in a
+  tree, "Hide cut"), status line, version badge. On a phone-sized window
   (480px or less) "Add box" and "Tidy up" show only their icons,
-  Top-down / Left-right show a down / right arrow and "Arrows" shows an
-  arrow, so the map's name has room; their tooltips still say what they
+  Top-down / Left-right show a down / right arrow, "Arrows" shows an
+  arrow, "Align" and "Hide cut" show their icons, and the gaps are
+  tighter, so the map's name has room; their tooltips still say what they
   do. (Even so, on a 375px phone the name shrinks to its first letter:
   the header is full)
 - Keyboard extras for boxes: Tab moves through the boxes (and each box's
@@ -272,6 +273,22 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     parents where there are two), orange is everything that comes after
     it, the rest fades. The status line says e.g. "Live near the office ·
     Comes from 4 · Leads to 1"
+  - Keep / maybe / cut (Treekit's): the tag button in a step's hover
+    toolbar, or the "Status" row in its right-click menu (for several
+    picked boxes, it sets them all): no status, Keep ✓, Maybe ?, Cut ✂.
+    X cuts the selected box(es), or uncuts them when all are cut. Each is
+    one undo step, saved with the box. The start has no status (it is the
+    question). A small badge on a box's top-left corner shows its status.
+    A box looks cut when it is cut, or when every way into it comes from
+    a box that looks cut (so a box with two parents stays alive while one
+    way in is): it fades under a veil with a dashed border, and the
+    arrows into it fade and dash
+  - "Hide cut" (header, trees only, with the number of cut branches):
+    boxes that look cut leave the page and the tree re-tidies around what
+    is left (they keep their places for when they come back). Saved with
+    the map and one undo step. Hidden boxes are left out of the
+    highlight, its counts and Ctrl+A; cutting a box while it is on hides
+    it at once
   - Top-down / Left-right, Arrows, Align, colours, undo, Tidy up and
     saving work as in a connections map. A damaged saved tree opens as it
     was (its shape isn't repaired yet)
@@ -294,7 +311,8 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     default label is per kind ("needs", or none in a tree)
   - `rules.ts`: the one place that says what's allowed, per kind, in a
     `RULES` table: `canLink(map, from, to)` (may this arrow be drawn?),
-    `canDeleteBox`, `canDeleteLink` and `canPaste` (may copied boxes go
+    `canDeleteBox`, `canDeleteLink`, `canSetStatus` (a tree's steps, never
+    its start) and `canPaste` (may copied boxes go
     in?). "connections" refuses only a
     missing box, a box needing itself, or an exact repeat (loops and
     reverse arrows are allowed), lets anything be deleted and anything be
@@ -309,6 +327,10 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
     really leads to (the arrows stay the truth). Adding an arrow, deleting
     one and deleting boxes keep it in step; `normalizeOrder` cleans it on
     load, giving older trees the order of their boxes on the page
+  - `status.ts`: keep / maybe / cut worked out: `looksCut(map)` (the one
+    definition of "looks cut", for Boardkit's badge too), `cutCount`, and
+    `shownMap(map)`, the map without hidden cut boxes, which the canvas
+    draws and lays out and the highlight walks
   - `tree.ts`: edits only a tree needs, each keeping "one start, no loose
     boxes" true in one step: a new tree (just its start box), adding a
     next step (the box and its arrow together), which boxes a delete
@@ -411,7 +433,7 @@ turning a connections map into a tree.
       allowed); emptying it takes the label away again. Typing a label
       re-tidies the tree so it never covers a box (one undo step with
       it). Labels stay on their arrow when its card moves (decided)
-    - c. Keep / maybe / cut, copied from Treekit (`../treekit/src/domain/
+    - c. ~~Keep / maybe / cut~~ (done), copied from Treekit (`../treekit/src/domain/
       tree.ts`: hover toolbar and right-click menu, cut branches faded,
       a way to hide cut branches; a box with two parents is cut only if
       every way into it is cut; one undo step each, saved)
@@ -798,3 +820,12 @@ All bridge-mapping questions are decided.
   label, but there is no "move" in Linkkit yet, and the two-step
   workaround (a second way in, then delete the first) loses the first
   arrow's label.
+- Step 14c (keep / maybe / cut, design OK'd by the owner, including no
+  status on the start box). Stored: `status` on each box (shared with
+  Boardkit later) and `hideCut` on the map (Linkkit's own); older saves
+  read as none. Choices made without asking, easy to change: the status
+  is picked from a row of round buttons like the colour row (Treekit
+  lists them as menu lines); the toolbar's status button is a tag icon;
+  the selection bar has no status button (the right-click menu covers
+  groups). To fit "Hide cut" on a 375px phone, "Align" now shows an icon
+  there and the header's gaps are 4px.

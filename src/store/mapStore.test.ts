@@ -403,6 +403,44 @@ describe("map store (tree)", () => {
     expect(useMapStore.getState().settleRequest).toBe(now);
   });
 
+  it("marks keep / maybe / cut as one undo step each, never on the start", async () => {
+    const useMapStore = await treeStore();
+    const before = useMapStore.getState().map;
+    const yes = named(useMapStore, "Yes, take it");
+    const start = named(useMapStore, "Take the new job?");
+    useMapStore.getState().setBoxesStatus([yes, start], "maybe");
+    expect(useMapStore.getState().map.nodes[yes].status).toBe("maybe");
+    expect(useMapStore.getState().map.nodes[start].status).toBeNull();
+    // X: cuts, then uncuts once all are cut.
+    useMapStore.getState().toggleCut([yes]);
+    expect(useMapStore.getState().map.nodes[yes].status).toBe("cut");
+    useMapStore.getState().toggleCut([yes]);
+    expect(useMapStore.getState().map.nodes[yes].status).toBeNull();
+    useMapStore.getState().undo();
+    useMapStore.getState().undo();
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map).toEqual(before);
+  });
+
+  it("hides cut boxes: lets go of them and asks the tree to close the gap", async () => {
+    const useMapStore = await treeStore();
+    const yes = named(useMapStore, "Yes, take it");
+    const buy = named(useMapStore, "Buy a flat");
+    useMapStore.getState().select(buy);
+    useMapStore.getState().setBoxesStatus([yes], "cut");
+    const settle = useMapStore.getState().settleRequest;
+    // Shown greyed out: nothing leaves the page, nothing re-tidies.
+    expect(useMapStore.getState().selected).toBe(buy);
+    useMapStore.getState().setHideCut(true);
+    expect(useMapStore.getState().map.hideCut).toBe(true);
+    expect(useMapStore.getState().selected).toBeNull();
+    expect(useMapStore.getState().settleRequest).toBe(settle + 1);
+    useMapStore.getState().selectAll();
+    expect(useMapStore.getState().group).not.toContain(buy);
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.hideCut).toBe(false);
+  });
+
   it("drops a next step left without a name, arrow and all", async () => {
     const useMapStore = await treeStore();
     const before = useMapStore.getState().map;

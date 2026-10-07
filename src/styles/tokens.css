@@ -61,6 +61,15 @@
   --delete-button-size: 16px;
   /* A colour swatch in the colour menus. */
   --swatch-size: 20px;
+  /* A keep / maybe / cut choice in the status menus, and the status badge
+     on a box's corner. */
+  --status-choice-size: 24px;
+  --status-badge-size: 16px;
+  /* How much a cut branch fades into the page (0-1): a veil over the box,
+     so its toolbar stays readable. Treekit's. */
+  --cut-veil: 0.55;
+  /* The dashes of an arrow into a cut box. */
+  --cut-dash: 4 4;
   /* An arrow's label pill; longer labels end in "…". */
   --edge-label-max-width: 160px;
   --edge-width: 1.5px;

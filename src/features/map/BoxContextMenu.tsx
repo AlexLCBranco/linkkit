@@ -11,10 +11,11 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "../../components/ui/context-menu";
-import { canDeleteBox, canPaste } from "../../domain/rules";
+import { canDeleteBox, canPaste, canSetStatus } from "../../domain/rules";
 import type { NodeId, Point } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
-import { selectGroupColor } from "../../store/selectors";
+import { selectGroupColor, selectGroupStatus } from "../../store/selectors";
+import { StatusRow } from "./StatusRow";
 import { SwatchRow } from "./SwatchRow";
 import { BOX_ID_ATTRIBUTE } from "./pageMarkers";
 
@@ -27,8 +28,8 @@ type Target =
 
 /**
  * The right-click menu. On a box: rename, copy, duplicate, colour, delete
- * (in a tree, also "Add next step"; the start has no delete, and nothing is
- * copied). On a box that is one of several picked: the same for the whole
+ * (in a tree, also "Add next step" and keep / maybe / cut; the start has
+ * neither a status nor delete, and nothing is copied). On a box that is one of several picked: the same for the whole
  * group. On empty paper: "Paste here", once something has been copied.
  *
  * One menu wraps the whole canvas rather than one per box (as in Treekit):
@@ -140,6 +141,9 @@ function BoxMenuItems({
   const addNextStep = useMapStore((s) => s.addNextStep);
   const isTree = useMapStore((s) => s.map.kind === "tree");
   const deletable = useMapStore((s) => canDeleteBox(s.map, nodeId));
+  const status = useMapStore((s) => s.map.nodes[nodeId]?.status ?? null);
+  const statusable = useMapStore((s) => canSetStatus(s.map, nodeId));
+  const setBoxesStatus = useMapStore((s) => s.setBoxesStatus);
 
   return (
     <>
@@ -156,6 +160,13 @@ function BoxMenuItems({
         Rename
       </ContextMenuItem>
       <CopyItems ids={() => [nodeId]} />
+      {statusable && (
+        <>
+          <ContextMenuSeparator />
+          <ContextMenuLabel>Status</ContextMenuLabel>
+          <StatusRow value={status} onPick={(next) => setBoxesStatus([nodeId], next)} Item={ContextMenuItem} />
+        </>
+      )}
       <ContextMenuSeparator />
       <ContextMenuLabel>Colour</ContextMenuLabel>
       <SwatchRow value={color} onPick={(c) => setBoxColor(nodeId, c)} Item={ContextMenuItem} />
@@ -177,7 +188,9 @@ function GroupMenuItems() {
   const count = useMapStore((s) => s.group.length);
   const color = useMapStore(selectGroupColor);
   const deletable = useMapStore((s) => s.group.some((id) => canDeleteBox(s.map, id)));
-  const { setBoxesColor, deleteBoxes } = useMapStore.getState();
+  const status = useMapStore(selectGroupStatus);
+  const statusable = useMapStore((s) => s.group.some((id) => canSetStatus(s.map, id)));
+  const { setBoxesColor, setBoxesStatus, deleteBoxes } = useMapStore.getState();
   // Read at click time, so an action always gets the group as it is now.
   const group = () => useMapStore.getState().group;
 
@@ -185,6 +198,13 @@ function GroupMenuItems() {
     <>
       <ContextMenuLabel>{count} boxes</ContextMenuLabel>
       <CopyItems ids={group} cut />
+      {statusable && (
+        <>
+          <ContextMenuSeparator />
+          <ContextMenuLabel>Status</ContextMenuLabel>
+          <StatusRow value={status} onPick={(next) => setBoxesStatus(group(), next)} Item={ContextMenuItem} />
+        </>
+      )}
       <ContextMenuSeparator />
       <ContextMenuLabel>Colour</ContextMenuLabel>
       <SwatchRow value={color} onPick={(c) => setBoxesColor(group(), c)} Item={ContextMenuItem} />

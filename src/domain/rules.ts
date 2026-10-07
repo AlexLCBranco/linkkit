@@ -9,6 +9,8 @@ import type { LinkId, LinkMap, MapKind, NodeId } from "./types";
  *  - `canDeleteBox` / `canDeleteLink`: may this box or arrow go? The UI
  *    asks to show or hide its bin and ×; the store asks again before
  *    deleting.
+ *  - `canSetStatus`: may this box be marked keep / maybe / cut? The
+ *    toolbar, menus and keys ask to offer it; the store asks again.
  *  - `canPaste`: may copied boxes (with the arrows between them) be pasted
  *    or duplicated in? The UI asks to offer Copy, Paste and Duplicate; the
  *    store asks again before pasting.
@@ -36,6 +38,7 @@ interface KindRules {
   readonly canDeleteBox: (map: LinkMap, id: NodeId) => boolean;
   readonly canDeleteLink: (map: LinkMap, id: LinkId) => boolean;
   readonly canPaste: (map: LinkMap) => boolean;
+  readonly canSetStatus: (map: LinkMap, id: NodeId) => boolean;
 }
 
 const OK: LinkVerdict = { ok: true };
@@ -96,6 +99,8 @@ const connections: KindRules = {
   canDeleteBox: (map, id) => !!map.nodes[id],
   canDeleteLink: (map, id) => !!map.links[id],
   canPaste: () => true,
+  // Statuses are a decision tree's idea.
+  canSetStatus: () => false,
 };
 
 /**
@@ -120,6 +125,9 @@ const tree: KindRules = {
   },
   // A pasted box would arrive with no way into it: a loose box.
   canPaste: () => false,
+  // The start is the question itself (the board, in Boardkit, which has
+  // no status): only the steps after it are kept, weighed or cut.
+  canSetStatus: (map, id) => !!map.nodes[id] && !isStart(map, id),
 };
 
 const RULES: Record<MapKind, KindRules> = { connections, tree };
@@ -133,3 +141,5 @@ export const canDeleteBox = (map: LinkMap, id: NodeId): boolean => RULES[map.kin
 export const canDeleteLink = (map: LinkMap, id: LinkId): boolean => RULES[map.kind].canDeleteLink(map, id);
 
 export const canPaste = (map: LinkMap): boolean => RULES[map.kind].canPaste(map);
+
+export const canSetStatus = (map: LinkMap, id: NodeId): boolean => RULES[map.kind].canSetStatus(map, id);

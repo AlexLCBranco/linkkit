@@ -9,13 +9,21 @@ import type {
   MapKind,
   MapNode,
   NodeId,
+  NodeStatus,
   PaletteColor,
   SiblingOrder,
   Size,
 } from "./types";
 import { clampArrowLength } from "./map";
 import { isOrdered, normalizeOrder, sameOrder } from "./order";
-import { ARROW_LENGTH_PRESETS, DEFAULT_LINK_LABELS, LAYOUT_DIRECTIONS, MAP_KINDS, PALETTE_COLORS } from "./types";
+import {
+  ARROW_LENGTH_PRESETS,
+  DEFAULT_LINK_LABELS,
+  LAYOUT_DIRECTIONS,
+  MAP_KINDS,
+  NODE_STATUSES,
+  PALETTE_COLORS,
+} from "./types";
 
 /**
  * The saved shape of a map, and how to read it back safely. Pure: where it
@@ -35,7 +43,7 @@ export interface PersistedMap {
 }
 
 export function serializeMap(map: LinkMap): PersistedMap {
-  const { id, name, kind, page, direction, arrowLength, nodes, links, order } = map;
+  const { id, name, kind, page, direction, arrowLength, nodes, links, order, hideCut } = map;
   // Copies out exactly the content fields, so nothing else that happens to
   // ride along on the object can leak into storage.
   return {
@@ -50,6 +58,7 @@ export function serializeMap(map: LinkMap): PersistedMap {
       nodes,
       links,
       order,
+      hideCut,
     },
   };
 }
@@ -141,7 +150,15 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
       node.color === null || PALETTE_COLORS.includes(node.color as PaletteColor)
         ? (node.color as PaletteColor | null)
         : fix(null);
-    nodes[id] = { id, name: nodeName, x, y, color };
+    // Saves from before statuses existed have none: not damage. Only a
+    // tree's boxes have one.
+    const status =
+      node.status === undefined || node.status === null
+        ? null
+        : kind === "tree" && NODE_STATUSES.includes(node.status as NodeStatus)
+          ? (node.status as NodeStatus)
+          : fix(null);
+    nodes[id] = { id, name: nodeName, x, y, color, status };
   }
 
   // Arrows: each one is checked with the arrows kept so far, so an exact
@@ -150,7 +167,11 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
   // one arrow at a time (every box looks like a start before its arrow).
   const rawLinks: Record<string, unknown> = isObject(raw.links) ? raw.links : fix({});
   const links: Record<LinkId, Link> = {};
-  const map: LinkMap = { id: raw.id as MapId, name, kind, page, direction, arrowLength, nodes, links, order: {} };
+  // Older saves have no "hide cut": shown. Only a tree hides anything.
+  const hideCut =
+    raw.hideCut === undefined ? false : typeof raw.hideCut === "boolean" && (kind === "tree" || !raw.hideCut) ? raw.hideCut : fix(false);
+
+  const map: LinkMap = { id: raw.id as MapId, name, kind, page, direction, arrowLength, nodes, links, order: {}, hideCut };
   for (const [key, link] of Object.entries(rawLinks)) {
     if (!isObject(link) || typeof link.from !== "string" || typeof link.to !== "string") {
       fix(null);

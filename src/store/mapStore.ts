@@ -26,15 +26,18 @@ import {
   setDirection,
   setNodeColor,
   setNodesColor,
+  setNodesStatus,
+  setHideCut,
   type MapFragment,
   setPage,
 } from "../domain/map";
 import { defaultPageSize } from "../domain/page";
-import { canDeleteLink, canPaste } from "../domain/rules";
+import { canDeleteLink, canPaste, canSetStatus } from "../domain/rules";
+import { shownMap } from "../domain/status";
 import { addNextStep, branchesOf, createTree, deleteBranches } from "../domain/tree";
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
-import { ARROW_LENGTH_PRESETS, type LinkId, type LinkMap, type MapId, type NodeId, type PaletteColor, type Point, type Size } from "../domain/types";
+import { ARROW_LENGTH_PRESETS, type LinkId, type LinkMap, type MapId, type NodeId, type NodeStatus, type PaletteColor, type Point, type Size } from "../domain/types";
 import { useMissingMaps } from "./missingMaps";
 import {
   deleteStoredMap,
@@ -178,6 +181,14 @@ export interface MapState {
   /** Moves several boxes; moves with the same `gesture` are one step. */
   moveBoxes(positions: ReadonlyMap<NodeId, Point>, gesture?: string): void;
   setBoxesColor(ids: readonly NodeId[], color: PaletteColor | null): void;
+  /** Keep / maybe / cut (`null` clears it) on every box that may have one
+      (`canSetStatus`), as one undo step. */
+  setBoxesStatus(ids: readonly NodeId[], status: NodeStatus | null): void;
+  /** The X key: cuts the boxes, or uncuts them when all are cut already. */
+  toggleCut(ids: readonly NodeId[]): void;
+  /** Takes boxes that look cut off the page (and out of Tidy up), or
+      brings them back. Undoable; the tree re-tidies around what shows. */
+  setHideCut(hideCut: boolean): void;
   /** Copies boxes and the arrows between them to the clipboard. Only where
       the rules allow pasting (`canPaste`): not in a tree. */
   copyBoxes(ids: readonly NodeId[]): void;
@@ -351,10 +362,12 @@ export function selectionOf(s: Pick<MapState, "selected" | "group">): readonly N
   return s.group.length > 0 ? s.group : s.selected ? [s.selected] : [];
 }
 
-/** Drops view state that points at something no longer on the map. */
+/** Drops view state that points at something no longer on the map, or
+    no longer shown on it (a cut box with "hide cut" on). */
 function forget(s: MapState, map: LinkMap): Pick<MapState, "map" | "selected" | "group" | "editing"> {
-  const gone = (e: Editing | null) => e !== null && !(e.kind === "box" ? map.nodes[e.id] : map.links[e.id]);
-  const kept = selectionOf(s).filter((id) => map.nodes[id]);
+  const shown = shownMap(map);
+  const gone = (e: Editing | null) => e !== null && !(e.kind === "box" ? shown.nodes[e.id] : shown.links[e.id]);
+  const kept = selectionOf(s).filter((id) => shown.nodes[id]);
   // A group that lost boxes stays a group only while two are left.
   const selection = kept.length === selectionOf(s).length ? { selected: s.selected, group: s.group } : selecting(kept);
   return { map, ...selection, editing: gone(s.editing) ? null : s.editing };
@@ -374,6 +387,17 @@ function commit(s: MapState, next: LinkMap, key: string | null = null): Partial<
     history: join ? history.amendLast(s.history, s.map, next) : history.record(s.history, s.map, next),
     stepKey: key,
   };
+}
+
+/**
+ * `commit`, plus a re-tidy when boxes came onto or left the page ("hide
+ * cut" turned on or off, or a box cut or uncut while it is on): the tree
+ * closes the gap or makes room, in the same undo step (see settleRequest).
+ */
+function withRoomMade(s: MapState, next: LinkMap): Partial<MapState> {
+  const before = Object.keys(shownMap(s.map).nodes).length;
+  const after = Object.keys(shownMap(next).nodes).length;
+  return { ...commit(s, next), settleRequest: s.settleRequest + (before !== after ? 1 : 0) };
 }
 
 /** The undo step a new box and its first name share. */
@@ -429,7 +453,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
       const now = selectionOf(s);
       return selecting(now.includes(id) ? now.filter((n) => n !== id) : [...now, id]);
     }),
-  selectAll: () => set((s) => selecting(Object.keys(s.map.nodes) as NodeId[])),
+  selectAll: () => set((s) => selecting(Object.keys(shownMap(s.map).nodes) as NodeId[])),
   requestTidy: (change, gesture) =>
     set((s) => ({
       tidyRequest: {
@@ -497,6 +521,16 @@ export const useMapStore = create<MapState>()((set, get) => ({
     }),
   moveBoxes: (positions, gesture) => set((s) => commit(s, moveNodes(s.map, positions), gesture ?? null)),
   setBoxesColor: (ids, color) => set((s) => commit(s, setNodesColor(s.map, ids, color))),
+  setBoxesStatus: (ids, status) => set((s) => withRoomMade(s, setNodesStatus(s.map, ids, status))),
+  toggleCut: (ids) =>
+    set((s) => {
+      const settable = ids.filter((id) => canSetStatus(s.map, id));
+      if (settable.length === 0) return {};
+      // All cut already: uncut them. Otherwise: cut them all.
+      const allCut = settable.every((id) => s.map.nodes[id].status === "cut");
+      return withRoomMade(s, setNodesStatus(s.map, settable, allCut ? null : "cut"));
+    }),
+  setHideCut: (hideCut) => set((s) => withRoomMade(s, setHideCut(s.map, hideCut))),
   copyBoxes: (ids) =>
     set((s) => {
       const fragment = copyFragment(s.map, ids);

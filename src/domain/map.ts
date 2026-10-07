@@ -1,5 +1,5 @@
 import { createLinkId, createNodeId } from "./ids";
-import { canLink, type LinkVerdict } from "./rules";
+import { canLink, canSetStatus, type LinkVerdict } from "./rules";
 import { isOrdered, withNextStep, withoutBoxes, withoutNextStep } from "./order";
 import type {
   ArrowLength,
@@ -11,6 +11,7 @@ import type {
   MapKind,
   MapNode,
   NodeId,
+  NodeStatus,
   PaletteColor,
   Point,
   Size,
@@ -35,6 +36,7 @@ export function createMap(id: MapId, name: string, page: Size, kind: MapKind = "
     nodes: {},
     links: {},
     order: {},
+    hideCut: false,
   };
 }
 
@@ -47,7 +49,7 @@ export function addNode(
   name = "",
   id: NodeId = createNodeId(),
 ): { map: LinkMap; nodeId: NodeId } {
-  const node: MapNode = { id, name: cleanName(name), x: at.x, y: at.y, color: null };
+  const node: MapNode = { id, name: cleanName(name), x: at.x, y: at.y, color: null, status: null };
   return { map: { ...map, nodes: { ...map.nodes, [id]: node } }, nodeId: id };
 }
 
@@ -209,3 +211,16 @@ export function pasteFragment(
   }
   return { map: { ...map, nodes, links }, nodeIds: [...idOf.values()] };
 }
+
+/* ---- Keep / maybe / cut (trees) ---- */
+
+/** Sets the status of every box that may have one (`canSetStatus`);
+    `null` clears it. The same map when nothing changes. */
+export function setNodesStatus(map: LinkMap, ids: Iterable<NodeId>, status: NodeStatus | null): LinkMap {
+  let next = map;
+  for (const id of ids) if (canSetStatus(map, id)) next = updateNode(next, id, { status });
+  return next;
+}
+
+export const setHideCut = (map: LinkMap, hideCut: boolean): LinkMap =>
+  hideCut === map.hideCut ? map : { ...map, hideCut };

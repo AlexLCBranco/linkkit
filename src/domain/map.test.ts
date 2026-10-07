@@ -27,7 +27,7 @@ const c = asNodeId("c");
 describe("map edits", () => {
   it("adds a box with a tidied name and no colour", () => {
     const { map, nodeId } = addNode(build([]), { x: 10, y: 20 }, "  Big   box ");
-    expect(map.nodes[nodeId]).toEqual({ id: nodeId, name: "Big box", x: 10, y: 20, color: null });
+    expect(map.nodes[nodeId]).toEqual({ id: nodeId, name: "Big box", x: 10, y: 20, color: null, status: null });
   });
 
   it("renames, moves and recolours, returning the same map when nothing changes", () => {

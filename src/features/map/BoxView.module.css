@@ -233,3 +233,49 @@
     0 0 0 var(--target-ring-width) var(--focus-ring),
     var(--shadow-md);
 }
+
+/* ---- Keep / maybe / cut (trees) ---- */
+
+/* The status badge: a small circle straddling the top-left corner, so it
+   takes no room inside the box (Treekit's). */
+.badge {
+  position: absolute;
+  top: calc(-1 * var(--status-badge-size) / 2);
+  left: calc(-1 * var(--status-badge-size) / 2);
+  display: grid;
+  place-items: center;
+  width: var(--status-badge-size);
+  height: var(--status-badge-size);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+}
+
+/* Keep reads a touch stronger than maybe, still without colour. */
+.badge[data-status="keep"] {
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+}
+
+/* A box that looks cut fades into the page: a veil in the page's colour
+   rather than `opacity`, so its hover toolbar (drawn above the veil) stays
+   readable. */
+.box[data-cut]::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: var(--page-paper);
+  opacity: var(--cut-veil);
+  pointer-events: none;
+}
+
+.box[data-cut] {
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.box[data-cut] .badge {
+  opacity: calc(1 - var(--cut-veil));
+}

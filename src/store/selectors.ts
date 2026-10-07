@@ -1,5 +1,7 @@
 import { linkHighlight, nodeHighlight, reachOf, type LinkHighlight, type NodeHighlight, type Reach } from "../domain/reach";
-import type { LinkId, NodeId, PaletteColor } from "../domain/types";
+import { shownMap } from "../domain/status";
+import { canSetStatus } from "../domain/rules";
+import type { LinkId, NodeId, NodeStatus, PaletteColor } from "../domain/types";
 import type { MapState } from "./mapStore";
 
 /**
@@ -17,7 +19,9 @@ let cached: { map: MapState["map"]; selected: NodeId | null; reach: Reach | null
     nothing (or a box that no longer exists) is selected. */
 export function selectReach(s: Pick<MapState, "map" | "selected">): Reach | null {
   if (cached?.map !== s.map || cached.selected !== s.selected) {
-    cached = { map: s.map, selected: s.selected, reach: reachOf(s.map, s.selected) };
+    // Walked on the map as it shows: with "hide cut" on, hidden boxes are
+    // neither lit nor counted.
+    cached = { map: s.map, selected: s.selected, reach: reachOf(shownMap(s.map), s.selected) };
   }
   return cached.reach;
 }
@@ -40,4 +44,11 @@ export function selectLinkHighlight(s: Pick<MapState, "map" | "selected">, id: L
 export function selectGroupColor(s: Pick<MapState, "map" | "group">): PaletteColor | null | undefined {
   const colors = new Set(s.group.map((id) => s.map.nodes[id]?.color ?? null));
   return colors.size === 1 ? [...colors][0] : undefined;
+}
+
+/** The status every picked box that may have one shares (`null`: none),
+    else `undefined` (mixed). The start, which has none, doesn't count. */
+export function selectGroupStatus(s: Pick<MapState, "map" | "group">): NodeStatus | null | undefined {
+  const statuses = new Set(s.group.filter((id) => canSetStatus(s.map, id)).map((id) => s.map.nodes[id].status));
+  return statuses.size === 1 ? [...statuses][0] : undefined;
 }

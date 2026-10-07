@@ -41,6 +41,7 @@ function focusedBox(target: EventTarget | null): NodeId | null {
  * On the selected box, or every box of a group:
  *   Delete, Backspace          delete (with their arrows)
  *   1-8, 0                     set a palette colour; 0 clears it
+ *   X                          cut, or uncut (a tree's steps)
  *   Ctrl/Cmd+C, X, D           copy, cut, duplicate (not in a tree)
  *
  * All ignored while typing a name or label, so the field's own undo and
@@ -97,6 +98,8 @@ export function useMapShortcuts() {
         // 1-8 pick a palette colour in its listed order; 0 clears it.
         const index = Number(key);
         store.setBoxesColor(picked, index === 0 ? null : PALETTE_COLORS[index - 1]);
+      } else if (key === "x" && !e.shiftKey) {
+        store.toggleCut(picked);
       }
     }
     document.addEventListener("keydown", onKeyDown);

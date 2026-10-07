@@ -1,0 +1,42 @@
+.row {
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+}
+
+/* Unlayered, so these win over the menu item's Tailwind classes (padding,
+   gap, focus background). A round button the size of a colour dot. */
+.choice {
+  display: grid;
+  place-items: center;
+  width: var(--status-choice-size);
+  height: var(--status-choice-size);
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    transform var(--duration-fast) var(--ease-spring),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.choice:hover,
+.choice[data-highlighted] {
+  color: var(--text-primary);
+  transform: scale(1.1);
+}
+
+/* The box's status now. */
+.choice[data-current] {
+  color: var(--text-primary);
+  box-shadow:
+    0 0 0 var(--select-ring-width) var(--surface-raised),
+    0 0 0 calc(2 * var(--select-ring-width)) var(--accent);
+}
+
+.none {
+  font-size: var(--font-size-md);
+  line-height: 1;
+}

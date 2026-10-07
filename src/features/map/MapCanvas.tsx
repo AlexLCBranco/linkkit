@@ -14,6 +14,7 @@ import {
 import { linkGeometry, type Box, type LinkGeometry } from "../../domain/geometry";
 import { placeLabels } from "../../domain/labels";
 import { layoutMap } from "../../domain/layout";
+import { shownMap } from "../../domain/status";
 import { boxesIn, marqueeSelection, rectBetween, type Rect } from "../../domain/marquee";
 import { boxBounds, clampToPage, keepOnPage, pageSize, placeOnPage } from "../../domain/page";
 import type { ArrowLength, LayoutDirection, LinkId, LinkMap, NodeId, Point, Size } from "../../domain/types";
@@ -93,7 +94,9 @@ function tidyOptions(map: LinkMap, labelSizes: ReadonlyMap<LinkId, Size>, arrowL
  * moves the whole map there as it is, and glides the same way.
  */
 function MapCanvasInner() {
-  const map = useMapStore((s) => s.map);
+  // The map as it shows: with "hide cut" on, boxes that look cut are not
+  // drawn, measured or laid out (they keep their saved places).
+  const map = useMapStore((s) => shownMap(s.map));
   const needsTidy = useMapStore((s) => s.needsTidy);
   const placeAll = useMapStore((s) => s.placeAll);
   const select = useMapStore((s) => s.select);
@@ -220,7 +223,7 @@ function MapCanvasInner() {
   const startGlide = glide.start;
   useEffect(() => {
     const centres = (m: typeof map) => new Map<NodeId, Point>(Object.values(m.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
-    const glideFrom = (from: Map<NodeId, Point>) => startGlide(from, useMapStore.getState().map.nodes);
+    const glideFrom = (from: Map<NodeId, Point>) => startGlide(from, shownMap(useMapStore.getState().map).nodes);
     // Tidy up, in the direction and arrow length asked for (switching
     // either is a tidy with the new setting, saved together with it).
     const offTidy = useMapStore.subscribe((s, prev) => {
@@ -228,9 +231,10 @@ function MapCanvasInner() {
       const screen = screenRef.current;
       if (!screen) return;
       const { direction, arrowLength, gesture } = s.tidyRequest;
-      const layout = layoutMap(s.map, sizesRef.current, tidyOptions(s.map, labelSizesRef.current, arrowLength, direction), direction);
+      const shown = shownMap(s.map);
+      const layout = layoutMap(shown, sizesRef.current, tidyOptions(shown, labelSizesRef.current, arrowLength, direction), direction);
       const placed = placeOnPage(layout, screen, PAGE_MARGIN, useViewStore.getState().alignment);
-      const from = centres(s.map);
+      const from = centres(shown);
       s.placeAll(placed.positions, placed.page, { direction, arrowLength }, gesture);
       // Dragged or scrolled: the boxes follow the hand at once.
       if (!gesture) glideFrom(from);
@@ -240,8 +244,9 @@ function MapCanvasInner() {
       const s = useMapStore.getState();
       const screen = screenRef.current;
       if (v.applied === prev.applied || s.needsTidy || !screen) return;
-      const from = centres(s.map);
-      const bounds = boxBounds(s.map, sizesRef.current, MAP_LAYOUT.fallbackSize);
+      const shown = shownMap(s.map);
+      const from = centres(shown);
+      const bounds = boxBounds(shown, sizesRef.current, MAP_LAYOUT.fallbackSize);
       const placed = placeOnPage({ positions: from, bounds }, screen, PAGE_MARGIN, v.alignment);
       s.placeAll(placed.positions);
       glideFrom(from);
@@ -262,12 +267,13 @@ function MapCanvasInner() {
     if (settleRequest === settled.current || !allMeasured || !screen || needsTidy) return;
     settled.current = settleRequest;
     const s = useMapStore.getState();
-    const options = tidyOptions(s.map, labelSizesRef.current, s.map.arrowLength, s.map.direction);
-    const layout = layoutMap(s.map, sizes, options, s.map.direction);
+    const shown = shownMap(s.map);
+    const options = tidyOptions(shown, labelSizesRef.current, shown.arrowLength, shown.direction);
+    const layout = layoutMap(shown, sizes, options, shown.direction);
     const placed = placeOnPage(layout, screen, PAGE_MARGIN, useViewStore.getState().alignment);
-    const from = new Map<NodeId, Point>(Object.values(s.map.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
+    const from = new Map<NodeId, Point>(Object.values(shown.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
     s.nudgeBoxes(placed.positions);
-    startGlide(from, useMapStore.getState().map.nodes);
+    startGlide(from, shownMap(useMapStore.getState().map).nodes);
   }, [settleRequest, allMeasured, screen, needsTidy, sizes, startGlide]);
 
   const at = useCallback((id: NodeId): Point => glide.shown?.get(id) ?? map.nodes[id], [glide.shown, map.nodes]);

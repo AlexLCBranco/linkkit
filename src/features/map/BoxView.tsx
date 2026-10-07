@@ -1,14 +1,17 @@
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { Palette, Pencil, Plus, Trash2 } from "lucide-react";
+import { Palette, Pencil, Plus, Tag, Trash2 } from "lucide-react";
 import { memo, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
 
 import { InlineEditable } from "../../components/InlineEditable";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
-import { canDeleteBox } from "../../domain/rules";
-import type { NodeId } from "../../domain/types";
+import { canDeleteBox, canSetStatus } from "../../domain/rules";
+import { looksCut } from "../../domain/status";
+import type { NodeId, NodeStatus } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { selectNodeHighlight } from "../../store/selectors";
 import styles from "./BoxView.module.css";
+import { StatusRow } from "./StatusRow";
+import { STATUS_META } from "./statusMeta";
 import { SwatchRow } from "./SwatchRow";
 import { BOX_ID_ATTRIBUTE } from "./pageMarkers";
 import { useBoxGestures } from "./useBoxGestures";
@@ -34,6 +37,11 @@ const keepToButton = (e: PointerEvent | MouseEvent) => e.stopPropagation();
  * choices (BoxContextMenu). In a tree the toolbar also has "+" (add a
  * next step), and the start has no bin (it can't be deleted).
  *
+ * A tree step can be marked keep / maybe / cut (the tag in the toolbar, or
+ * the right-click menu): a badge on its top-left corner shows it, and a box
+ * that looks cut (cut, or only reached through cut boxes) fades under a
+ * veil with a dashed border.
+ *
  * One of several boxes picked together (the marquee) shows the selection
  * ring, without the toolbar: dragging any of them moves them all.
  *
@@ -57,6 +65,9 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   const addNextStep = useMapStore((s) => s.addNextStep);
   const isTree = useMapStore((s) => s.map.kind === "tree");
   const deletable = useMapStore((s) => canDeleteBox(s.map, nodeId));
+  const statusable = useMapStore((s) => canSetStatus(s.map, nodeId));
+  const isCut = useMapStore((s) => looksCut(s.map).has(nodeId));
+  const setBoxesStatus = useMapStore((s) => s.setBoxesStatus);
   const { dragging, onBoxPointerDown, onDotPointerDown } = useBoxGestures(nodeId);
   if (!node) return null;
 
@@ -74,6 +85,7 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
       data-dragging={dragging || undefined}
       data-connect-target={isTarget || undefined}
       data-connect-source={isSource || undefined}
+      data-cut={isCut || undefined}
       style={style}
       onPointerDown={onBoxPointerDown}
       onDoubleClick={rename}
@@ -91,6 +103,8 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
         className={styles.name}
       />
       <Handle type="source" position={Position.Bottom} className={styles.handle} isConnectable={false} />
+
+      {node.status && <StatusBadge status={node.status} />}
 
       {/* Drag from here to another box to draw an arrow. */}
       <span
@@ -126,6 +140,18 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
             <SwatchRow value={node.color} onPick={(c) => setBoxColor(nodeId, c)} Item={DropdownMenuItem} />
           </DropdownMenuContent>
         </DropdownMenu>
+        {statusable && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" className={styles.toolbarButton} aria-label="Keep, maybe or cut" title="Keep, maybe or cut">
+                <Tag size={14} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-auto" side="top" align="center" onCloseAutoFocus={(e) => e.preventDefault()}>
+              <StatusRow value={node.status} onPick={(status) => setBoxesStatus([nodeId], status)} Item={DropdownMenuItem} />
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
         {deletable && (
           <button
             type="button"
@@ -141,3 +167,14 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
     </div>
   );
 });
+
+/** The status marker on the box's top-left corner: neutral, so it never
+    competes with a colour tint (Treekit's). */
+function StatusBadge({ status }: { readonly status: NodeStatus }) {
+  const { label, icon: Icon } = STATUS_META[status];
+  return (
+    <span className={styles.badge} data-status={status} role="img" aria-label={label} title={label}>
+      <Icon size={10} strokeWidth={2.5} aria-hidden />
+    </span>
+  );
+}

@@ -71,7 +71,8 @@ describe("order edits", () => {
 describe("normalizeOrder", () => {
   it("lists every box's next steps, placing unlisted ones where they sit", () => {
     let map = buildTree("s", ["a", "b"], [["s", "a"], ["s", "b"]]);
-    map = moveNode(moveNode(map, id("a"), { x: 50, y: 0 }), id("b"), { x: -50, y: 9 });
+    // As saved before sibling order existed: none stored.
+    map = { ...moveNode(moveNode(map, id("a"), { x: 50, y: 0 }), id("b"), { x: -50, y: 9 }), order: {} };
     expect(normalizeOrder(map, "TB")).toEqual({ s: ids("b", "a") });
     expect(normalizeOrder(map, "LR")).toEqual({ s: ids("a", "b") });
   });

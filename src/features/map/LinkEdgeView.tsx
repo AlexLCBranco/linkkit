@@ -6,6 +6,7 @@ import { InlineEditable } from "../../components/InlineEditable";
 
 import type { LinkGeometry } from "../../domain/geometry";
 import { canDeleteLink } from "../../domain/rules";
+import { looksCut } from "../../domain/status";
 import type { LinkId, Point, Size } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { selectLinkHighlight } from "../../store/selectors";
@@ -62,6 +63,11 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
   const deleteLink = useMapStore((s) => s.deleteLink);
   const deletable = useMapStore((s) => canDeleteLink(s.map, linkId));
   const kind = useMapStore((s) => s.map.kind);
+  // The box it leads to looks cut: the arrow fades and dashes with it.
+  const isCut = useMapStore((s) => {
+    const to = s.map.links[linkId]?.to;
+    return to !== undefined && looksCut(s.map).has(to);
+  });
   // The pointer is on the line itself (a label-less arrow shows its chip
   // then).
   const [hot, setHot] = useState(false);
@@ -111,10 +117,11 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
 
   return (
     <>
-      <BaseEdge id={id} path={line} className={styles.line} data-highlight={highlight} />
+      <BaseEdge id={id} path={line} className={styles.line} data-highlight={highlight} data-cut={isCut || undefined} />
       <path
         className={styles.head}
         data-highlight={highlight}
+        data-cut={isCut || undefined}
         d={`M${tip.x} ${tip.y}L${left.x} ${left.y}L${right.x} ${right.y}Z`}
       />
       {!hasPill && (
@@ -162,6 +169,7 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
             // React Flow's opt-out classes: a press here is the label's own.
             className={`${styles.label} nodrag nopan`}
             data-highlight={highlight}
+            data-cut={isCut || undefined}
             data-editing={isEditing || undefined}
             style={spot}
             onClick={() => startEditing({ kind: "link", id: linkId })}

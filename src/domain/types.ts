@@ -55,6 +55,13 @@ export const ARROW_LENGTH_RANGE = { min: 0, max: 240 } as const;
     has no label at first, and shows no pill. */
 export const DEFAULT_LINK_LABELS: Readonly<Record<MapKind, string>> = { connections: "needs", tree: "" };
 
+/** A tree box's verdict (Treekit's): keep it, maybe, or cut it. Only a
+    box's own status is stored; "looks cut" (under a cut box) is worked out
+    (see `status.ts`). Shared with Boardkit's lists and cards once the apps
+    share a store. */
+export const NODE_STATUSES = ["keep", "maybe", "cut"] as const;
+export type NodeStatus = (typeof NODE_STATUSES)[number];
+
 export interface Point {
   readonly x: number;
   readonly y: number;
@@ -74,6 +81,9 @@ export interface MapNode {
   readonly y: number;
   /** `null` = the theme's default box style. */
   readonly color: PaletteColor | null;
+  /** Trees only (`canSetStatus` in rules.ts): keep / maybe / cut, or
+      `null` for none. Always `null` in a connections map. */
+  readonly status: NodeStatus | null;
 }
 
 /** An arrow. In a connections map `from` needs `to` (A -> B reads "A
@@ -111,4 +121,8 @@ export interface LinkMap {
   /** Trees only: each box's next steps in order, which Tidy up follows.
       Empty in a connections map (its order comes from Tidy up). */
   readonly order: SiblingOrder;
+  /** Trees only: boxes that look cut are off the page (and out of Tidy
+      up) instead of greyed out. Linkkit's own view of the map, never
+      shared; saved and undoable, since it changes the layout. */
+  readonly hideCut: boolean;
 }

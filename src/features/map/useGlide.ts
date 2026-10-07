@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { glidePositions } from "../../domain/glide";
+import { shownMap } from "../../domain/status";
 import type { LinkMap, NodeId, Point } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 
@@ -41,7 +42,7 @@ export function useGlide(nodes: Nodes, durationMs: number) {
       setGlide({ nodes: after, at: glidePositions(from, to, 0) });
       const tick = (now: number) => {
         const t = (now - startTime) / durationMs;
-        if (t >= 1 || useMapStore.getState().map.nodes !== after) {
+        if (t >= 1 || shownMap(useMapStore.getState().map).nodes !== after) {
           setGlide(null);
           return;
         }

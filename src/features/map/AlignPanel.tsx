@@ -46,7 +46,8 @@ export function AlignPanel() {
   return (
     <Popover.Root>
       <Popover.Trigger className={styles.trigger} title="Move the whole map on the screen">
-        Align
+        <AlignHorizontalJustifyCenter size={16} className={styles.icon} aria-hidden />
+        <span className={styles.word}>Align</span>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content className={styles.panel} align="start" sideOffset={6}>

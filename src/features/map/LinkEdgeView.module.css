@@ -155,6 +155,17 @@ path.hit {
   opacity: 1;
 }
 
+/* ---- An arrow into a box that looks cut: dashed, faded with it ---- */
+path.line[data-cut] {
+  stroke-dasharray: var(--cut-dash);
+}
+
+path.line[data-cut],
+.head[data-cut],
+.label[data-cut] {
+  opacity: calc(1 - var(--cut-veil));
+}
+
 /* ---- The teal / orange highlight (a box is selected) ---- */
 path.line[data-highlight="teal"] {
   stroke: var(--need);

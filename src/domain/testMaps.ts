@@ -1,5 +1,6 @@
 import { asLinkId, asMapId, asNodeId } from "./ids";
 import { addLink, addNode, createMap } from "./map";
+import { normalizeOrder } from "./order";
 import type { LinkMap, NodeId } from "./types";
 
 /**
@@ -31,5 +32,6 @@ export function buildTree(start: string, names: string[], arrows: [string, strin
     const id = asLinkId(`${from}>${to}`);
     map = { ...map, links: { ...map.links, [id]: { id, from: asNodeId(from), to: asNodeId(to), label: label ?? "" } } };
   }
-  return map;
+  // The sibling order a tree grown through the real edits would have.
+  return { ...map, order: normalizeOrder(map) };
 }
