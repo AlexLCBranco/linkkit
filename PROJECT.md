@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.48 (old addresses show a "Linkkit moved" notice)_
+_Last updated: 2026-10-07, v0.0.49 (map names you can tell apart)_
 
 ## What it is
 
@@ -53,8 +53,10 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   shows when Tab reaches it
 - Several saved maps (Treekit's tree switcher): click the map's name in
   the header to rename it; the arrow beside it opens a menu listing every
-  map (newest first, a tick on the open one) to switch to, plus "+ New
-  map" (a blank map, its name open for typing), "Duplicate this map"
+  map (newest first, a tick on the open one; a name that repeats shows
+  numbered, "Rent 2") to switch to, plus "+ New
+  map" (a blank map, "Untitled map 2" … when taken, its name open for
+  typing; it takes its first box's name until renamed), "Duplicate this map"
   (named "… (copy)", then "(copy 2)" …), "Add example map" (a fresh,
   tidied Microsoft 365 example added next to the others; it never
   replaces one, unlike the prototype's "Reset example") and "Delete this
@@ -1134,6 +1136,15 @@ One commit per item. Short entries only.
   ignores them); a template change also schedules an automatic backup.
   Restoring adds the templates not here yet (by id; twice adds nothing)
   and says how many came back. Replaces U6's "not in backups yet"
+- ~~U11. Map names you can tell apart~~ (done, v0.0.49). New maps (and
+  new maps with tree rules) are "Untitled map", "Untitled map 2", "3" …;
+  a second map from one template gets " 2" too. Every map now takes its
+  first box's name (a tree: its start's) while still untitled or still
+  that box's old name, until renamed by hand (`followBoxName` in
+  `domain/names.ts`, replacing U9's `followStartName`). Names that still
+  repeat in the list (typed by hand, or two maps whose first box has the
+  same name) show numbered in the map menu and header ("Rent", "Rent 2",
+  the older one keeps the plain name); stored names are never rewritten
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 

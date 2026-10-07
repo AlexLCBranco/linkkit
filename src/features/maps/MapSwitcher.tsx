@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
 import { backupNeedsAttention, backupStopped } from "../../domain/autoBackup";
+import { displayNames } from "../../domain/names";
 import { useBackupStore } from "../../store/backupStore";
 import { hasBoardList } from "../../store/persistBoard";
 import { linkPreview, useMapStore, type LinkPreview } from "../../store/mapStore";
@@ -108,6 +109,8 @@ export function MapSwitcher() {
   // Stored oldest-first; listed newest-first, so the latest map is always at
   // the top however many have piled up.
   const newestFirst = useMemo(() => [...maps].reverse(), [maps]);
+  // Two maps never show the same name: a repeat shows as "Rent 2" (U11).
+  const shown = useMemo(() => displayNames(maps), [maps]);
 
   return (
     <div className={styles.switcher}>
@@ -124,7 +127,7 @@ export function MapSwitcher() {
         />
       ) : (
         <button type="button" className={styles.name} onClick={() => setRenaming(true)} title="Rename map">
-          {name}
+          {shown.get(mapId) ?? name}
         </button>
       )}
 
@@ -164,7 +167,7 @@ export function MapSwitcher() {
           {newestFirst.map((m) => (
             <DropdownMenuItem key={m.id} onSelect={() => switchMap(m.id)}>
               <span className={styles.check}>{m.id === mapId ? "✓" : ""}</span>
-              {m.name}
+              {shown.get(m.id) ?? m.name}
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />

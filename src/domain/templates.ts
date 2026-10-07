@@ -1,8 +1,9 @@
 import { createLinkId, createMapId, createNodeId } from "./ids";
 import { createMap } from "./map";
 import { parseOutline, pasteOutline } from "./outline";
-import { readMap, serializeMap, UNTITLED_MAP, type PersistedMap } from "./persistence";
-import { createTree, startOf } from "./tree";
+import { isUntitled, namingBox } from "./names";
+import { readMap, serializeMap, type PersistedMap } from "./persistence";
+import { createTree } from "./tree";
 import type { Link, LinkId, LinkMap, MapId, MapKind, MapNode, NodeId, SiblingOrder, Size } from "./types";
 
 /**
@@ -118,10 +119,11 @@ export function withFreshIds(
 
 /** "Save this map as a template": the map as it is, without its trash or
     its link to Boardkit. Named after the map, or, while the map is still
-    untitled, after its start box ("Party" rather than "Untitled map"). */
+    untitled, after its start (or first) box ("Party" rather than
+    "Untitled map"). */
 export function templateOf(map: LinkMap, id: string, savedAt: number): SavedTemplate {
-  const start = map.kind === "tree" ? startOf(map) : null;
-  const name = map.name === UNTITLED_MAP && start && map.nodes[start].name ? map.nodes[start].name : map.name;
+  const start = namingBox(map);
+  const name = isUntitled(map.name) && start && map.nodes[start].name ? map.nodes[start].name : map.name;
   return { id, name, savedAt, map: serializeMap({ ...map, name, trash: [] }) };
 }
 

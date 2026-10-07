@@ -18,6 +18,7 @@ import type {
 } from "./types";
 import { clampArrowLength } from "./map";
 import { isOrdered, normalizeOrder, sameOrder } from "./order";
+import { UNTITLED_MAP } from "./names";
 import { repairTree } from "./tree";
 import {
   ARROW_LENGTH_PRESETS,
@@ -38,7 +39,7 @@ import {
  */
 export const SCHEMA_VERSION = 1;
 
-export const UNTITLED_MAP = "Untitled map";
+export { UNTITLED_MAP } from "./names";
 
 /**
  * `rev`: a count raised by every write of a stored map, so a tab can tell

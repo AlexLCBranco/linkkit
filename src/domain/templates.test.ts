@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { asMapId } from "./ids";
 import { readMap, serializeMap } from "./persistence";
-import { buildTree } from "./testMaps";
+import { build, buildTree } from "./testMaps";
 import { BUILT_IN_TEMPLATES, builtInMap, readTemplates, savedMap, serializeTemplates, templateOf, withFreshIds } from "./templates";
 import { startOf } from "./tree";
 
@@ -45,8 +45,9 @@ describe("saved templates", () => {
     expect(readMap(JSON.parse(JSON.stringify(serializeMap(map))), PAGE).status).toBe("ok");
   });
 
-  it("an untitled map's template is named after its start box", () => {
+  it("an untitled map's template is named after its start (or first) box", () => {
     expect(templateOf({ ...tree, name: "Untitled map" }, "t", 0).name).toBe("s");
+    expect(templateOf({ ...build(["x", "y"]), name: "Untitled map 2" }, "t", 0).name).toBe("x");
     expect(templateOf(tree, "t", 0).name).toBe("Mine");
   });
 

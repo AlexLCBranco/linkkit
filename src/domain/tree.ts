@@ -188,21 +188,3 @@ export function repairTree(
   const collapsed = repaired.collapsed.filter((c) => canCollapse(repaired, c));
   return { map: { ...repaired, collapsed }, fixes };
 }
-
-/**
- * A map with tree rules takes its start box's name (U9): when an edit
- * renames the start, the map's name follows while it is still `untitled`
- * or still the start's old name. Once the user names the map by hand
- * (something else), that name sticks. Not for a linked map (always its
- * start's name, `withStartName` in bridge.ts) or an edit that renamed the
- * map itself; a blank start leaves the name as it is. The same map when
- * nothing follows.
- */
-export function followStartName(prev: LinkMap, next: LinkMap, untitled: string): LinkMap {
-  if (next.kind !== "tree" || next.linkedBoard || prev.name !== next.name) return next;
-  const start = startOf(next);
-  const was = start ? prev.nodes[start]?.name : undefined;
-  const now = start ? next.nodes[start]?.name : undefined;
-  if (was === undefined || !now || was === now) return next;
-  return next.name === untitled || next.name === was ? { ...next, name: now } : next;
-}

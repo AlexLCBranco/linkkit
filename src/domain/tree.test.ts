@@ -2,9 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { asLinkId, asMapId, asNodeId } from "./ids";
 import { canDeleteBox, canDeleteLink, canLink, isStart } from "./rules";
-import { addNextStep, branchesOf, branchOf, createTree, deleteBranch, deleteBranches, followStartName, repairTree, startOf } from "./tree";
+import { addNextStep, branchesOf, branchOf, createTree, deleteBranch, deleteBranches, repairTree, startOf } from "./tree";
 import { buildTree, ids } from "./testMaps";
-import type { LinkMap } from "./types";
 
 const id = asNodeId;
 
@@ -181,34 +180,5 @@ describe("repairTree (order)", () => {
   it("lists attached boxes after the start's own next steps, even with no stored order", () => {
     const damaged = { ...buildTree("job", ["yes", "lone"], [["job", "yes"]]), order: {} };
     expect(repairTree(damaged).map.order[id("job")]).toEqual(ids("yes", "lone"));
-  });
-});
-
-describe("followStartName", () => {
-  const t = (name: string, start: string): LinkMap => {
-    const map = buildTree("s", ["a"], [["s", "a"]]);
-    return { ...map, name, nodes: { ...map.nodes, [asNodeId("s")]: { ...map.nodes[asNodeId("s")], name: start } } };
-  };
-
-  it("an untitled map, or one still named after its start, follows the start's new name", () => {
-    expect(followStartName(t("Untitled map", "Start"), t("Untitled map", "Party"), "Untitled map").name).toBe("Party");
-    expect(followStartName(t("Party", "Party"), t("Party", "Big party"), "Untitled map").name).toBe("Big party");
-  });
-
-  it("a name given by hand sticks; a blank start or another box's rename changes nothing", () => {
-    const prev = t("My plans", "Party");
-    const next = t("My plans", "Big party");
-    expect(followStartName(prev, next, "Untitled map")).toBe(next);
-    const blank = t("Party", "");
-    expect(followStartName(t("Party", "Party"), blank, "Untitled map")).toBe(blank);
-    const other = { ...t("Party", "Party"), nodes: { ...t("Party", "Party").nodes, [asNodeId("a")]: { ...t("Party", "Party").nodes[asNodeId("a")], name: "x" } } };
-    expect(followStartName(t("Party", "Party"), other, "Untitled map")).toBe(other);
-  });
-
-  it("an edit that renames the map itself is left alone, and so is a map without tree rules", () => {
-    const next = { ...t("Party", "Big party"), name: "Mine" };
-    expect(followStartName(t("Party", "Party"), next, "Untitled map")).toBe(next);
-    const plain = { ...t("Untitled map", "Party"), kind: "connections" as const };
-    expect(followStartName({ ...t("Untitled map", "Start"), kind: "connections" }, plain, "Untitled map")).toBe(plain);
   });
 });

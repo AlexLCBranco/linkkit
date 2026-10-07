@@ -267,6 +267,29 @@ describe("several maps", () => {
     expect(loadActiveMapId()).toBe(s.map.id);
   });
 
+  it("numbers new untitled maps, and a map takes its first box's name until renamed by hand", async () => {
+    const { useMapStore } = await storeWithOneMap();
+    useMapStore.getState().newMap();
+    useMapStore.getState().newTree();
+    expect(useMapStore.getState().maps.map((m) => m.name)).toEqual(["First", "Untitled map", "Untitled map 2"]);
+
+    useMapStore.getState().newMap();
+    expect(useMapStore.getState().map.name).toBe("Untitled map 3");
+    const id = useMapStore.getState().addBox({ x: 300, y: 200 });
+    useMapStore.getState().renameBox(id, "Rent");
+    useMapStore.getState().stopEditing();
+    expect(useMapStore.getState().map.name).toBe("Rent");
+    expect(useMapStore.getState().maps.at(-1)?.name).toBe("Rent");
+    // Adding the box and naming it, and the map's name with them, undo in one go.
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.name).toBe("Untitled map 3");
+    useMapStore.getState().redo();
+
+    useMapStore.getState().renameMap("Flat hunt");
+    useMapStore.getState().renameBox(id, "Rent a flat");
+    expect(useMapStore.getState().map.name).toBe("Flat hunt");
+  });
+
   it("saves the outgoing map's last edit before switching, and keeps each map's undo", async () => {
     const { useMapStore, first } = await storeWithOneMap();
     useMapStore.getState().setBoxColor(asNodeId("a"), "red");
@@ -338,7 +361,7 @@ describe("several maps", () => {
     useMapStore.getState().deleteMap(first.id);
     expect(useMapStore.getState().maps.map((m) => m.id)).toEqual([second]);
     // Kept in the trash: off the list, even after a reload, until erased.
-    expect(useMapStore.getState().trashedMaps.map((m) => m.name)).toEqual(["Untitled map", "First"]);
+    expect(useMapStore.getState().trashedMaps.map((m) => m.name)).toEqual(["Untitled map 2", "First"]);
     expect(loadMap(first.id, PAGE)).toEqual(first);
     expect(loadRegistry().map((m) => m.id)).toEqual([second]);
     const reloaded = (await freshStore()).getState();

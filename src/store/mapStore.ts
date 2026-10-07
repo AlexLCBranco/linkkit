@@ -60,7 +60,8 @@ import {
   type MapTrash,
   type TrashSummary,
 } from "../domain/trash";
-import { addNextStep, branchesOf, createTree, followStartName, moveToParent as moveUnder, startOf } from "../domain/tree";
+import { addNextStep, branchesOf, createTree, moveToParent as moveUnder, startOf } from "../domain/tree";
+import { followBoxName, numberedName } from "../domain/names";
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
 import { ARROW_LENGTH_PRESETS, type LinkId, type LinkMap, type MapId, type NodeId, type NodeStatus, type PaletteColor, type Point, type Size } from "../domain/types";
@@ -532,7 +533,9 @@ function createStored(map: LinkMap, maps: Registry): Registry {
   return upsertMap(maps, { id: map.id, name: map.name });
 }
 
-const blankMap = (): LinkMap => createMap(createMapId(), UNTITLED_MAP, newPageSize());
+/** "Untitled map", or "Untitled map 2", ... when that is taken (U11). */
+const untitledName = (maps: Registry) => numberedName(UNTITLED_MAP, maps.map((m) => m.name));
+const blankMap = (maps: Registry): LinkMap => createMap(createMapId(), untitledName(maps), newPageSize());
 
 
 /** The selection as `selected` and `group`: two or more boxes are a
@@ -582,8 +585,8 @@ function linkSpot(map: LinkMap, id: LinkId): Point {
 function commit(s: MapState, edited: LinkMap, key: string | null = null): Partial<MapState> {
   if (edited === s.map || refused(s, edited)) return {};
   // A linked tree's name is its start box's: renaming one renames both.
-  // Any other map with tree rules follows its start until named by hand.
-  const next = followStartName(s.map, withStartName(edited), UNTITLED_MAP);
+  // Any other map follows its start (or first) box until named by hand.
+  const next = followBoxName(s.map, withStartName(edited));
   const join = key !== null && key === s.stepKey;
   return {
     ...forget(s, next),
@@ -742,7 +745,7 @@ function trashMap(id: MapId): void {
   // deleted map's history is dropped here rather than kept around.
   if (next) useMapStore.setState((state) => ({ ...open(state, next, maps), trashedMaps }));
   else {
-    const blank = blankMap();
+    const blank = blankMap(maps);
     useMapStore.setState((state) => ({ ...open(state, blank, createStored(blank, maps)), trashedMaps }));
   }
 }
@@ -1138,8 +1141,10 @@ export const useMapStore = create<MapState>()((set, get) => ({
   newMap: () => {
     get().stopEditing();
     flushSave();
-    const map = blankMap();
-    set((s) => open(s, map, createStored(map, s.maps)));
+    set((s) => {
+      const map = blankMap(s.maps);
+      return open(s, map, createStored(map, s.maps));
+    });
   },
   duplicateMap: () => {
     get().stopEditing();
@@ -1157,7 +1162,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
   newTree: () => {
     get().stopEditing();
     flushSave();
-    const { map, startId } = createTree(createMapId(), UNTITLED_MAP, newPageSize());
+    const { map, startId } = createTree(createMapId(), untitledName(get().maps), newPageSize());
     // Saved at once, like a new map; the first tidy centres the start box,
     // then its name opens for typing (select-all, so typing replaces
     // "Start", and leaving it empty keeps "Start").
@@ -1172,7 +1177,11 @@ export const useMapStore = create<MapState>()((set, get) => ({
   newFromTemplate: (map) => {
     get().stopEditing();
     flushSave();
-    set((s) => open(s, map, createStored(map, s.maps), true));
+    set((s) => {
+      // A second map from one template is "Project plan 2".
+      const named = { ...map, name: numberedName(map.name, s.maps.map((m) => m.name)) };
+      return open(s, named, createStored(named, s.maps), true);
+    });
   },
   switchMap: (id) => {
     if (id === get().map.id) return;
@@ -1331,7 +1340,7 @@ function leaveGoneMap(name: string, erased: boolean): void {
   const { map: next, maps } = loadNewest(left);
   if (next) useMapStore.setState((state) => open(state, next, maps));
   else {
-    const blank = blankMap();
+    const blank = blankMap(maps);
     useMapStore.setState((state) => open(state, blank, createStored(blank, maps)));
   }
   useSyncNotice.getState().mapDeleted(name);
