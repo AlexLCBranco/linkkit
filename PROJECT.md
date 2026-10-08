@@ -39,6 +39,14 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
 
 ## What works now
 
+**Two parents (the rule, in one place).** With tree rules on, a box may
+have two (or more) parents: "Rent" and "Buy" can both lead to "Live near
+the office". In a map linked to Boardkit it may not: each box has exactly
+one parent, because a card sits in one list (refused as "has two ways
+in"). Loops and arrows into the start are refused in both. Code:
+`rules.ts` (`tree` and `linkedTree`).
+
+
 - Dark header (with the map switcher, "Add box", "Tidy up", undo /
   redo, the Top-down / Left-right switch, "Arrows", "Align" and, in a
   tree, "Hide cut"), status line, version badge. On a phone-sized window
@@ -313,8 +321,7 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   to": the earlier step above (or left of) the next one. One start box,
   which can be renamed and coloured but not deleted; every other box has
   at least one arrow leading into it, so there are no loose boxes. Two
-  ways into one box are allowed ("Rent" and "Buy" both lead to "Live near
-  the office"); loops and arrows into the start are not.
+  parents: see "Two parents" at the top of this section.
   Connections maps work exactly as before.
   - The map menu has "+ New tree" (a blank tree: just its start box,
     centred, its name "Start" open for typing over; left empty it stays
