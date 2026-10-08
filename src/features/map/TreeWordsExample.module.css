@@ -1,0 +1,25 @@
+/* The tree words' example in the shortcuts dialog: real boxes and lines,
+   but a picture, not a map (no pointer, no hover). */
+.stage {
+  position: relative;
+  margin: 0 auto;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.stage[data-measured] {
+  visibility: visible;
+}
+
+.lines {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+/* Placed by its centre, as React Flow places boxes on the canvas. */
+.box {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  cursor: default;
+}

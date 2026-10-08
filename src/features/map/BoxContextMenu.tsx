@@ -31,7 +31,7 @@ type Target =
 /**
  * The right-click menu. On a box: rename, notes, fork (it and everything
  * after it into a new map), copy, duplicate, colour, delete
- * (in a tree, also "Add next step" and keep / maybe / cut; the start has
+ * (in a tree, also "Add child" and keep / maybe / cut; the start has
  * neither a status nor delete, and nothing is copied). On a box that is one of several picked: the same for the whole
  * group. On an arrow (its line or label): its label, and delete. On empty
  * paper: "Paste here", once something has been copied.

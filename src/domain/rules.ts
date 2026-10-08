@@ -291,8 +291,8 @@ export const canAddNextStep = (map: LinkMap, id: NodeId): boolean => rulesOf(map
 export function nextStepRefusal(map: LinkMap, id: NodeId): string | null {
   const node = map.nodes[id];
   if (!node || canAddNextStep(map, id)) return null;
-  if (map.kind !== "tree") return "Next steps need tree rules on.";
-  return `“${node.name || "Untitled"}” is a card, and cards can't have next steps in Boardkit.`;
+  if (map.kind !== "tree") return "Children need tree rules on.";
+  return `“${node.name || "Untitled"}” is a card, and cards can't have children in Boardkit.`;
 }
 
 export const canMove = (map: LinkMap, id: NodeId, parent: NodeId): MoveVerdict =>
@@ -306,18 +306,18 @@ export function moveRefusalText(map: LinkMap, id: NodeId, parent: NodeId, reason
     case "missing":
       return "That box is gone.";
     case "not-tree":
-      return "Next steps need tree rules on.";
+      return "Children need tree rules on.";
     case "start":
-      return `${name(id)} is the start: it can't go under another box.`;
+      return `${name(id)} is the start box: it can't go under another box.`;
     case "self":
       return "A box can't go under itself.";
     case "inside":
       return `${name(parent)} is inside the branch you're moving.`;
     case "two-ways-in":
-      return `${name(id)} has two ways in: delete one to move it elsewhere.`;
+      return `${name(id)} has two parents: delete one arrow to move it elsewhere.`;
     case "level":
       if (levelOf(map, parent) === BOARD_LEVELS) {
-        return `${name(parent)} is a card, and cards can't have next steps in Boardkit.`;
+        return `${name(parent)} is a card, and cards can't have children in Boardkit.`;
       }
       return levelOf(map, id) === BOARD_LEVELS
         ? `${name(id)} is a card in Boardkit: it can only go into a list.`
@@ -339,11 +339,11 @@ export function linkRefusalText(map: LinkMap, from: NodeId, to: NodeId, reason: 
     case "duplicate":
       return `${name(from)} already has that arrow to ${name(to)}.`;
     case "start":
-      return `${name(to)} is the start: nothing leads into it.`;
+      return `${name(to)} is the start box: it can't have a parent.`;
     case "loop":
       return `${name(to)} already leads to ${name(from)}: that would go round in a circle.`;
     case "two-ways-in":
-      return `${name(to)} already has its way in: in Boardkit a card is in one list only.`;
+      return `${name(to)} already has a parent: in Boardkit a card is in one list only.`;
   }
 }
 
@@ -357,5 +357,5 @@ export function linkDeleteRefusal(map: LinkMap, id: LinkId): string | null {
 /** Why the box `id` may not be deleted, in words (`null` when it may). */
 export function boxDeleteRefusal(map: LinkMap, id: NodeId): string | null {
   if (!map.nodes[id] || canDeleteBox(map, id)) return null;
-  return `“${map.nodes[id].name || "Untitled"}” is the start, the question itself: rename it rather than delete it.`;
+  return `“${map.nodes[id].name || "Untitled"}” is the start box, the question itself: rename it rather than delete it.`;
 }

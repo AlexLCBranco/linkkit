@@ -1079,7 +1079,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
       if (foldable.length === 0) {
         const box = ids.find((id) => s.map.nodes[id]);
         const name = box ? s.map.nodes[box].name || "Untitled" : "";
-        if (box) useHint.getState().show(`“${name}” has no next steps to fold away.`, boxSpot(s.map, box));
+        if (box) useHint.getState().show(`“${name}” has no children to fold away.`, boxSpot(s.map, box));
         return {};
       }
       // All collapsed already: expand them. Otherwise: collapse them all.

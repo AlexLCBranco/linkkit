@@ -303,7 +303,7 @@ export function problemText(map: LinkMap, problem: BoardProblem): string {
   const name = `"${map.nodes[problem.box]?.name || "Untitled"}"`;
   switch (problem.kind) {
     case "two-ways-in":
-      return `${name} has two ways in.`;
+      return `${name} has two parents.`;
     case "too-deep":
       return `${name} is ${problem.level} levels deep.`;
     case "changes-level":

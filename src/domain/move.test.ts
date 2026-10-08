@@ -83,7 +83,7 @@ describe("canMove (linked tree)", () => {
 
   it("says why in words", () => {
     expect(moveRefusalText(linked, n("a1"), n("b1"), "level")).toBe(
-      "“b1” is a card, and cards can't have next steps in Boardkit.",
+      "“b1” is a card, and cards can't have children in Boardkit.",
     );
     expect(moveRefusalText(linked, n("a1"), n("s"), "level")).toBe("“a1” is a card in Boardkit: it can only go into a list.");
     expect(moveRefusalText(linked, n("a"), n("b"), "level")).toBe("“a” is a list in Boardkit: lists can only be reordered.");

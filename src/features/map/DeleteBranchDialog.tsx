@@ -45,13 +45,13 @@ export function DeleteBranchDialog() {
         <AlertDialogHeader>
           <AlertDialogTitle>
             {several
-              ? `Delete ${boxes(shown.picked)} and ${boxes(others)} after them?`
-              : `Delete “${shown.name || "Untitled"}” and ${boxes(others)} after it?`}
+              ? `Delete ${boxes(shown.picked)} and the ${boxes(others)} under them?`
+              : `Delete “${shown.name || "Untitled"}” and the ${boxes(others)} under it?`}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            The {others === 1 ? "box" : "boxes"} after {several ? "them" : "it"} can only be reached through{" "}
+            The {others === 1 ? "box" : "boxes"} in {several ? "their branches" : "its branch"} can only be reached through{" "}
             {several ? "them" : "it"}, so{" "}
-            {others === 1 ? "it goes" : "they go"} too. A box that another step also leads to stays. They wait in the
+            {others === 1 ? "it goes" : "they go"} too. A box that also has another parent stays. They wait in the
             trash, and undo brings them all back.
           </AlertDialogDescription>
         </AlertDialogHeader>

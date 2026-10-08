@@ -1035,7 +1035,7 @@ describe("a linked tree in the store", () => {
     expect(useMapStore.getState().needsTidy).toBe(false);
     expect(useMapStore.getState().addNextStep(asNodeId("a"))).toBeNull();
     const { useHint } = await import("./hint");
-    expect(useHint.getState().hint?.text).toMatch(/“A” is a card, and cards can.t have next steps in Boardkit/);
+    expect(useHint.getState().hint?.text).toMatch(/“A” is a card, and cards can.t have children in Boardkit/);
     expect(useMapStore.getState().addNextStep(asNodeId("buy"))).not.toBeNull();
   });
 

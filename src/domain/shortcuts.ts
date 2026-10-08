@@ -36,7 +36,7 @@ export const SHORTCUTS = {
   // Create & edit
   addNextStep: {
     group: "Create & edit",
-    does: "Add a next step under the selected box (Tab again goes one deeper)",
+    does: "Add a child under the selected box (Tab again goes one deeper)",
     combos: [k("tab", { shift: false })],
     only: "tree",
   },
@@ -67,7 +67,7 @@ export const SHORTCUTS = {
   // Move around
   move: {
     group: "Move around",
-    does: "Move the selection: up to the parent, down to a next step, along the row",
+    does: "Move the selection: up to the parent, down to a child, along the row to a sibling",
     combos: [k("arrowup", { shift: false }), k("arrowdown", { shift: false }), k("arrowleft", { shift: false }), k("arrowright", { shift: false })],
     only: "tree",
   },
@@ -78,7 +78,7 @@ export const SHORTCUTS = {
   colour: { group: "Organise", does: "Colour the selected boxes (in the palette's order)", combos: digits(1, 8) },
   clearColour: { group: "Organise", does: "Clear their colour", combos: [k("0")] },
   toggleCut: { group: "Organise", does: "Mark cut, or un-cut", combos: [k("x", { shift: false })], only: "tree" },
-  toggleCollapsed: { group: "Organise", does: "Collapse or expand the branch", combos: [k(" ")], only: "tree" },
+  toggleCollapsed: { group: "Organise", does: "Collapse or expand the selected box's branch", combos: [k(" ")], only: "tree" },
   // View
   help: { group: "View", does: "Show these shortcuts", combos: [k("?")] },
   // Undo

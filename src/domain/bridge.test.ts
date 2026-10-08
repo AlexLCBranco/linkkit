@@ -310,7 +310,7 @@ describe("boardProblems", () => {
   it("says each in words", () => {
     const map = bad();
     expect(boardProblems(map).map((p) => problemText(map, p))).toEqual([
-      '"c1" has two ways in.',
+      '"c1" has two parents.',
       '"deep" is 4 levels deep.',
     ]);
   });

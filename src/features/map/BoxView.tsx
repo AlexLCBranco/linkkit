@@ -216,8 +216,8 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
             type="button"
             className={styles.toolbarButton}
             onClick={() => addNextStep(nodeId)}
-            aria-label="Add a next step"
-            title="Add a next step"
+            aria-label="Add a child"
+            title="Add a child"
           >
             <Plus size={14} />
           </button>

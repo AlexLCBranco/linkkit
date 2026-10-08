@@ -6,6 +6,7 @@ import { Kbd, KbdGroup } from "../../components/ui/kbd";
 import { SHORTCUT_GROUPS, SHORTCUTS, shortcutCaps, type Shortcut } from "../../domain/shortcuts";
 import { useShortcutsDialog } from "../../store/shortcutsDialog";
 import styles from "./HeaderButton.module.css";
+import { TreeWordsExample } from "./TreeWordsExample";
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
@@ -35,12 +36,43 @@ export function ShortcutsDialog() {
           <DialogDescription>Every one of these also has a mouse way: a click, a drag or a right-click.</DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-4">
+          <TreeWords />
           {SHORTCUT_GROUPS.map((group) => (
             <ShortcutList key={group} title={group} rows={ROWS.filter((row) => row.group === group)} />
           ))}
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** The words a tree's parts go by, here and everywhere else in the app
+    (the owner's list: no "root", "node" or "next step" anywhere). */
+const TREE_WORDS: readonly (readonly [string, string])[] = [
+  ["Start box", "the top box everything comes from."],
+  ["Parent", "the box directly above (Trip is Lisbon's parent)."],
+  ["Child", "a box directly below its parent (Lisbon and Porto are Trip's children)."],
+  ["Sibling", "boxes with the same parent (Lisbon and Porto)."],
+  ["Branch", "a box plus everything under it (Lisbon, Hotel, Food)."],
+];
+
+function TreeWords() {
+  return (
+    <section className="flex flex-col gap-2">
+      <h3 className="text-xs font-medium text-muted-foreground">Tree words</h3>
+      <TreeWordsExample />
+      <ul className="flex flex-col gap-1">
+        {TREE_WORDS.map(([word, meaning]) => (
+          <li key={word} className="text-foreground">
+            <span className="font-medium">{word}:</span> {meaning}
+          </li>
+        ))}
+      </ul>
+      <p className="text-muted-foreground">
+        Select Lisbon, press <Kbd>Tab</Kbd> → a new box next to Hotel and Food. To add one next to Lisbon:{" "}
+        <Kbd>↑</Kbd> to Trip, then <Kbd>Tab</Kbd>.
+      </p>
+    </section>
   );
 }
 

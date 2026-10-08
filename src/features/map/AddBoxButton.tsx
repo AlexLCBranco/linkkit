@@ -55,8 +55,8 @@ export function AddBoxButton() {
   const title = !isTree
     ? "Add a box (or double-click the paper)"
     : !selected
-      ? "Select a box first: the new box becomes its next step"
-      : (refusal ?? "Add a next step to the selected box");
+      ? "Select a box first: the new box becomes its child"
+      : (refusal ?? "Add a child to the selected box");
 
   return (
     <button

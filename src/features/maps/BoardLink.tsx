@@ -78,7 +78,7 @@ export function LinkDialog({ preview, onClose }: { preview: LinkPreview | null; 
                     </p>
                   )}
                   {preview.startStatus && (
-                    <p>The start's keep / maybe / cut will be left behind: a board in Boardkit has none.</p>
+                    <p>The start box's keep / maybe / cut will be left behind: a board in Boardkit has none.</p>
                   )}
                   {preview.trashed > 0 && (
                     <p>

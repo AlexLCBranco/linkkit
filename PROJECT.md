@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-08, v0.0.64 (keyboard shortcuts dialog: header button and ?, built from the same table as the key handlers)_
+_Last updated: 2026-10-08, v0.0.65 (shortcuts dialog opens with "Tree words": a drawn example tree and the five words; the app now says start box / parent / child / sibling / branch everywhere)_
 
 ## What it is
 
@@ -69,6 +69,16 @@ in"). Loops and arrows into the start are refused in both. Code:
   `domain/shortcuts.ts`, so they can't drift; `shortcuts.test.ts` presses
   every key in several situations and fails if the map reacts to a key the
   dialog doesn't list (or lists one that does nothing)
+- **Tree words** (v0.0.65, owner's request): the shortcuts dialog opens
+  with a small example tree (Trip → Lisbon, Porto; Lisbon → Hotel, Food),
+  drawn with real boxes, the tidy-tree layout and Elbow lines
+  (`domain/treeWords.ts`, `TreeWordsExample.tsx`), a line each for start
+  box, parent, child, sibling and branch, and a worked Tab example.
+  **Owner's decision: these five words are the only names for a tree's
+  parts anywhere the user can see** (no "root", "node", "next step" or
+  "way in"): menus, tooltips, hints and refusals now say "Add child",
+  "has two parents", "is the start box", "the boxes under it". Keep it so
+  in new text (code comments may still say "next step")
 - **Treekit's keyboard flow in trees** (v0.0.61, Treekit parity batch 1):
   - Tab adds a next step under the selected box; its name is open for
     typing at once (also after the toolbar's +), and once named (Enter)

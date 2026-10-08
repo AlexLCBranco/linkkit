@@ -77,7 +77,7 @@ describe("linked trees (a tree shared with a Boardkit board)", () => {
     expect(canAddNextStep(linked, s)).toBe(true);
     expect(canAddNextStep(linked, l1)).toBe(true);
     expect(canAddNextStep(linked, c)).toBe(false);
-    expect(nextStepRefusal(linked, c)).toBe("“c” is a card, and cards can't have next steps in Boardkit.");
+    expect(nextStepRefusal(linked, c)).toBe("“c” is a card, and cards can't have children in Boardkit.");
     expect(nextStepRefusal(linked, l1)).toBeNull();
   });
 
