@@ -9,6 +9,7 @@ import { HideCutToggle } from "../features/map/HideCutToggle";
 import { MapCanvas } from "../features/map/MapCanvas";
 import { ReachStatus } from "../features/map/ReachStatus";
 import { SelectionBar } from "../features/map/SelectionBar";
+import { ShortcutsDialog } from "../features/map/ShortcutsDialog";
 import { TidyButton } from "../features/map/TidyButton";
 import { ZoomControls } from "../features/map/ZoomControls";
 import { MapSwitcher } from "../features/maps/MapSwitcher";
@@ -44,6 +45,7 @@ export function App() {
         <AlignPanel />
         <HideCutToggle />
         <div className={styles.spacer} />
+        <ShortcutsDialog />
         <ExportMenu />
         <TrashPanel />
       </header>

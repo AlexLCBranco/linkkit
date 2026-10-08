@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-08, v0.0.63 (Treekit parity batch 3: box names over several lines with Shift+Enter, kept through Mermaid; a tree's start can have keep / maybe / cut. Batches 1-3 done: the owner migrates Treekit's trees by Mermaid next)_
+_Last updated: 2026-10-08, v0.0.64 (keyboard shortcuts dialog: header button and ?, built from the same table as the key handlers)_
 
 ## What it is
 
@@ -61,6 +61,14 @@ in"). Loops and arrows into the start are refused in both. Code:
   it, as in the prototype. Tab skips the arrow lines; an arrow label's ×
   shows when Tab reaches it. Enter or F2 on the selected box renames it
   (any map). In a tree, Tab is Treekit's instead (below)
+- **Keyboard shortcuts dialog** (v0.0.64, owner's request): the keyboard
+  button in the header, or ?, lists every shortcut in five groups
+  (Create & edit, Move around, Organise, View, Undo), marked "Trees only",
+  "Not in trees" or "While typing"; Esc closes it. Ctrl on Windows, ⌘ on a
+  Mac. The list and the key handlers read one table,
+  `domain/shortcuts.ts`, so they can't drift; `shortcuts.test.ts` presses
+  every key in several situations and fails if the map reacts to a key the
+  dialog doesn't list (or lists one that does nothing)
 - **Treekit's keyboard flow in trees** (v0.0.61, Treekit parity batch 1):
   - Tab adds a next step under the selected box; its name is open for
     typing at once (also after the toolbar's +), and once named (Enter)
@@ -819,7 +827,7 @@ in"). Loops and arrows into the start are refused in both. Code:
 Goal: retire Treekit. Three batches, each shipped and tested before the
 next. After batch 3 the owner migrates the remaining Treekit trees by
 Mermaid. Not now (owner): fork F key, Shift+Del, L key, selection-bar
-status / fold, shortcuts dialog, laser, several trees per map.
+status / fold, laser, several trees per map.
 
 1. ~~Batch 1, keyboard flow in trees: Tab adds a next step, arrows move,
    Enter / F2 rename; a new box focused at once and kept selected after

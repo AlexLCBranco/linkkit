@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 
 import { isArrowKey } from "../../domain/navigation";
+import { pressed, type ShortcutId } from "../../domain/shortcuts";
 import { PALETTE_COLORS } from "../../domain/types";
 import type { NodeId } from "../../domain/types";
 import { selectionOf, useMapStore } from "../../store/mapStore";
+import { useShortcutsDialog } from "../../store/shortcutsDialog";
 import { BOX_ID_ATTRIBUTE, MAP_VIEW_ATTRIBUTE } from "./pageMarkers";
 
 /** What the handler reads from a key press: a `KeyboardEvent` has it all,
@@ -47,31 +49,10 @@ function focusedBox(target: EventTarget | null): NodeId | null {
 }
 
 /**
- * The map's keyboard extras (every one also has a mouse way):
- *
- *   Ctrl/Cmd+Z                 undo
- *   Ctrl/Cmd+Shift+Z, Ctrl+Y   redo
- *   Ctrl/Cmd+A                 select every box
- *   Ctrl/Cmd+V                 paste what was copied
- *   Esc                        clear the selection
- *   Enter on a focused box     select it (as in the prototype)
- *   Delete, Backspace          delete the picked arrow (a click on its line)
- * On the selected box:
- *   Enter, F2                  rename it
- * In a tree (Treekit's keys; mind-map tools use the same Tab / Enter):
- *   Tab                        add a next step under the selected box (it
- *                              opens for typing, and stays selected after,
- *                              so Tab again goes one deeper)
- *   Arrows                     up to a parent, down to a next step, along
- *                              the row (turned in a left-right tree); with
- *                              nothing selected, the start
- * On the selected box, or every box of a group:
- *   Delete, Backspace          delete (with their arrows)
- *   1-8, 0                     set a palette colour; 0 clears it
- *   X                          cut, or uncut (a tree's steps)
- *   N                          open its notes (one box)
- *   Space                      collapse, or expand (a tree's branches)
- *   Ctrl/Cmd+C, X, D           copy, cut, duplicate (not in a tree)
+ * The map's keyboard extras (every one also has a mouse way). Which key
+ * does what is in `domain/shortcuts.ts`, the table the shortcuts dialog
+ * lists; this decides when each one applies (a box selected, a tree, focus
+ * on the map).
  *
  * All ignored while typing a name or label, so the field's own undo and
  * Backspace keep working. Reads the store with `getState()`, so the
@@ -80,40 +61,45 @@ function focusedBox(target: EventTarget | null): NodeId | null {
 export function onMapKey(e: KeyPress): void {
   if (isTyping(e.target) || inOverlay(e.target) || e.altKey) return;
   const store = useMapStore.getState();
-  const key = e.key.toLowerCase();
+  const is = (id: ShortcutId) => pressed(e, id);
   const isTree = store.map.kind === "tree";
 
   if (e.ctrlKey || e.metaKey) {
-    if (key === "z" && !e.shiftKey) {
+    if (is("undo")) {
       e.preventDefault();
       store.undo();
-    } else if ((key === "z" && e.shiftKey) || key === "y") {
+    } else if (is("redo")) {
       e.preventDefault();
       store.redo();
-    } else if (key === "a" && !store.editing) {
+    } else if (is("selectAll") && !store.editing) {
       e.preventDefault();
       store.selectAll();
-    } else if (key === "v" && !store.editing) {
+    } else if (is("paste") && !store.editing) {
       e.preventDefault();
       store.paste();
-    } else if ((key === "c" || key === "x" || key === "d") && !store.editing) {
+    } else if ((is("copy") || is("cut") || is("duplicate")) && !store.editing) {
       const picked = selectionOf(store);
       if (picked.length === 0) return;
       e.preventDefault();
-      if (key === "c") store.copyBoxes(picked);
-      else if (key === "x") store.cutBoxes(picked);
+      if (is("copy")) store.copyBoxes(picked);
+      else if (is("cut")) store.cutBoxes(picked);
       else store.duplicateBoxes(picked);
     }
     return;
   }
 
-  if (key === "escape") return store.select(null);
+  if (is("clearSelection")) return store.select(null);
+  if (is("help")) {
+    e.preventDefault();
+    useShortcutsDialog.getState().setOpen(true);
+    return;
+  }
 
   // One box selected, keys on the map: Treekit's keyboard flow.
   const one = store.group.length === 0 ? store.selected : null;
-  if (key === "enter" || key === "f2") {
+  if (is("rename") || is("selectFocused")) {
     if (store.editing || !onCanvas(e.target)) return;
-    const box = key === "enter" ? focusedBox(e.target) : null;
+    const box = is("selectFocused") ? focusedBox(e.target) : null;
     if (box && box !== one) {
       e.preventDefault();
       store.select(box);
@@ -123,12 +109,12 @@ export function onMapKey(e: KeyPress): void {
     }
     return;
   }
-  if (isTree && key === "tab" && !e.shiftKey && one && !store.editing && onCanvas(e.target)) {
+  if (isTree && is("addNextStep") && one && !store.editing && onCanvas(e.target)) {
     e.preventDefault();
     store.addNextStep(one);
     return;
   }
-  if (isTree && isArrowKey(e.key) && !e.shiftKey && !store.editing && onCanvas(e.target)) {
+  if (isTree && is("move") && isArrowKey(e.key) && !store.editing && onCanvas(e.target)) {
     // Also stops the page scrolling.
     e.preventDefault();
     store.moveSelection(e.key);
@@ -136,26 +122,26 @@ export function onMapKey(e: KeyPress): void {
   }
 
   const picked = selectionOf(store);
-  if (store.selectedLink && picked.length === 0 && !store.editing && (key === "delete" || key === "backspace")) {
+  if (store.selectedLink && picked.length === 0 && !store.editing && is("delete")) {
     e.preventDefault();
     store.deleteLink(store.selectedLink);
     return;
   }
   if (picked.length === 0 || store.editing) return;
-  if (key === "delete" || key === "backspace") {
+  if (is("delete")) {
     e.preventDefault();
     store.deleteBoxes(picked);
-  } else if (/^[0-8]$/.test(key)) {
+  } else if (is("colour") || is("clearColour")) {
     // 1-8 pick a palette colour in its listed order; 0 clears it.
-    const index = Number(key);
+    const index = Number(e.key);
     store.setBoxesColor(picked, index === 0 ? null : PALETTE_COLORS[index - 1]);
-  } else if (key === "x" && !e.shiftKey) {
+  } else if (is("toggleCut") && isTree) {
     store.toggleCut(picked);
-  } else if (key === "n" && picked.length === 1) {
+  } else if (is("notes") && picked.length === 1) {
     // Otherwise the "n" would be typed into the notes as they open.
     e.preventDefault();
     store.openNotes(picked[0]);
-  } else if (key === " " && isTree && !(isElement(e.target) && e.target.tagName === "BUTTON")) {
+  } else if (is("toggleCollapsed") && isTree && !(isElement(e.target) && e.target.tagName === "BUTTON")) {
     // Not the page scrolling down. (On a focused button, Space presses
     // the button instead.)
     e.preventDefault();

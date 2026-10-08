@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 
+import { pressed } from "../domain/shortcuts";
 import styles from "./InlineEditable.module.css";
 
 interface InlineEditableProps {
@@ -121,12 +122,12 @@ function EditField({
           // Keep every key local: canvas shortcuts (Delete = delete the box)
           // must not fire while typing.
           event.stopPropagation();
-          if (event.key === "Enter" && event.shiftKey && multiline) {
+          if (pressed(event, "newLine") && multiline) {
             // A new line in the name: the browser types it.
-          } else if (event.key === "Enter") {
+          } else if (pressed(event, "save")) {
             event.preventDefault();
             finish(true);
-          } else if (event.key === "Escape") {
+          } else if (pressed(event, "cancel")) {
             event.preventDefault();
             finish(false);
           }
