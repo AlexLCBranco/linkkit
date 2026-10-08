@@ -50,6 +50,13 @@ export const ARROW_LENGTH_PRESETS = { short: 15, medium: 47, long: 103 } as cons
 export type ArrowLengthPreset = keyof typeof ARROW_LENGTH_PRESETS;
 export const ARROW_LENGTH_RANGE = { min: 0, max: 240 } as const;
 
+/** How a map's arrows are drawn: "straight" (Linkkit's own: a straight
+    line from box edge to box edge with an arrowhead, the default) or
+    "elbow" (Treekit's: right-angled lines from a box's far side to the
+    near side of the boxes after it). See `arrows.ts`. */
+export const ARROW_STYLES = ["straight", "elbow"] as const;
+export type ArrowStyle = (typeof ARROW_STYLES)[number];
+
 /** The label an arrow gets when none is typed (or one is emptied), per
     kind. A connections arrow always says something ("needs"); a tree arrow
     has no label at first, and shows no pill. */
@@ -121,6 +128,9 @@ export interface LinkMap {
   /** How long Tidy up makes the arrows. Saved and undoable like the
       direction: picking another re-tidies the boxes. */
   readonly arrowLength: ArrowLength;
+  /** How the arrows are drawn. Saved with the map and undoable; it moves
+      no box. Saves from before it existed read as "straight". */
+  readonly arrowStyle: ArrowStyle;
   readonly nodes: Readonly<Record<NodeId, MapNode>>;
   readonly links: Readonly<Record<LinkId, Link>>;
   /** Trees only: each box's next steps in order, which Tidy up follows.

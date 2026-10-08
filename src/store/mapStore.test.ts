@@ -68,6 +68,21 @@ describe("map store", () => {
     expect(useMapStore.getState().map.nodes[id]).toEqual(before.nodes[id]);
   });
 
+  it("switches the arrow style as one undo step, moving no box", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().placeAll(new Map(), { width: 1200, height: 700 });
+    const before = useMapStore.getState().map;
+    useMapStore.getState().setArrowStyle("elbow");
+    const after = useMapStore.getState().map;
+    expect(after.arrowStyle).toBe("elbow");
+    expect(after.nodes).toBe(before.nodes);
+    expect(useMapStore.getState().tidyRequest.count).toBe(0);
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.arrowStyle).toBe("straight");
+    useMapStore.getState().redo();
+    expect(useMapStore.getState().map.arrowStyle).toBe("elbow");
+  });
+
   it("makes one undo step of a dragged or scrolled arrow length", async () => {
     const useMapStore = await freshStore();
     useMapStore.getState().placeAll(new Map(), { width: 1200, height: 700 });

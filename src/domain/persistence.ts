@@ -2,6 +2,7 @@ import { LINK_FIELDS, MAP_FIELDS, NODE_FIELDS, TRASH_ENTRY_FIELDS, unknownFields
 import { basicLinkCheck } from "./rules";
 import type {
   ArrowLength,
+  ArrowStyle,
   LayoutDirection,
   Link,
   LinkId,
@@ -23,6 +24,7 @@ import { UNTITLED_MAP } from "./names";
 import { repairTree } from "./tree";
 import {
   ARROW_LENGTH_PRESETS,
+  ARROW_STYLES,
   DEFAULT_LINK_LABELS,
   LAYOUT_DIRECTIONS,
   MAP_KINDS,
@@ -102,7 +104,7 @@ export function revOf(data: unknown): number {
 }
 
 export function serializeMap(map: LinkMap, rev?: number): PersistedMap {
-  const { id, name, kind, page, direction, arrowLength, nodes, links, order, hideCut, collapsed, trash } = map;
+  const { id, name, kind, page, direction, arrowLength, arrowStyle, nodes, links, order, hideCut, collapsed, trash } = map;
   // The content fields, plus any field a newer Linkkit added that this
   // build doesn't know (`extras.ts`): an older tab must never drop it.
   // Never `linkedBoard`: an exported map is an ordinary tree (see
@@ -118,6 +120,7 @@ export function serializeMap(map: LinkMap, rev?: number): PersistedMap {
       page: { width: page.width, height: page.height },
       direction,
       arrowLength,
+      arrowStyle,
       nodes,
       links,
       order,
@@ -207,6 +210,14 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
             : fix(clampArrowLength(rawLength))
           : fix(ARROW_LENGTH_PRESETS.medium);
 
+  // Likewise the arrow style: older saves drew straight arrows.
+  const arrowStyle: ArrowStyle =
+    raw.arrowStyle === undefined
+      ? "straight"
+      : ARROW_STYLES.includes(raw.arrowStyle as ArrowStyle)
+        ? (raw.arrowStyle as ArrowStyle)
+        : fix("straight");
+
   // Boxes.
   const rawNodes: Record<string, unknown> = isObject(raw.nodes) ? raw.nodes : fix({});
   const nodes: Record<NodeId, MapNode> = {};
@@ -250,6 +261,7 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
     page,
     direction,
     arrowLength,
+    arrowStyle,
     nodes,
     links,
     order: {},

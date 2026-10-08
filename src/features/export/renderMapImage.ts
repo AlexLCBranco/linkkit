@@ -5,7 +5,8 @@ import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 
 import inlineStyles from "../../components/InlineEditable.module.css";
-import { linkGeometry, type Box, type LinkGeometry } from "../../domain/geometry";
+import { arrowRoutes, headPath, roundedPath } from "../../domain/arrows";
+import type { Box } from "../../domain/geometry";
 import { placeLabels } from "../../domain/labels";
 import { layoutMap } from "../../domain/layout";
 import { shownMap } from "../../domain/shown";
@@ -13,7 +14,7 @@ import { looksCut } from "../../domain/status";
 import type { LinkId, LinkMap, NodeId, Point, Size } from "../../domain/types";
 import boxStyles from "../map/BoxView.module.css";
 import edgeStyles from "../map/LinkEdgeView.module.css";
-import { ARROW, LABELS, layoutOptions, TWIN_OFFSET } from "../map/layoutConfig";
+import { LABELS, layoutOptions, ROUTES } from "../map/layoutConfig";
 import { STATUS_META } from "../map/statusMeta";
 
 /** Empty space around the map, in CSS pixels (Treekit's). */
@@ -111,19 +112,16 @@ export async function renderMapImage(source: LinkMap, format: ImageFormat): Prom
       : new Map<NodeId, Point>(nodeIds.map((id) => [id, { x: map.nodes[id].x, y: map.nodes[id].y }]));
     const boxes = new Map<NodeId, Box>(nodeIds.map((id) => [id, { center: centres.get(id)!, size: sizes.get(id)! }]));
 
-    // 3. Arrows and label spots, as the canvas works them out.
-    const pairs = new Set(linkIds.map((id) => `${map.links[id].from}>${map.links[id].to}`));
-    const geometries = new Map<LinkId, LinkGeometry>();
-    for (const id of linkIds) {
-      const { from, to } = map.links[id];
-      const offset = pairs.has(`${to}>${from}`) ? TWIN_OFFSET : 0;
-      const g = linkGeometry(boxes.get(from)!, boxes.get(to)!, ARROW, offset);
-      if (g) geometries.set(id, g);
-    }
+    // 3. Arrows and label spots, as the canvas works them out, in the
+    //    map's arrow style.
+    const geometries = arrowRoutes(Object.values(map.links), boxes, map.arrowStyle, map.direction, ROUTES, labelSizes);
     const spots = placeLabels(
       [...labelEls.keys()]
         .filter((id) => geometries.has(id))
-        .map((id) => ({ id, start: geometries.get(id)!.start, tip: geometries.get(id)!.head[0], size: labelSizes.get(id)! })),
+        .map((id) => {
+          const g = geometries.get(id)!;
+          return { id, start: g.labelFrom, tip: g.labelTo, size: labelSizes.get(id)!, path: g.corner ? g.points : undefined };
+        }),
       [...boxes.values()],
       LABELS,
     );
@@ -163,17 +161,17 @@ export async function renderMapImage(source: LinkMap, format: ImageFormat): Prom
       const isCut = cut.has(map.links[id].to);
       const line = document.createElementNS(SVG_NS, "path");
       line.setAttribute("class", edgeStyles.line);
-      line.setAttribute("d", `M${g.start.x} ${g.start.y}L${g.end.x} ${g.end.y}`);
+      line.setAttribute("d", roundedPath(g.points, g.corner));
       line.setAttribute("fill", "none");
-      const [tip, left, right] = g.head;
-      const head = document.createElementNS(SVG_NS, "path");
-      head.setAttribute("class", edgeStyles.head);
-      head.setAttribute("d", `M${tip.x} ${tip.y}L${left.x} ${left.y}L${right.x} ${right.y}Z`);
-      if (isCut) {
-        line.setAttribute("data-cut", "");
-        head.setAttribute("data-cut", "");
+      if (isCut) line.setAttribute("data-cut", "");
+      group.append(line);
+      if (g.head) {
+        const head = document.createElementNS(SVG_NS, "path");
+        head.setAttribute("class", edgeStyles.head);
+        head.setAttribute("d", headPath(g.head));
+        if (isCut) head.setAttribute("data-cut", "");
+        group.append(head);
       }
-      group.append(line, head);
     }
 
     for (const [id, el] of boxEls) {

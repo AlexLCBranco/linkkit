@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-08, v0.0.56 (zoom, Treekit's pill, kept per map)_
+_Last updated: 2026-10-08, v0.0.57 (arrow styles: straight or Treekit's elbows, per map)_
 
 ## What it is
 
@@ -632,7 +632,8 @@ in"). Loops and arrows into the start are refused in both. Code:
   without tree rules). Round trip keeps: box names, arrows and labels,
   sibling order, colours, notes, keep / maybe / cut, direction, the map's
   name and whether tree rules are on. It loses: box places (re-tidied),
-  folds, Hide cut, arrow length, line breaks in names (Linkkit names are
+  folds, Hide cut, arrow length, arrow style (an import is always
+  Straight), line breaks in names (Linkkit names are
   one line), the trash. Check: `domain/mermaid.ts` (tested);
   `features/export/` (`html-to-image`, as in Treekit)
 - **Zoom** (v0.0.56, Treekit's zoom pill): bottom-left of the screen,
@@ -655,6 +656,41 @@ in"). Loops and arrows into the start are refused in both. Code:
   are still the browser's own zoom. Check: `domain/zoom.ts`,
   `store/viewStore.ts` (tested); `features/map/ZoomControls.tsx`,
   `MapCanvas.tsx`
+- **Arrow styles** (v0.0.57): the "Arrows" panel now starts with "Arrow
+  style": **Straight** (Linkkit's arrows, the default; every map made
+  before keeps them) or **Elbow** (Treekit's lines). Per map, with tree
+  rules on or off, in either direction. Elbow is drawn as Treekit draws
+  it: a line leaves the middle of a box's bottom (its right side,
+  left-right), runs half the gap, turns along the row with rounded
+  corners, and goes into the middle of the next box's top (left side);
+  all of a box's lines turn at one depth, like a comb; no arrowheads; a
+  label sits on the last stretch into its box, centred between the turn
+  and the box (an only line that runs straight has it in the middle of
+  the gap), with room left below the turn for it. Treekit never has two
+  ways into a box or a loop; Linkkit can, so Elbow adds: two (or more)
+  lines into one box come in side by side across its top, each with its
+  own stretch and label; boxes in one row whose combs would run along the
+  same line turn a little apart so each comb reads as its own; a label
+  with no room on its stretch moves along its own line to a free spot;
+  an arrow that can't run down the map (a loop back up, or a box dragged
+  level with or above the box it comes from) still turns at right angles
+  but leaves and enters by the boxes' sides and gets an arrowhead (up and
+  down no longer say which way it goes): beside each other it runs
+  across, turning in the middle; above, it goes round the right side (the
+  bottom, left-right) in a lane clear of both boxes; two arrows between
+  the same boxes, one each way, are drawn apart. Picking a style is one
+  undo step and moves no box (no re-tidy). Saved with the map
+  (`arrowStyle`, "straight" when a save has none), so it survives a
+  reload and comes along in Export all maps, automatic backups, Restore,
+  Duplicate, Fork into a new map and templates; merged like the other
+  map settings between two tabs. In a map linked to Boardkit it is
+  Linkkit's own (kept in its record, never written to the board). PNG /
+  SVG export draws the map's style. Mermaid can't carry it: Copy /
+  Download Mermaid leave it out and an import is always Straight (pick
+  Elbow after). Dragging a new arrow or an arrow's end still previews a
+  straight line. Check: `domain/arrows.ts` (tested),
+  `domain/arrowStyle.test.ts`; `features/map/ArrowLengthPanel.tsx`,
+  `LinkEdgeView.tsx`, `features/export/renderMapImage.ts`
 
 ## What's next
 
@@ -1284,6 +1320,18 @@ replaces the open map.
   Treekit's range, pill and behaviour; locked camera and native scroll
   kept; every map, tree rules on or off; per map, kept across reloads,
   never in exports or the Boardkit link
+- ~~T5. Arrow styles~~ (done, v0.0.57; see What works now). Asked by the
+  owner: a per-map setting, Linkkit's straight arrows (the default, kept
+  by existing maps) or Treekit's elbow lines matched exactly, labels
+  included; works with tree rules on or off; saved with the map and in
+  exports, backups, duplicate, fork and templates; never sent to
+  Boardkit; PNG / SVG draw it; Mermaid can't carry it, so imports are
+  Straight. Choices made without asking, easy to change: Elbow lines
+  have no arrowheads (as in Treekit) except the ones that can't run down
+  the map; the choice sits in the "Arrows" panel above the length;
+  switching style doesn't re-tidy. A busy row of shared boxes (the
+  example's Outlook / Teams / SharePoint) reads better with Long arrows,
+  which give the turns more room
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 

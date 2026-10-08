@@ -18,6 +18,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--port", "5183", "--strictPort"],
       "port": 5183
+    },
+    {
+      "name": "linkkit-4",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "5184", "--strictPort"],
+      "port": 5184
     }
   ]
 }

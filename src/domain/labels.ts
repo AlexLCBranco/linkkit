@@ -9,6 +9,10 @@ import type { Point, Size } from "./types";
  * slides along its own arrow to the first spot that overlaps no box and no
  * label already placed. If none is free it takes the least crowded spot;
  * it never leaves its arrow.
+ *
+ * A bent arrow (the elbow style) can also give its whole line (`path`):
+ * when no spot on its own stretch is free, the label tries the same spots
+ * along the whole line before settling for the least crowded one.
  */
 
 export interface LabelRequest<K> {
@@ -17,6 +21,25 @@ export interface LabelRequest<K> {
   readonly start: Point;
   readonly tip: Point;
   readonly size: Size;
+  /** The whole line, corner to corner, for a bent arrow: more spots to
+      try once the stretch is full. */
+  readonly path?: readonly Point[];
+}
+
+/** The point `t` of the way along a line through `points` (0 = its start,
+    1 = its end), by length. */
+export function alongPath(points: readonly Point[], t: number): Point {
+  const lengths = points.slice(1).map((p, i) => Math.hypot(p.x - points[i].x, p.y - points[i].y));
+  let left = lengths.reduce((a, b) => a + b, 0) * t;
+  for (let i = 0; i < lengths.length; i++) {
+    if (left <= lengths[i] || i === lengths.length - 1) {
+      const k = lengths[i] === 0 ? 0 : Math.min(1, left / lengths[i]);
+      const [a, b] = [points[i], points[i + 1]];
+      return { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k };
+    }
+    left -= lengths[i];
+  }
+  return points[0];
 }
 
 export interface LabelOptions {
@@ -45,17 +68,20 @@ export function placeLabels<K>(
 ): Map<K, Point> {
   const placed: Box[] = [];
   const out = new Map<K, Point>();
-  for (const { id, start, tip, size } of requests) {
+  for (const { id, start, tip, size, path } of requests) {
     const at = (t: number): Point => ({ x: start.x + (tip.x - start.x) * t, y: start.y + (tip.y - start.y) * t });
+    const candidates = [
+      ...options.spots.map(at),
+      ...(path && path.length > 1 ? options.spots.map((t) => alongPath(path, t)) : []),
+    ];
     const crowding = (center: Point) =>
       [...boxes, ...placed].reduce((sum, other) => sum + overlap({ center, size }, other, options.padding), 0);
     // The first free spot; failing that, the least crowded (ties keep the
     // earlier, more central one).
-    let spot = at(options.spots[0] ?? 0.5);
+    let spot = candidates[0] ?? at(0.5);
     let least = crowding(spot);
-    for (const t of options.spots.slice(1)) {
+    for (const candidate of candidates.slice(1)) {
       if (least === 0) break;
-      const candidate = at(t);
       const c = crowding(candidate);
       if (c < least) [spot, least] = [candidate, c];
     }

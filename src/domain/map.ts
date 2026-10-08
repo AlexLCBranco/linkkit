@@ -3,6 +3,7 @@ import { canCollapse, canLink, canMove, canSetStatus, linkRefusalText, moveRefus
 import { isOrdered, withNextStep, withoutBoxes, withoutNextStep } from "./order";
 import type {
   ArrowLength,
+  ArrowStyle,
   LayoutDirection,
   Link,
   LinkId,
@@ -33,6 +34,7 @@ export function createMap(id: MapId, name: string, page: Size, kind: MapKind = "
     page,
     direction: "TB",
     arrowLength: ARROW_LENGTH_PRESETS.medium,
+    arrowStyle: "straight",
     nodes: {},
     links: {},
     order: {},
@@ -176,6 +178,10 @@ export function setArrowLength(map: LinkMap, length: ArrowLength): LinkMap {
   const arrowLength = clampArrowLength(length);
   return arrowLength === map.arrowLength ? map : { ...map, arrowLength };
 }
+
+/** How the arrows are drawn. Moves no box, so it needs no Tidy up. */
+export const setArrowStyle = (map: LinkMap, arrowStyle: ArrowStyle): LinkMap =>
+  arrowStyle === map.arrowStyle ? map : { ...map, arrowStyle };
 
 export function setPage(map: LinkMap, page: Size): LinkMap {
   return page.width === map.page.width && page.height === map.page.height ? map : { ...map, page };

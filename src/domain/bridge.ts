@@ -5,6 +5,7 @@ import { arrowsInto, BOARD_LEVELS } from "./rules";
 import { startOf } from "./tree";
 import type {
   ArrowLength,
+  ArrowStyle,
   LayoutDirection,
   Link,
   LinkId,
@@ -41,6 +42,8 @@ export interface LinkedView {
   readonly page: Size;
   readonly direction: LayoutDirection;
   readonly arrowLength: ArrowLength;
+  /** Absent on a view kept before arrow styles existed: straight. */
+  readonly arrowStyle?: ArrowStyle;
   readonly hideCut: boolean;
   readonly collapsed: readonly NodeId[];
   /** Box centres, by box. A box with none (added in Boardkit) is unplaced. */
@@ -84,7 +87,7 @@ export function viewOf(map: LinkMap): LinkedView {
     if (node.notes) notes[node.id] = node.notes;
   }
   for (const link of Object.values(map.links)) if (link.label) labels[link.to] = link.label;
-  const { page, direction, arrowLength, hideCut, collapsed } = map;
+  const { page, direction, arrowLength, arrowStyle, hideCut, collapsed } = map;
   const nodeExtras: Record<NodeId, Extras> = {};
   const linkExtras: Record<NodeId, Extras> = {};
   for (const node of Object.values(map.nodes)) if (hasUnknownFields(node, NODE_FIELDS)) nodeExtras[node.id] = unknownFields(node, NODE_FIELDS);
@@ -94,6 +97,7 @@ export function viewOf(map: LinkMap): LinkedView {
     page,
     direction,
     arrowLength,
+    arrowStyle,
     hideCut,
     collapsed,
     places,
@@ -185,6 +189,7 @@ export function boardToTree(
     page: view.page,
     direction: view.direction,
     arrowLength: view.arrowLength,
+    arrowStyle: view.arrowStyle ?? "straight",
     nodes,
     links,
     order,

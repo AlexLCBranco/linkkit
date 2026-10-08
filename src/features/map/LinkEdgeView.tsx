@@ -4,7 +4,7 @@ import { memo, useCallback, useState } from "react";
 
 import { InlineEditable } from "../../components/InlineEditable";
 
-import type { LinkGeometry } from "../../domain/geometry";
+import { headPath, roundedPath, routeEnds, routeMiddle, towards, type ArrowRoute } from "../../domain/arrows";
 import { looksCut } from "../../domain/status";
 import type { LinkId, Point, Size } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
@@ -14,17 +14,11 @@ import { LINK_HANDLE_INSET, LINK_HANDLE_RADIUS } from "./layoutConfig";
 import { LINK_ID_ATTRIBUTE } from "./pageMarkers";
 import { useRelink } from "./useRelink";
 
-/** `from` moved `by` pixels towards `to` (where an end handle sits, clear
-    of the box it touches). */
-function towards(from: Point, to: Point, by: number): Point {
-  const len = Math.hypot(to.x - from.x, to.y - from.y) || 1;
-  return { x: from.x + ((to.x - from.x) / len) * by, y: from.y + ((to.y - from.y) / len) * by };
-}
-
 export interface LinkEdgeData extends Record<string, unknown> {
-  /** Where the line and head go; `null` when the boxes overlap (or are
-      not measured yet) and there is no room for an arrow. */
-  readonly geometry: LinkGeometry | null;
+  /** Where the line and head go, in the map's arrow style; `null` when
+      the boxes overlap (or are not measured yet) and there is no room for
+      an arrow. */
+  readonly geometry: ArrowRoute | null;
   /** The label's centre, from `placeLabels`. */
   readonly labelAt: Point | null;
   /** Reports the label's size (or `null` once it is gone), so labels can
@@ -38,7 +32,8 @@ export type LinkFlowEdge = Edge<LinkEdgeData, "link">;
 
 /**
  * One arrow: a straight line from box to box with a head at the end that
- * is needed, and its label (as in the prototype).
+ * is needed, and its label (as in the prototype); or, in the elbow arrow
+ * style, Treekit's right-angled line (`domain/arrows.ts`).
  *
  * The geometry comes worked out from the canvas (`domain/geometry.ts`,
  * `domain/labels.ts`), not from React Flow's handles: the line leaves each
@@ -114,14 +109,15 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
 
   const g = data?.geometry;
   if (!g) return null;
-  const [tip, left, right] = g.head;
-  const at = data.labelAt ?? g.middle;
-  const line = `M${g.start.x} ${g.start.y}L${g.end.x} ${g.end.y}`;
+  const at = data.labelAt ?? routeMiddle(g);
+  const line = roundedPath(g.points, g.corner);
+  const ends = routeEnds(g);
   const spot = { transform: `translate(-50%, -50%) translate(${at.x}px, ${at.y}px)` };
   const hasPill = label !== "" || isEditing;
   const showEnds = isPicked || hot || isRelinking;
-  const fromEnd = towards(g.start, tip, LINK_HANDLE_INSET);
-  const toEnd = towards(tip, g.start, LINK_HANDLE_INSET);
+  // The end handles sit a little way along the line from each end.
+  const fromEnd = towards(...ends.from, LINK_HANDLE_INSET);
+  const toEnd = towards(...ends.to, LINK_HANDLE_INSET);
   const deleteButton = (
     <button
       type="button"
@@ -148,14 +144,16 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
         data-picked={isPicked || undefined}
         data-relinking={isRelinking || undefined}
       />
-      <path
-        className={styles.head}
-        data-highlight={highlight}
-        data-cut={isCut || undefined}
-        data-picked={isPicked || undefined}
-        data-relinking={isRelinking || undefined}
-        d={`M${tip.x} ${tip.y}L${left.x} ${left.y}L${right.x} ${right.y}Z`}
-      />
+      {g.head && (
+        <path
+          className={styles.head}
+          data-highlight={highlight}
+          data-cut={isCut || undefined}
+          data-picked={isPicked || undefined}
+          data-relinking={isRelinking || undefined}
+          d={headPath(g.head)}
+        />
+      )}
       {/* The line and its end handles, in one group so moving from the line
           onto a handle keeps them shown. The hit line is wider than the
           drawn one, easy to point at and click. */}

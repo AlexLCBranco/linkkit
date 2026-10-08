@@ -59,6 +59,14 @@
   color: var(--text-inverted);
 }
 
+/* The style choices' icons sit in the same slot as the length arrows, so
+   the words line up. */
+.styleIcon {
+  display: flex;
+  justify-content: center;
+  width: var(--space-7);
+}
+
 /* Any length in between: the browser's own slider in the accent colour,
    with marks at the presets (where the browser draws them). */
 .slider {

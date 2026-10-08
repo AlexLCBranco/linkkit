@@ -11,7 +11,8 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 
-import { linkGeometry, type Box, type LinkGeometry } from "../../domain/geometry";
+import { arrowRoutes } from "../../domain/arrows";
+import type { Box } from "../../domain/geometry";
 import { placeLabels } from "../../domain/labels";
 import { layoutMap } from "../../domain/layout";
 import { shownMap } from "../../domain/shown";
@@ -29,7 +30,6 @@ import { HintBubble } from "./HintBubble";
 import { RelinkPreview } from "./RelinkPreview";
 import { useHint } from "../../store/hint";
 import {
-  ARROW,
   DRAG_THRESHOLD,
   LABEL_FALLBACK_SIZE,
   LABELS,
@@ -38,8 +38,8 @@ import {
   PAGE_INSETS,
   PAGE_MARGIN,
   PASTE_BLOCK,
+  ROUTES,
   TIDY_GLIDE_MS,
-  TWIN_OFFSET,
 } from "./layoutConfig";
 import { LinkEdgeView, type LinkFlowEdge } from "./LinkEdgeView";
 import styles from "./MapCanvas.module.css";
@@ -447,30 +447,23 @@ function MapCanvasInner() {
     [screenToFlowPosition],
   );
 
+  // Each arrow's line, head and label stretch, in the map's arrow style
+  // (`domain/arrows.ts`). The elbow style makes room below its turns for
+  // the labels, so it is given their sizes.
   const geometries = useMemo(() => {
-    const out = new Map<LinkId, LinkGeometry>();
-    const links = Object.values(map.links);
-    // An arrow whose reverse is also on the map is drawn a little to its
-    // own right, so the pair sit side by side instead of on top of each
-    // other.
-    const pairs = new Set(links.map((l) => `${l.from}>${l.to}`));
-    for (const link of links) {
-      const from = boxes.get(link.from);
-      const to = boxes.get(link.to);
-      const offset = pairs.has(`${link.to}>${link.from}`) ? TWIN_OFFSET : 0;
-      const g = from && to ? linkGeometry(from, to, ARROW, offset) : null;
-      if (g) out.set(link.id, g);
-    }
-    return out;
-  }, [map.links, boxes]);
+    const labelled = new Map<LinkId, Size>();
+    for (const link of Object.values(map.links)) if (link.label) labelled.set(link.id, labelSize(map, labelSizes, link.id));
+    return arrowRoutes(Object.values(map.links), boxes, map.arrowStyle, map.direction, ROUTES, labelled);
+  }, [map, boxes, labelSizes]);
 
   const labelSpots = useMemo(
     () =>
       placeLabels(
         [...geometries].map(([id, g]) => ({
           id,
-          start: g.start,
-          tip: g.head[0],
+          start: g.labelFrom,
+          tip: g.labelTo,
+          path: g.corner ? g.points : undefined,
           size: labelSize(map, labelSizes, id),
         })),
         [...boxes.values()],

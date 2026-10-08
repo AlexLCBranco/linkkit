@@ -1,3 +1,4 @@
+import type { RouteOptions } from "../../domain/arrows";
 import type { ArrowOptions } from "../../domain/geometry";
 import type { LabelOptions } from "../../domain/labels";
 import { arrowGap, type LayoutOptions } from "../../domain/layout";
@@ -79,6 +80,14 @@ export const PASTE_BLOCK = { gap: 48, step: 24, clearance: 16 };
 /** A template's thumbnail ("New from template"): every box drawn this size
     and this round, the gaps between them, and the margin round the whole. */
 export const TEMPLATE_THUMB = { box: { width: 90, height: 34 }, radius: 8, rowGap: 40, columnGap: 18, padding: 12 };
+
+/** Everything arrow routes need (`domain/arrows.ts`). The elbow numbers
+    are Treekit's where it has one: its lines' corner rounding is 10. */
+export const ROUTES: RouteOptions = {
+  arrow: ARROW,
+  twinOffset: TWIN_OFFSET,
+  elbow: { corner: 10, minGap: 16, entrySpread: 14, lane: 24, sideGap: 32, stagger: 8 },
+};
 
 /** A picked arrow's round end handles (dragged to reconnect it): their
     radius, and how far each sits back along the line from the box it

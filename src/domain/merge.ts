@@ -83,6 +83,7 @@ const CONTENT_KEYS = [
   "page",
   "direction",
   "arrowLength",
+  "arrowStyle",
   "nodes",
   "links",
   "order",
@@ -363,6 +364,7 @@ export function mergeMaps(base: LinkMap, mine: LinkMap, theirs: LinkMap): MapMer
     page: setting("page", base, mine, theirs, conflicts),
     direction: setting("direction", base, mine, theirs, conflicts),
     arrowLength: setting("arrowLength", base, mine, theirs, conflicts),
+    arrowStyle: setting("arrowStyle", base, mine, theirs, conflicts),
     hideCut: setting("hideCut", base, mine, theirs, conflicts),
   };
 

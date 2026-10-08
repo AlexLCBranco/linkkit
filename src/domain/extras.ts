@@ -21,6 +21,7 @@ export const MAP_FIELDS: ReadonlySet<string> = new Set([
   "page",
   "direction",
   "arrowLength",
+  "arrowStyle",
   "nodes",
   "links",
   "order",

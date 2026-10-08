@@ -1,9 +1,9 @@
-import { MoveRight } from "lucide-react";
+import { MoveRight, Network, type LucideIcon } from "lucide-react";
 import { Popover } from "radix-ui";
 import { useCallback, useRef } from "react";
 
 import { clampArrowLength } from "../../domain/map";
-import { ARROW_LENGTH_PRESETS, ARROW_LENGTH_RANGE, type ArrowLengthPreset } from "../../domain/types";
+import { ARROW_LENGTH_PRESETS, ARROW_LENGTH_RANGE, type ArrowLengthPreset, type ArrowStyle } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import alignStyles from "./AlignPanel.module.css";
 import styles from "./ArrowLengthPanel.module.css";
@@ -15,6 +15,11 @@ const PRESETS: { value: ArrowLengthPreset; label: string }[] = [
   { value: "long", label: "Long" },
 ];
 
+const STYLES: { value: ArrowStyle; label: string; title: string; icon: LucideIcon }[] = [
+  { value: "straight", label: "Straight", title: "Straight arrows from box to box (Linkkit's)", icon: MoveRight },
+  { value: "elbow", label: "Elbow", title: "Right-angled lines from each box to the boxes after it (Treekit's)", icon: Network },
+];
+
 /** Each drag of the slider, or burst of wheel turns, is one gesture: one
     undo step however many times the map is re-tidied along the way. */
 let gestures = 0;
@@ -24,7 +29,12 @@ const newGesture = () => String(++gestures);
 const wheelPixels = (e: WheelEvent) => e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 100 : 1);
 
 /**
- * How long Tidy up makes the arrows. Three presets, a slider for anything
+ * How the arrows look, and how long Tidy up makes them.
+ *
+ * Style: Linkkit's straight arrows, or Treekit's elbow lines. Saved with
+ * the map and undoable; it moves no box.
+ *
+ * Length: Three presets, a slider for anything
  * in between (or beyond), and the mouse wheel: scrolling over the "Arrows"
  * button (no need to open it) or the panel stretches the arrows (wheel up)
  * or shrinks them (wheel down), and the map re-tidies as it goes. Picking
@@ -34,6 +44,8 @@ const wheelPixels = (e: WheelEvent) => e.deltaY * (e.deltaMode === 1 ? 33 : e.de
  */
 export function ArrowLengthPanel() {
   const arrowLength = useMapStore((s) => s.map.arrowLength);
+  const arrowStyle = useMapStore((s) => s.map.arrowStyle);
+  const setArrowStyle = useMapStore((s) => s.setArrowStyle);
   const requestTidy = useMapStore((s) => s.requestTidy);
   const sliderGesture = useRef("");
 
@@ -71,13 +83,32 @@ export function ArrowLengthPanel() {
       <Popover.Trigger
         ref={wheelRef}
         className={`${alignStyles.trigger} ${styles.trigger}`}
-        title="Arrow length: click for choices, or scroll the mouse wheel here to stretch or shrink the arrows"
+        title="Arrow style and length: click for choices, or scroll the mouse wheel here to stretch or shrink the arrows"
       >
         <MoveRight size={16} className={styles.icon} aria-hidden />
         <span className={styles.word}>Arrows</span>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content ref={wheelRef} className={alignStyles.panel} align="start" sideOffset={6}>
+          <div className={alignStyles.title}>Arrow style</div>
+          <div className={styles.list} role="radiogroup" aria-label="Arrow style">
+            {STYLES.map(({ value, label, title, icon: Icon }) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={arrowStyle === value}
+                title={title}
+                className={styles.option}
+                onClick={() => setArrowStyle(value)}
+              >
+                <span className={styles.styleIcon} aria-hidden>
+                  <Icon size={16} />
+                </span>
+                {label}
+              </button>
+            ))}
+          </div>
           <div className={alignStyles.title}>Arrow length</div>
           <div className={styles.list} role="radiogroup" aria-label="Arrow length presets">
             {PRESETS.map(({ value, label }) => (
