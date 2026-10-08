@@ -95,13 +95,15 @@ describe("box notes", () => {
     expect(cleared.map.nodes[id("a")]).not.toHaveProperty("notes");
   });
 
-  it("stay with a linked tree's boxes as Linkkit's own part, which Boardkit never gets", () => {
-    const tree = setNodeNotes(buildTree("s", ["l", "c"], [["s", "l"], ["l", "c"]]), id("c"), NOTE);
+  it("in a linked tree: a card's go to Boardkit as pregame thots, a list's stay in Linkkit", () => {
+    let tree = buildTree("s", ["l", "c"], [["s", "l"], ["l", "c"]]);
+    tree = setNodeNotes(setNodeNotes(tree, id("c"), NOTE), id("l"), "list only");
     const written = treeToBoard(EMPTY_BOARD, { ...tree, linkedBoard: "s" }, 0);
     if (!written.ok) throw new Error("refused");
-    expect(JSON.stringify(written.board)).not.toContain("second, indented");
+    expect(written.board.cards.c.description).toBe(NOTE);
+    expect(JSON.stringify(written.board)).not.toContain("list only");
     const { map } = boardToTree("s", "S", written.board, viewOf(tree));
     expect(map.nodes[id("c")].notes).toBe(NOTE);
-    expect(map.nodes[id("l")]).not.toHaveProperty("notes");
+    expect(map.nodes[id("l")].notes).toBe("list only");
   });
 });

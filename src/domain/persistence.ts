@@ -81,7 +81,17 @@ export interface PersistedLinkedMap {
 export function serializeStored(map: LinkMap, rev: number): PersistedMap | PersistedLinkedMap {
   const plain = serializeMap(map, rev);
   if (!map.linkedBoard) return plain;
-  return { version: LINKED_SCHEMA_VERSION, rev, map: { ...plain.map, linkedBoard: map.linkedBoard } };
+  const { heldNotes, cardNotesShared } = map;
+  return {
+    version: LINKED_SCHEMA_VERSION,
+    rev,
+    map: {
+      ...plain.map,
+      linkedBoard: map.linkedBoard,
+      ...(heldNotes && Object.keys(heldNotes).length ? { heldNotes } : {}),
+      ...(cardNotesShared ? { cardNotesShared } : {}),
+    },
+  };
 }
 
 /** A stored record's `rev`, or 0 when it has none (saved before there was
@@ -114,6 +124,7 @@ export function serializeMap(map: LinkMap, rev?: number): PersistedMap {
       hideCut,
       collapsed,
       trash,
+      ...(map.noteClashes && Object.keys(map.noteClashes).length ? { noteClashes: map.noteClashes } : {}),
     },
   };
 }
@@ -246,6 +257,7 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
     collapsed,
     trash: readTrash(raw.trash, nodes, kind, fix),
     ...link,
+    ...readNotesAside(raw, linked, fix),
   };
   for (const [key, link] of Object.entries(rawLinks)) {
     if (!isObject(link) || typeof link.from !== "string" || typeof link.to !== "string") {
@@ -289,6 +301,33 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
   }
 
   return fixes === 0 ? { status: "ok", map: read } : { status: "repaired", map: read, fixes };
+}
+
+/** Text kept by box id (`noteClashes`, `heldNotes`): the string entries
+    that aren't blank; anything else is a fix. */
+function readNoteRecord(raw: unknown, fix: <T>(value: T) => T): Record<NodeId, string> {
+  if (raw === undefined) return {};
+  if (!isObject(raw)) return fix({});
+  const out: Record<NodeId, string> = {};
+  for (const [id, text] of Object.entries(raw)) {
+    if (id === "__proto__") continue;
+    if (typeof text === "string" && text.trim()) out[id as NodeId] = text;
+    else fix(null);
+  }
+  return out;
+}
+
+/** The notes kept beside the boxes: clashes (any map), and for a linked
+    map the held notes and whether card notes are shared. Fields that are
+    empty are left out, so an older save reads the same. */
+function readNotesAside(raw: Record<string, unknown>, linked: boolean, fix: <T>(value: T) => T): Partial<LinkMap> {
+  const clashes = readNoteRecord(raw.noteClashes, fix);
+  const held = linked ? readNoteRecord(raw.heldNotes, fix) : {};
+  return {
+    ...(Object.keys(clashes).length ? { noteClashes: clashes } : {}),
+    ...(Object.keys(held).length ? { heldNotes: held } : {}),
+    ...(linked && raw.cardNotesShared === true ? { cardNotesShared: true as const } : {}),
+  };
 }
 
 /** One box, with defaults for fields of the wrong type (each a fix). */

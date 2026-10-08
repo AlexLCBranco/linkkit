@@ -145,6 +145,20 @@ export interface LinkMap {
       which, sibling order); the rest is Linkkit's own (`LinkedView` in
       bridge.ts). Absent on every other map. */
   readonly linkedBoard?: string;
+  /** Box notes where two different texts met (owner's rule: never
+      overwrite either): the box's `notes` is one (in a linked map, the
+      card's pregame thots), this is the other (Linkkit's own), kept aside
+      until the user picks in the notes panel. Absent: none. */
+  readonly noteClashes?: Readonly<Record<NodeId, string>>;
+  /** Linked maps only: Linkkit-only notes of boxes that are in Boardkit's
+      trash just now (a deleted list), so they come back with the box.
+      Absent: none. */
+  readonly heldNotes?: Readonly<Record<NodeId, string>>;
+  /** Linked maps only: card boxes' notes are the cards' pregame thots
+      (notes plan B, v0.0.56). Absent on a linked map saved before: its
+      card notes were Linkkit's own, and meet the pregame thots as a
+      possible clash when it next opens. */
+  readonly cardNotesShared?: true;
 }
 
 /** Where a deleted box sat among a box's next steps (trees only), so a

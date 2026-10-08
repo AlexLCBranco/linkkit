@@ -427,3 +427,12 @@
 .box.box[data-dragging] .notesPreview {
   opacity: 0;
 }
+
+/* Two different notes met on this box: the icon turns the clash colour,
+   and takes the mouse so its tooltip says what to do. */
+.notesIcon[data-clash] {
+  border-color: var(--note-clash);
+  background: var(--note-clash);
+  color: var(--note-clash-ink);
+  pointer-events: auto;
+}

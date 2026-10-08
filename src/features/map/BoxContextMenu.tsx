@@ -12,7 +12,7 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from "../../components/ui/context-menu";
-import { canAddNextStep, canCollapse, canDeleteBox, canHaveNotes, canPaste, canSetStatus } from "../../domain/rules";
+import { canAddNextStep, canCollapse, canDeleteBox, canPaste, canSetStatus } from "../../domain/rules";
 import type { LinkId, NodeId, Point } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { selectGroupColor, selectGroupStatus } from "../../store/selectors";
@@ -182,7 +182,6 @@ function BoxMenuItems({
   const status = useMapStore((s) => s.map.nodes[nodeId]?.status ?? null);
   const statusable = useMapStore((s) => canSetStatus(s.map, nodeId));
   const setBoxesStatus = useMapStore((s) => s.setBoxesStatus);
-  const notable = useMapStore((s) => canHaveNotes(s.map));
   const isTree = useMapStore((s) => s.map.kind === "tree");
   const openNotes = useMapStore((s) => s.openNotes);
 
@@ -200,14 +199,12 @@ function BoxMenuItems({
         <Pencil aria-hidden />
         Rename
       </ContextMenuItem>
-      {notable && (
-        // Waits for the menu to close: the notes field takes the focus.
-        <ContextMenuItem onSelect={() => runAfterClose(() => openNotes(nodeId))}>
-          <NotebookPen aria-hidden />
-          Notes…
-          <ContextMenuShortcut>N</ContextMenuShortcut>
-        </ContextMenuItem>
-      )}
+      {/* Waits for the menu to close: the notes field takes the focus. */}
+      <ContextMenuItem onSelect={() => runAfterClose(() => openNotes(nodeId))}>
+        <NotebookPen aria-hidden />
+        Notes…
+        <ContextMenuShortcut>N</ContextMenuShortcut>
+      </ContextMenuItem>
       <CollapseItem ids={() => [nodeId]} />
       <CopyItems ids={() => [nodeId]} />
       <ContextMenuItem onSelect={() => useMapStore.getState().forkBranch(nodeId)}>

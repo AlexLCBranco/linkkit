@@ -137,6 +137,11 @@
 
   --ink-light: #ffffff;
   --ink-dark: #000000;
+
+  /* A box whose note met a different one (Linkkit's and Boardkit's): the
+     note icon in this colour asks the user to pick. */
+  --note-clash: var(--palette-orange);
+  --note-clash-ink: var(--ink-light);
 }
 
 /* Dark theme neutrals (the default). */

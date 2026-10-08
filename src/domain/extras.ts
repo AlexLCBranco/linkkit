@@ -28,6 +28,9 @@ export const MAP_FIELDS: ReadonlySet<string> = new Set([
   "collapsed",
   "trash",
   "linkedBoard",
+  "noteClashes",
+  "heldNotes",
+  "cardNotesShared",
 ]);
 
 export const NODE_FIELDS: ReadonlySet<string> = new Set(["id", "name", "x", "y", "color", "status", "notes"]);

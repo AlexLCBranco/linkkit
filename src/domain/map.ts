@@ -89,6 +89,26 @@ export function setNodeNotes(map: LinkMap, id: NodeId, notes: string): LinkMap {
   return { ...map, nodes: { ...map.nodes, [id]: withNotes(node, notes) } };
 }
 
+/** How a note clash is settled: the box's note as it is (in a linked map,
+    Boardkit's pregame thots), the text kept aside (Linkkit's), or both. */
+export type ClashPick = "note" | "aside" | "both";
+
+/** Settles box `id`'s note clash (`LinkMap.noteClashes`). "both" joins the
+    two, the note first, with a blank line between. The same map when the
+    box has no clash. */
+export function resolveNoteClash(map: LinkMap, id: NodeId, pick: ClashPick): LinkMap {
+  const aside = map.noteClashes?.[id];
+  const node = map.nodes[id];
+  if (aside === undefined || !node) return map;
+  const note = node.notes ?? "";
+  const text = pick === "note" ? note : pick === "aside" ? aside : `${note.replace(/s+$/, "")}
+
+${aside}`;
+  const { [id]: _, ...rest } = map.noteClashes!;
+  const { noteClashes: _all, ...without } = setNodeNotes(map, id, text);
+  return Object.keys(rest).length ? { ...without, noteClashes: rest } : without;
+}
+
 /** Moves many boxes at once (Tidy up); ids not on the map are ignored. */
 export function moveNodes(map: LinkMap, positions: ReadonlyMap<NodeId, Point>): LinkMap {
   let next = map;

@@ -94,6 +94,9 @@ export function LinkDialog({ preview, onClose }: { preview: LinkPreview | null; 
 export function UnlinkDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const unlinkFromBoard = useMapStore((s) => s.unlinkFromBoard);
   const name = useMapStore((s) => s.map.name);
+  // Notes of lists waiting in Boardkit's trash: an unlinked map can't
+  // bring those lists back, so their notes would stay behind.
+  const held = useMapStore((s) => Object.keys(s.map.heldNotes ?? {}).length);
 
   return (
     <AlertDialog open={open} onOpenChange={(next) => !next && onClose()}>
@@ -103,6 +106,8 @@ export function UnlinkDialog({ open, onClose }: { open: boolean; onClose: () => 
           <AlertDialogDescription>
             This map keeps its own copy, with tree rules still on, and the board stays in Boardkit as an ordinary board.
             From then on, changes in one no longer show in the other.
+            {held > 0 &&
+              ` ${held === 1 ? "One deleted list has" : `${held} deleted lists have`} a note kept for it while it waits in Boardkit's trash: restore ${held === 1 ? "it" : "them"} in Boardkit first, or that note is left behind.`}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

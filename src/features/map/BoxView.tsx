@@ -4,7 +4,7 @@ import { memo, type CSSProperties, type MouseEvent, type PointerEvent } from "re
 
 import { InlineEditable } from "../../components/InlineEditable";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
-import { canAddNextStep, canCollapse, canDeleteBox, canHaveNotes, canSetStatus } from "../../domain/rules";
+import { canAddNextStep, canCollapse, canDeleteBox, canSetStatus } from "../../domain/rules";
 import { hiddenAfter } from "../../domain/shown";
 import { looksCut } from "../../domain/status";
 import type { NodeId, NodeStatus } from "../../domain/types";
@@ -102,7 +102,8 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   const folded = useMapStore((s) => (s.map.collapsed.includes(nodeId) ? hiddenAfter(s.map, nodeId) : 0));
   const direction = useMapStore((s) => s.map.direction);
   const toggleCollapsed = useMapStore((s) => s.toggleCollapsed);
-  const notable = useMapStore((s) => canHaveNotes(s.map));
+  // Two different notes met here (`noteClashes`): the icon asks for a pick.
+  const clash = useMapStore((s) => s.map.noteClashes?.[nodeId] !== undefined);
   const openNotes = useMapStore((s) => s.openNotes);
   const { dragging, onBoxPointerDown, onDotPointerDown } = useBoxGestures(nodeId);
   if (!node) return null;
@@ -152,15 +153,27 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
       {/* Notes: a small icon on the top-right corner says there are some;
           hovering shows their first lines. Both float, so notes never
           resize the box (Treekit's). */}
-      {node.notes && (
-        <>
-          <span className={`${styles.badge} ${styles.notesIcon}`} role="img" aria-label="Has notes">
-            <StickyNote size={10} aria-hidden />
-          </span>
-          <div className={styles.notesPreview} aria-hidden>
-            <p className={styles.notesPreviewText}>{node.notes}</p>
-          </div>
-        </>
+      {clash ? (
+        <span
+          className={`${styles.badge} ${styles.notesIcon}`}
+          data-clash
+          role="img"
+          aria-label="Two different notes: open its notes to pick"
+          title="Two different notes: open its notes to pick"
+        >
+          <StickyNote size={10} aria-hidden />
+        </span>
+      ) : (
+        node.notes && (
+          <>
+            <span className={`${styles.badge} ${styles.notesIcon}`} role="img" aria-label="Has notes">
+              <StickyNote size={10} aria-hidden />
+            </span>
+            <div className={styles.notesPreview} aria-hidden>
+              <p className={styles.notesPreviewText}>{node.notes}</p>
+            </div>
+          </>
+        )
       )}
 
       {isCollapsed && folded > 0 && (
@@ -205,17 +218,15 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
         <button type="button" className={styles.toolbarButton} onClick={rename} aria-label="Rename" title="Rename">
           <Pencil size={14} />
         </button>
-        {notable && (
-          <button
-            type="button"
-            className={styles.toolbarButton}
-            onClick={() => openNotes(nodeId)}
-            aria-label="Notes"
-            title="Notes (N)"
-          >
-            <NotebookPen size={14} />
-          </button>
-        )}
+        <button
+          type="button"
+          className={styles.toolbarButton}
+          onClick={() => openNotes(nodeId)}
+          aria-label="Notes"
+          title="Notes (N)"
+        >
+          <NotebookPen size={14} />
+        </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button" className={styles.toolbarButton} aria-label="Colour" title="Colour">

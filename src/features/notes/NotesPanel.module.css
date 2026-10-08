@@ -31,3 +31,58 @@
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--focus-ring);
 }
+
+/* Two different notes on one box: both texts side by side, then the
+   choice. In the clash colour, like the box's note icon. */
+.clash {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0 var(--space-4) var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--note-clash);
+  border-radius: var(--radius-md);
+}
+
+.clashTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-normal);
+}
+
+.clashTexts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.clashText {
+  margin: 0;
+  min-width: 0;
+  padding: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-app);
+  font-size: var(--font-size-sm);
+}
+
+.clashText figcaption {
+  margin-bottom: var(--space-1);
+  color: var(--text-secondary);
+  font-weight: var(--weight-medium);
+}
+
+.clashText p {
+  margin: 0;
+  max-height: 8lh;
+  overflow-y: auto;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.clashButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

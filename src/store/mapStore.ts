@@ -27,6 +27,8 @@ import {
   setDirection,
   setNodeColor,
   setNodeNotes,
+  resolveNoteClash,
+  type ClashPick,
   setNodesColor,
   setNodesStatus,
   setHideCut,
@@ -39,7 +41,6 @@ import { defaultPageSize } from "../domain/page";
 import {
   boxDeleteRefusal,
   canCollapse,
-  canHaveNotes,
   canMove,
   canPaste,
   canSetStatus,
@@ -73,6 +74,7 @@ import {
   boardProblems,
   boardRefusal,
   linkedProblem,
+  withHeldNotes,
   linkTree,
   problemText,
   treeToBoard,
@@ -304,6 +306,10 @@ export interface MapState {
       one box's notes (until the panel closes or shows another box) is one
       undo step. */
   setBoxNotes(id: NodeId, notes: string): void;
+  /** Settles a note clash (`noteClashes`): keep the note as it is
+      (Boardkit's), take the one kept aside (Linkkit's), or both joined.
+      One undo step. */
+  resolveNoteClash(id: NodeId, pick: ClashPick): void;
   /** Opens the notes panel on this box, selecting it. */
   openNotes(id: NodeId): void;
   closeNotes(): void;
@@ -603,8 +609,9 @@ function linkSpot(map: LinkMap, id: LinkId): Point {
 function commit(s: MapState, edited: LinkMap, key: string | null = null): Partial<MapState> {
   if (edited === s.map || refused(s, edited)) return {};
   // A linked tree's name is its start box's: renaming one renames both.
-  // Any other map follows its start (or first) box until named by hand.
-  const next = followBoxName(s.map, withStartName(edited));
+  // Any other map follows its start (or first) box until named by hand. A
+  // deleted list's Linkkit-only note waits with it in Boardkit's trash.
+  const next = followBoxName(s.map, withStartName(withHeldNotes(s.map, edited)));
   const join = key !== null && key === s.stepKey;
   return {
     ...forget(s, next),
@@ -939,9 +946,10 @@ export const useMapStore = create<MapState>()((set, get) => ({
     }),
   setBoxColor: (id, color) => set((s) => commit(s, setNodeColor(s.map, id, color))),
   setBoxNotes: (id, notes) => set((s) => commit(s, setNodeNotes(s.map, id, notes), notesKey(id))),
+  resolveNoteClash: (id, pick) => set((s) => commit(s, resolveNoteClash(s.map, id, pick))),
   openNotes: (id) => {
     get().stopEditing();
-    set((s) => (s.map.nodes[id] && canHaveNotes(s.map) ? { ...selecting([id]), notesOpen: true } : {}));
+    set((s) => (s.map.nodes[id] ? { ...selecting([id]), notesOpen: true } : {}));
   },
   closeNotes: () => set((s) => ({ notesOpen: false, stepKey: s.stepKey?.startsWith("notes:") ? null : s.stepKey })),
   deleteBox: (id) => get().deleteBoxes([id]),

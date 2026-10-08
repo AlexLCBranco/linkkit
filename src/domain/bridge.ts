@@ -50,9 +50,17 @@ export interface LinkedView {
   /** Arrow labels, by the box the arrow points into, so a card moved to
       another list keeps its label (decided for 14b). */
   readonly labels: Readonly<Record<NodeId, string>>;
-  /** Box notes, by box (Linkkit's own: Boardkit never sees them). A box
-      with none has no entry. */
+  /** Box notes, by box. The start's and lists' are Linkkit's own (Boardkit
+      has no place for them); a card's note is its pregame thots, read from
+      the board, so its entry here only counts on a map saved before notes
+      were shared (`cardNotesShared`). A box with none has no entry. */
   readonly notes: Readonly<Record<NodeId, string>>;
+  /** Linkkit's text of a note that clashes with Boardkit's (`noteClashes`). */
+  readonly clashes?: Readonly<Record<NodeId, string>>;
+  /** Linkkit-only notes of boxes in Boardkit's trash (`heldNotes`). */
+  readonly held?: Readonly<Record<NodeId, string>>;
+  /** Card notes already are the cards' pregame thots (`cardNotesShared`). */
+  readonly cardNotesShared?: boolean;
   /** Fields a newer Linkkit added that this build doesn't know
       (`extras.ts`): the map's own, each box's, and each arrow's (by the
       box it points into, like labels). Kept so an older tab never drops
@@ -82,7 +90,21 @@ export function viewOf(map: LinkMap): LinkedView {
   for (const node of Object.values(map.nodes)) if (hasUnknownFields(node, NODE_FIELDS)) nodeExtras[node.id] = unknownFields(node, NODE_FIELDS);
   for (const link of Object.values(map.links)) if (hasUnknownFields(link, LINK_FIELDS)) linkExtras[link.to] = unknownFields(link, LINK_FIELDS);
   const extras = { map: unknownFields(map, MAP_FIELDS), nodes: nodeExtras, links: linkExtras };
-  return { page, direction, arrowLength, hideCut, collapsed, places, colors, labels, notes, extras };
+  return {
+    page,
+    direction,
+    arrowLength,
+    hideCut,
+    collapsed,
+    places,
+    colors,
+    labels,
+    notes,
+    extras,
+    clashes: map.noteClashes ?? {},
+    held: map.heldNotes ?? {},
+    cardNotesShared: !!map.cardNotesShared,
+  };
 }
 
 const statusOf = (item: BoardItem): NodeStatus | null =>
@@ -105,10 +127,13 @@ export function boardToTree(
   const order: Record<NodeId, readonly NodeId[]> = {};
   const unplaced: NodeId[] = [];
 
-  const addBox = (id: NodeId, name: string, status: NodeStatus | null, parent: NodeId | null) => {
+  const clashes: Record<NodeId, string> = {};
+  // A box's note: Linkkit's own for the start and lists; for a card, its
+  // pregame thots (`noteOfCard`).
+  const addBox = (id: NodeId, name: string, status: NodeStatus | null, parent: NodeId | null, card?: BoardItem) => {
     const place = view.places[id];
     if (!place) unplaced.push(id);
-    const notes = view.notes[id];
+    const notes = card ? noteOfCard(id, card, view, clashes) : (view.notes[id] ?? view.held?.[id]);
     nodes[id] = {
       ...view.extras?.nodes[id],
       id,
@@ -135,8 +160,21 @@ export function boardToTree(
     for (const cardId of board.cardOrder[listId] ?? []) {
       const card = board.cards[cardId];
       if (!isShownCard(card) || nodes[cardId as NodeId]) continue;
-      addBox(cardId as NodeId, card.title, statusOf(card), id);
+      addBox(cardId as NodeId, card.title, statusOf(card), id, card);
     }
+  }
+
+  // Notes kept for later: a clash stays while its card is on the board or
+  // in its trash; a list's Linkkit-only note while the list is in the
+  // trash (it comes back with it). A card's needs nothing kept: its
+  // pregame thots stay on the card.
+  const inTrash = new Set<string>([...board.trash.map((e) => e.cardId), ...board.trashedLists.map((e) => e.listId)]);
+  for (const [id, text] of Object.entries(view.clashes ?? {}) as [NodeId, string][]) {
+    if ((nodes[id] || inTrash.has(id)) && !clashes[id] && text !== nodes[id]?.notes) clashes[id] = text;
+  }
+  const heldNotes: Record<NodeId, string> = {};
+  for (const [id, text] of [...Object.entries(view.held ?? {}), ...Object.entries(view.notes)] as [NodeId, string][]) {
+    if (!nodes[id] && board.lists[id] && inTrash.has(id) && text) heldNotes[id] = text;
   }
 
   const map: LinkMap = {
@@ -153,8 +191,56 @@ export function boardToTree(
     hideCut: view.hideCut,
     collapsed: view.collapsed.filter((id) => nodes[id]),
     trash: [],
+    cardNotesShared: true,
+    ...(Object.keys(clashes).length ? { noteClashes: clashes } : {}),
+    ...(Object.keys(heldNotes).length ? { heldNotes } : {}),
   };
   return { map, unplaced };
+}
+
+/** Where box `id`'s note lives: an ordinary map's own ("map"); in a
+    linked map a card's is its pregame thots in Boardkit ("card"), the
+    start's and a list's Linkkit's alone ("linkkit"). */
+export function noteHome(map: LinkMap, id: NodeId): "map" | "card" | "linkkit" {
+  if (!map.linkedBoard) return "map";
+  const parent = Object.values(map.links).find((l) => l.to === id)?.from;
+  return parent && parent !== (map.linkedBoard as NodeId) ? "card" : "linkkit";
+}
+
+/** A card's pregame thots (Boardkit's `description`), or "" for none. */
+const pregameOf = (card: BoardItem): string => (typeof card.description === "string" ? card.description : "");
+
+/**
+ * A card box's note: the card's pregame thots. On a map saved before notes
+ * were shared, the box may also have Linkkit's own note: one side empty
+ * takes the other (nothing is overwritten); two different texts are a
+ * clash, never settled here (owner's rule): the note shows the pregame
+ * thots and Linkkit's text is kept in `clashes` for the user to pick.
+ */
+function noteOfCard(id: NodeId, card: BoardItem, view: LinkedView, clashes: Record<NodeId, string>): string {
+  const pregame = pregameOf(card);
+  const own = view.cardNotesShared ? "" : (view.notes[id] ?? "");
+  if (!own.trim() || own === pregame) return pregame;
+  if (!pregame.trim()) return own;
+  clashes[id] = own;
+  return pregame;
+}
+
+/**
+ * `next` (an edit of the linked map `prev`) with the Linkkit-only notes of
+ * the boxes it deleted kept in `heldNotes`: a deleted list waits in
+ * Boardkit's trash, and its note comes back with it. (A card's note is its
+ * pregame thots, which stay on the card.) The same map when nothing went.
+ */
+export function withHeldNotes(prev: LinkMap, next: LinkMap): LinkMap {
+  if (!next.linkedBoard || prev === next) return next;
+  let held: Record<NodeId, string> | null = null;
+  for (const node of Object.values(prev.nodes)) {
+    if (next.nodes[node.id] || !node.notes || next.heldNotes?.[node.id] === node.notes) continue;
+    held ??= { ...next.heldNotes };
+    held[node.id] = node.notes;
+  }
+  return held ? { ...next, heldNotes: held } : next;
 }
 
 /** Why a tree can't be (or stay) a board, one box at a time. */
@@ -216,18 +302,30 @@ export function problemText(map: LinkMap, problem: BoardProblem): string {
   }
 }
 
-/** An item with `node`'s name and status, everything else kept. The same
-    object when neither changed. */
-function patched(item: BoardItem, node: MapNode): BoardItem {
+/** An item with `node`'s name and status (and, for a card, its note as
+    the pregame thots), everything else kept. The same object when none
+    changed. */
+function patched(item: BoardItem, node: MapNode, card: boolean): BoardItem {
   const status = statusOf(item);
-  if (item.title === node.name && status === node.status) return item;
+  const note = node.notes ?? "";
+  const noteSame = !card || pregameOf(item) === note;
+  if (item.title === node.name && status === node.status && noteSame) return item;
   const next: Record<string, unknown> = { ...item, title: node.name };
   if (node.status) next.status = node.status;
   else delete next.status;
+  if (!noteSame) {
+    if (note) next.description = note;
+    else delete next.description;
+  }
   return next as BoardItem;
 }
 
-const newItem = (node: MapNode): BoardItem => ({ id: node.id, title: node.name, ...(node.status ? { status: node.status } : {}) });
+const newItem = (node: MapNode, card: boolean): BoardItem => ({
+  id: node.id,
+  title: node.name,
+  ...(node.status ? { status: node.status } : {}),
+  ...(card && node.notes ? { description: node.notes } : {}),
+});
 
 /** Longest common subsequence of two id lists: the cards that kept their
     order relative to each other, so only the others count as moved. */
@@ -356,11 +454,11 @@ export function treeToBoard(board: BoardContent, map: LinkMap, deletedAt: number
   const cards: Record<string, BoardItem> = { ...board.cards };
   for (const id of listIds) {
     const node = map.nodes[id as NodeId];
-    lists[id] = board.lists[id] ? patched(board.lists[id], node) : newItem(node);
+    lists[id] = board.lists[id] ? patched(board.lists[id], node, false) : newItem(node, false);
   }
   for (const id of cardHome.keys()) {
     const node = map.nodes[id as NodeId];
-    cards[id] = board.cards[id] ? patched(board.cards[id], node) : newItem(node);
+    cards[id] = board.cards[id] ? patched(board.cards[id], node, true) : newItem(node, true);
   }
   const isShown = (id: string) => cardHome.has(id) || isShownCard(cards[id]);
 
@@ -463,7 +561,10 @@ export function linkedTree(
     in Boardkit). The same object when it wasn't linked. */
 export function unlinked(map: LinkMap): LinkMap {
   if (map.linkedBoard === undefined) return map;
-  const { linkedBoard: _, ...rest } = map;
+  // Card notes stay as they are (a copy of the pregame thots). Notes held
+  // for lists in Boardkit's trash can't come back to an unlinked map: the
+  // store says so when unlinking (`unlinkFromBoard`).
+  const { linkedBoard: _, heldNotes: _held, cardNotesShared: _shared, ...rest } = map;
   return rest;
 }
 

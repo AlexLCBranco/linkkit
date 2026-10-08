@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-08, v0.0.54 (export PNG / SVG / Mermaid, import Mermaid)_
+_Last updated: 2026-10-08, v0.0.55 (notes in maps linked to Boardkit: card notes are pregame thots)_
 
 ## What it is
 
@@ -567,9 +567,24 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   backups, restore, the trash (a deleted box keeps them), duplicate,
   templates, and two tabs (merged per box like a name or colour). Saved
   as an optional `notes` on a box, absent when empty: older saves read
-  unchanged, no new save version. In a map linked to Boardkit the notes
-  it had are kept (Linkkit's own part, never sent to Boardkit) but
-  can't be edited yet (see T1b)
+  unchanged, no new save version. Linked maps: see the next point
+- **Notes in maps linked to Boardkit** (v0.0.55, owner's plan B): a card
+  box's note is the card's "pregame thots" in Boardkit, one text both
+  apps edit (the panel says "Shared with Boardkit as this card's pregame
+  thots"); the start's and lists' notes are Linkkit's only ("Kept in
+  Linkkit only"). A list deleted (in either app) keeps its note while it
+  waits in Boardkit's trash, and gets it back when restored; Unlink warns
+  first if such a note would be left behind. Owner's rule: two different
+  non-empty texts are never overwritten. Where they meet (a linked map
+  saved before notes were shared, whose box note and pregame thots
+  differ) the box's note icon turns orange, a note at the bottom says how
+  many boxes need a pick, and the notes panel shows both ("Boardkit
+  (pregame thots)" / "Kept in Linkkit") with "Use Boardkit's", "Use
+  Linkkit's" and "Keep both" (joined, Boardkit's first). Until picked the
+  note shows (and Boardkit keeps) Boardkit's text; Linkkit's waits in
+  `noteClashes`. One side empty just takes the other. Picking is one undo
+  step. Check: `bridge.ts` (`noteOfCard`, `withHeldNotes`), tests in
+  `linkedNotes.test.ts`
 - **Fork into a new map** (v0.0.53, Treekit's fork a branch): right-click
   a box, "Fork branch into a new map" (in a connections map "Fork into a
   new map"). The box and everything after it (what it leads to, or what
@@ -1228,11 +1243,11 @@ map); a Mermaid import opens each tree as its own new map and never
 replaces the open map.
 
 - ~~T1. Notes on boxes~~ (done, v0.0.52; see What works now)
-- T1b. Notes in maps linked to Boardkit: waiting for the owner's choice
-  (A: Linkkit-only, kept by box id; B: sync with a card's "pregame
-  thots" (`description`), lists and the start Linkkit-only; C: no notes
-  while linked). Until then a linked map shows no notes button and keeps
-  any notes it had. Rule: a note is never lost silently
+- ~~T1b. Notes in maps linked to Boardkit~~ (done, v0.0.55; see What
+  works now). Decided by the owner: plan B (a card's note is its pregame
+  thots; the start's and lists' are Linkkit-only); two different
+  non-empty texts are never overwritten: both are shown and the user
+  picks
 - ~~T2. Fork a branch~~ (done, v0.0.53; see What works now). Decided by
   the owner: the fork is always unlinked; its name follows its start box
 - ~~T3. Export PNG / SVG / Mermaid, import Mermaid~~ (done, v0.0.54; see
