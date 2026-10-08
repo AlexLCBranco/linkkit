@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-08, v0.0.53 (fork a branch into a new map)_
+_Last updated: 2026-10-08, v0.0.54 (export PNG / SVG / Mermaid, import Mermaid)_
 
 ## What it is
 
@@ -27,7 +27,8 @@ Vite, React 19, TypeScript (strict), Zustand, React Flow (`@xyflow/react`)
 as the renderer (camera locked: no pan, no zoom; the page scrolls
 natively), a small hand-written layout (no layout library), CSS Modules +
 design tokens (copied from Treekit) for the page, Tailwind v4 + shadcn/ui
-(Radix) for menus and dialogs, lucide icons. No backend: saved in the
+(Radix) for menus and dialogs, lucide icons, html-to-image (PNG / SVG export, as in
+Treekit). No backend: saved in the
 browser's localStorage, every key starting with "linkkit:" (the shared
 site gives Linkkit and Boardkit one localStorage; Boardkit's keys start
 with "boardkit:"), plus an IndexedDB database "linkkit" holding only the
@@ -581,6 +582,28 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   original is. Named after its start box, and follows it until renamed
   by hand (a blank box: "Untitled map N"). Not an undo step (like
   Duplicate this map). Check: `domain/fork.ts` (tested)
+- **Export and import** (v0.0.54, Treekit's export menu), "Export" in
+  the header, for every map: "Export PNG image" / "Export SVG image" (a
+  clean picture, no buttons; a tree is drawn unfolded and freshly tidied,
+  cut branches greyed or, with Hide cut on, left out, as in Treekit; a
+  map without tree rules is drawn where its boxes are), "Copy as
+  Mermaid", "Download Mermaid (.mmd)" and "Import Mermaid…". The Mermaid
+  text is Treekit's format (checked against Treekit's own code: Treekit
+  -> Linkkit -> Treekit gives the same text), plus the map's name as
+  Mermaid's front-matter title and `%% linkkit connections` on a map
+  without tree rules (both skipped by Treekit). Import never touches the
+  open map: each separate tree becomes its own new map with tree rules
+  on; whatever breaks tree rules (a loop, two starts sharing boxes) one
+  map with them off (a box with two ways in is fine in a Linkkit tree).
+  The first new map opens, tidied; the others are in the map menu,
+  roughly laid out. What can't come across is said at the bottom (an
+  arrow from a box to itself; keep / maybe / cut on a start or in a map
+  without tree rules). Round trip keeps: box names, arrows and labels,
+  sibling order, colours, notes, keep / maybe / cut, direction, the map's
+  name and whether tree rules are on. It loses: box places (re-tidied),
+  folds, Hide cut, arrow length, line breaks in names (Linkkit names are
+  one line), the trash. Check: `domain/mermaid.ts` (tested);
+  `features/export/` (`html-to-image`, as in Treekit)
 
 ## What's next
 
@@ -1203,8 +1226,9 @@ replaces the open map.
   any notes it had. Rule: a note is never lost silently
 - ~~T2. Fork a branch~~ (done, v0.0.53; see What works now). Decided by
   the owner: the fork is always unlinked; its name follows its start box
-- T3. Export PNG / SVG / Mermaid (any map), import Mermaid (each tree its
-  own new map; a graph that breaks tree rules opens with tree rules off)
+- ~~T3. Export PNG / SVG / Mermaid, import Mermaid~~ (done, v0.0.54; see
+  What works now). Decided by the owner: export works for every map; an
+  import that breaks tree rules opens with tree rules off, never refused
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 

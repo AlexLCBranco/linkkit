@@ -398,6 +398,10 @@ export interface MapState {
       into a new map (never linked) that opens, tidied; the open map is
       left as it is (`domain/fork.ts`). */
   forkBranch(id: NodeId): void;
+  /** Saves maps made elsewhere (a Mermaid import: fresh ids) as new maps,
+      and opens the first, tidied once measured. The open map is never
+      touched. The others should come already placed. */
+  importMaps(maps: readonly LinkMap[]): void;
   /** Starts a blank tree (only its start box, its name open for typing). */
   newTree(): void;
   /** Opens `map` (made from a template: fresh ids, boxes not yet placed)
@@ -1186,6 +1190,16 @@ export const useMapStore = create<MapState>()((set, get) => ({
     if (!map) return;
     set((st) => open(st, map, createStored(map, st.maps), true));
     useSyncNotice.getState().say(`Forked into a new map. “${from}” is unchanged, in the map menu.`);
+  },
+  importMaps: (incoming) => {
+    if (incoming.length === 0) return;
+    get().stopEditing();
+    flushSave();
+    set((s) => {
+      let maps = s.maps;
+      for (const map of incoming) maps = createStored(map, maps);
+      return open(s, incoming[0], maps, true);
+    });
   },
   newTree: () => {
     get().stopEditing();

@@ -1,4 +1,5 @@
 import { AddBoxButton } from "../features/map/AddBoxButton";
+import { ExportMenu } from "../features/export/ExportMenu";
 import { AlignPanel } from "../features/map/AlignPanel";
 import { DeleteBranchDialog } from "../features/map/DeleteBranchDialog";
 import { ArrowLengthPanel } from "../features/map/ArrowLengthPanel";
@@ -42,6 +43,7 @@ export function App() {
         <AlignPanel />
         <HideCutToggle />
         <div className={styles.spacer} />
+        <ExportMenu />
         <TrashPanel />
       </header>
       <SaveFailedBanner />
