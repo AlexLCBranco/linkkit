@@ -26,7 +26,7 @@ import { linkPreview, useMapStore, type LinkPreview } from "../../store/mapStore
 import { LinkDialog, UnlinkDialog } from "./BoardLink";
 import { TemplateGallery } from "./TemplateGallery";
 import { useGallery } from "../../store/gallery";
-import { useTemplates } from "../../store/templates";
+import { SaveTemplateDialog } from "./SaveTemplateDialog";
 import { BackupMenuItems } from "./BackupMenuItems";
 import { exportAllMaps, restoreFrom } from "./backupFile";
 import styles from "./MapSwitcher.module.css";
@@ -106,6 +106,10 @@ export function MapSwitcher() {
   // Set by "New tree": the tree is made once the menu has closed, so the
   // start box's name field can take the focus.
   const newTreeAfterClose = useRef(false);
+  // Set by "Save this map as a template": its name field opens once the
+  // menu has closed, for the same reason as "New map".
+  const saveAfterClose = useRef(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
   // Stored oldest-first; listed newest-first, so the latest map is always at
   // the top however many have piled up.
   const newestFirst = useMemo(() => [...maps].reverse(), [maps]);
@@ -152,6 +156,12 @@ export function MapSwitcher() {
           // typed name goes to the menu instead. Focus would also normally
           // return to the trigger here, so that is skipped.
           onCloseAutoFocus={(event) => {
+            if (saveAfterClose.current) {
+              saveAfterClose.current = false;
+              event.preventDefault();
+              setSavingTemplate(true);
+              return;
+            }
             if (newTreeAfterClose.current) {
               newTreeAfterClose.current = false;
               event.preventDefault();
@@ -183,8 +193,8 @@ export function MapSwitcher() {
           <DropdownMenuItem onSelect={() => (newTreeAfterClose.current = true)}>+ New map with tree rules</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setTemplates(true)}>New from template…</DropdownMenuItem>
           <DropdownMenuItem onSelect={duplicateMap}>Duplicate this map</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => useTemplates.getState().save(useMapStore.getState().map)}>
-            Save this map as a template
+          <DropdownMenuItem onSelect={() => (saveAfterClose.current = true)}>
+            Save this map as a template…
           </DropdownMenuItem>
           {isTree && !linked && boardkitHere && (
             <DropdownMenuItem onSelect={() => setLinking(linkPreview(useMapStore.getState().map))}>
@@ -221,6 +231,7 @@ export function MapSwitcher() {
       <LinkDialog preview={linking} onClose={() => setLinking(null)} />
       <UnlinkDialog open={unlinking} onClose={() => setUnlinking(false)} />
       <TemplateGallery open={templates} onOpenChange={setTemplates} />
+      <SaveTemplateDialog open={savingTemplate} onOpenChange={setSavingTemplate} />
 
       <AlertDialog open={report !== null} onOpenChange={(open) => !open && setReport(null)}>
         <AlertDialogContent>

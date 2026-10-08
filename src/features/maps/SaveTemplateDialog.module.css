@@ -1,0 +1,19 @@
+/* "Save this map as a template": one name field. */
+.form {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.field {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.field:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+}

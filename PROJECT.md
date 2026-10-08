@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.50 (examples moved into the template gallery)_
+_Last updated: 2026-10-07, v0.0.51 (templates get a name when saved, and can be renamed)_
 
 ## What it is
 
@@ -1153,6 +1153,15 @@ One commit per item. Short entries only.
   or whenever the open map has no boxes, the status line ends with
   "Start from a template or example…", which opens the gallery: another
   example is one click away (gallery open state: `store/gallery.ts`)
+- ~~U13. Naming templates~~ (done, v0.0.51). "Save this map as a
+  template…" opens a small name field filled with the map's name (its
+  start / first box's while untitled) and selected: Enter saves, typing
+  replaces it, Esc or Cancel saves nothing (`SaveTemplateDialog.tsx`).
+  Saved templates have "Rename" beside "Remove" in the gallery (the name
+  becomes a field; Enter or clicking away keeps it, Esc cancels without
+  closing the gallery, blank keeps the old name). A name another
+  template has (built in or saved) is numbered, "Party 2"
+  (`freeTemplateName`); older duplicates show numbered in the gallery
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 

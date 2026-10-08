@@ -3,7 +3,17 @@ import { describe, expect, it } from "vitest";
 import { asMapId } from "./ids";
 import { readMap, serializeMap } from "./persistence";
 import { build, buildTree } from "./testMaps";
-import { BUILT_IN_TEMPLATES, builtInMap, readTemplates, savedMap, serializeTemplates, templateOf, withFreshIds } from "./templates";
+import {
+  BUILT_IN_TEMPLATES,
+  builtInMap,
+  freeTemplateName,
+  readTemplates,
+  savedMap,
+  serializeTemplates,
+  templateName,
+  templateOf,
+  withFreshIds,
+} from "./templates";
 import { startOf } from "./tree";
 
 const PAGE = { width: 800, height: 600 };
@@ -65,5 +75,22 @@ describe("saved templates", () => {
     const start = startOf(fresh)!;
     expect(fresh.order[start]).toHaveLength(2);
     expect(fresh.trash).toEqual([]);
+  });
+});
+
+describe("template names (U13)", () => {
+  const mine = (id: string, name: string) => templateOf({ ...buildTree("s", []), name }, id, 0);
+
+  it("suggests the map's name, or its start (or first) box's while untitled", () => {
+    expect(templateName({ ...buildTree("s", []), name: "Party" })).toBe("Party");
+    expect(templateName({ ...buildTree("s", []), name: "Untitled map 4" })).toBe("s");
+  });
+
+  it("numbers a name another template has, built in or saved, but not the one renamed", () => {
+    const saved = [mine("a", "Party"), mine("b", "Party 2")];
+    expect(freeTemplateName("  Party  ", saved)).toBe("Party 3");
+    expect(freeTemplateName("Five whys", saved)).toBe("Five whys 2");
+    expect(freeTemplateName("Party", saved, "a")).toBe("Party");
+    expect(freeTemplateName("   ", saved)).toBe("");
   });
 });

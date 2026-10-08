@@ -2,7 +2,7 @@ import { EXAMPLE_MAP_NAME, EXAMPLE_TREE_NAME, exampleMap, exampleTree } from "./
 import { createLinkId, createMapId, createNodeId } from "./ids";
 import { createMap } from "./map";
 import { parseOutline, pasteOutline } from "./outline";
-import { isUntitled, namingBox } from "./names";
+import { isUntitled, namingBox, numberedName } from "./names";
 import { readMap, serializeMap, type PersistedMap } from "./persistence";
 import { createTree } from "./tree";
 import type { Link, LinkId, LinkMap, MapId, MapKind, MapNode, NodeId, SiblingOrder, Size } from "./types";
@@ -139,14 +139,28 @@ export function withFreshIds(
   return { ...rest, id, name, nodes, links, order: order as SiblingOrder, collapsed: map.collapsed.map(swap), trash: [] };
 }
 
+/** The name "Save this map as a template" suggests: the map's, or, while
+    the map is still untitled, its start (or first) box's ("Party" rather
+    than "Untitled map"). */
+export function templateName(map: LinkMap): string {
+  const box = namingBox(map);
+  return isUntitled(map.name) && box && map.nodes[box].name ? map.nodes[box].name : map.name;
+}
+
 /** "Save this map as a template": the map as it is, without its trash or
-    its link to Boardkit. Named after the map, or, while the map is still
-    untitled, after its start (or first) box ("Party" rather than
-    "Untitled map"). */
-export function templateOf(map: LinkMap, id: string, savedAt: number): SavedTemplate {
-  const start = namingBox(map);
-  const name = isUntitled(map.name) && start && map.nodes[start].name ? map.nodes[start].name : map.name;
+    its link to Boardkit, under `name` (by default `templateName`). */
+export function templateOf(map: LinkMap, id: string, savedAt: number, name = templateName(map)): SavedTemplate {
   return { id, name, savedAt, map: serializeMap({ ...map, name, trash: [] }) };
+}
+
+/** `name` trimmed and numbered so that no other template in the gallery
+    (built in or saved; `self` is the one being renamed) has it, as for
+    maps (U13): "Party", "Party 2". Empty when the name is blank. */
+export function freeTemplateName(name: string, saved: readonly SavedTemplate[], self?: string): string {
+  const clean = name.trim().replace(/\s+/g, " ");
+  if (!clean) return "";
+  const taken = [...BUILT_IN_TEMPLATES.map((t) => t.name), ...saved.filter((t) => t.id !== self).map((t) => t.name)];
+  return numberedName(clean, taken);
 }
 
 /** A saved template as a new map, or `null` if it can't be read. */

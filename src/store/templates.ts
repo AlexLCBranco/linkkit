@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import { templatesToRestore } from "../domain/backup";
 import { createMapId } from "../domain/ids";
-import { readTemplates, serializeTemplates, templateOf, type SavedTemplate } from "../domain/templates";
+import { freeTemplateName, readTemplates, serializeTemplates, templateName, templateOf, type SavedTemplate } from "../domain/templates";
 import type { LinkMap } from "../domain/types";
 import { useSyncNotice } from "./syncNotice";
 
@@ -41,16 +41,23 @@ function store(templates: readonly SavedTemplate[]): boolean {
 export const useTemplates = create<{
   saved: readonly SavedTemplate[];
   reload: () => void;
-  save: (map: LinkMap) => void;
+  /** Saves `map` as a template called `name` (numbered if taken; blank:
+      the suggested name). */
+  save: (map: LinkMap, name: string) => void;
+  /** Renames a saved template (numbered if taken; blank keeps the old name). */
+  rename: (id: string, name: string) => void;
   remove: (id: string) => void;
   /** Adds the templates from a backup that aren't here yet; how many. */
   restore: (incoming: readonly SavedTemplate[]) => number;
 }>()((set) => ({
   saved: load(),
   reload: () => set({ saved: load() }),
-  save: (map) => {
-    const template = templateOf(map, createMapId(), Date.now());
-    const next = [...load(), template];
+  save: (map, name) => {
+    const now = load();
+    // A blank name falls back to the suggested one.
+    const free = freeTemplateName(name.trim() ? name : templateName(map), now);
+    const template = templateOf(map, createMapId(), Date.now(), free);
+    const next = [...now, template];
     const say = useSyncNotice.getState().say;
     if (!store(next)) {
       say("The template couldn't be saved: the browser's storage is full.");
@@ -58,6 +65,14 @@ export const useTemplates = create<{
     }
     set({ saved: next });
     say(`Saved “${template.name}” as a template: it is under “New from template…”.`);
+  },
+  rename: (id, name) => {
+    const now = load();
+    const free = freeTemplateName(name, now, id);
+    if (!free || !now.some((t) => t.id === id && t.name !== free)) return;
+    const next = now.map((t) => (t.id === id ? { ...t, name: free } : t));
+    if (store(next)) set({ saved: next });
+    else useSyncNotice.getState().say("The template couldn't be renamed: the browser's storage is full.");
   },
   restore: (incoming) => {
     const now = load();

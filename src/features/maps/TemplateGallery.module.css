@@ -70,27 +70,41 @@
   line-height: var(--line-tight);
 }
 
-/* A saved template's "Remove": asks once more ("Remove?") before it goes. */
-.remove {
+/* A saved template's "Rename" and "Remove" (which asks once more,
+   "Remove?", before it goes), shown on hover or focus. */
+.actions {
   position: absolute;
   top: var(--space-1);
   right: var(--space-1);
+  display: flex;
+  gap: var(--space-1);
+  opacity: 0;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+.card:hover .actions,
+.card:focus-within .actions,
+.actions:has([data-asking]) {
+  opacity: 1;
+}
+
+.actions[data-hidden] {
+  display: none;
+}
+
+.action {
   padding: 0 var(--space-1);
   border-radius: var(--radius-sm);
   background: var(--surface-raised);
   color: var(--text-secondary);
   font-size: var(--font-size-xs);
-  opacity: 0;
-  transition: opacity var(--duration-fast) var(--ease-standard);
 }
 
-.card:hover .remove,
-.card:focus-within .remove,
-.remove[data-asking] {
-  opacity: 1;
+.action:hover {
+  color: var(--text-primary);
 }
 
-.remove[data-asking] {
+.action[data-asking] {
   background: var(--palette-red);
   color: var(--ink-light);
 }
