@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-08, v0.0.65 (shortcuts dialog opens with "Tree words": a drawn example tree and the five words; the app now says start box / parent / child / sibling / branch everywhere)_
+_Last updated: 2026-10-08, v0.0.65 (bridge audit: side-by-side checklist `BRIDGE-CHECKLIST.md` for the owner, Bridge mapping note refreshed, bridge follow-ups queued; no app change)_
 
 ## What it is
 
@@ -832,6 +832,28 @@ in"). Loops and arrows into the start are refused in both. Code:
 
 ## What's next
 
+### Bridge follow-ups (owner's order, 2026-10-08, after the bridge audit)
+
+The bridge audit (2026-10-08) found bridge step 3 already designed, OK'd
+and built (3a1-3b3, steps 20-27), automatic backups in both apps (Linkkit's
+logic unit-tested; Boardkit's has no unit tests; neither app's folder
+write checked by hand), and two gaps that keep linking from being fully
+reversible: linking erases the map's own trash, and a restore from backups
+can't re-join a map and its board. Work in this order, one chat each:
+
+1. ~~Side-by-side checklist: `BRIDGE-CHECKLIST.md`, for the owner to run
+   on the gauntlet site with a throwaway map / board, including a backup
+   file actually appearing in each app's folder~~ (done, 2026-10-08;
+   waiting for the owner to run it)
+2. ~~Refresh the Bridge mapping note (stale "not built" lines)~~ (done,
+   2026-10-08)
+3. Linking moves the map's own trash into Boardkit's trash instead of
+   erasing it. Propose the rule first; build only after the owner's OK
+4. "Link to an existing board": design only, and only after the owner has
+   run the checklist (item 1) and reported back
+5. Boardkit's automatic-backup tests, built in the Boardkit repo
+   (`../Projects/boardkit`), last
+
 ### Treekit parity (owner's plan, 2026-10-08, after the parity audit)
 
 Goal: retire Treekit. Three batches, each shipped and tested before the
@@ -1509,6 +1531,12 @@ replaces the open map.
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 
+Status (2026-10-08 audit): built. Every decision below is in the code
+(3a1-3b3 and steps 20-27); the field mapping table is what holds. Still
+open on purpose: linking an existing board (bridge follow-up 4) and a
+list ↔ card action (not asked for). "Linkkit today" and "Boardkit today"
+describe the apps as they were on 2026-10-06, before the bridge.
+
 Goal: one store under Linkkit and Boardkit, so changing an item in one
 changes it in the other, moves included. Written before 14b–14d so their
 new fields land on the right side. Checked against both apps' code
@@ -1566,7 +1594,7 @@ Linkkit-only (content Boardkit has no place for):
 |---|---|
 | arrow `label` ("needs"; in trees "if yes", 14b) | Boardkit has nothing for the tie between a list and a card; the label stays in Linkkit |
 | `map.kind`, and every connections map | only trees can be linked |
-| the link to a board (new map field, not built) | which board a map is linked to |
+| `linkedBoard` (map field, built in 3b3) | which board a map is linked to |
 | a second way into a box | refused in a linked map; fine in unlinked trees |
 | `map.trash`, `linkkit:trash:maps` (step 18) | unlinked maps only; a linked map's deletes go to Boardkit's trash |
 
@@ -1602,8 +1630,9 @@ box's parent, and back. Where it doesn't fit:
 - A depth-1 box with no next steps is an empty list
 - Two parents: a card is in one list, so one parent must be the "home"
   one, and nothing records which today
-- No "move to another branch" action exists yet: today it's two steps
-  (draw a second way in, delete the first), with two parents between
+- No "move to another branch" action existed then: it was two steps
+  (draw a second way in, delete the first), with two parents between.
+  Since step 21 (and U1 / U2) it is one drag
 - Order: Boardkit's order is content, Linkkit's is computed
 - Delete: Boardkit trashes (a trashed card stays in `cards`, only leaves
   `cardOrder`; a trashed list stays whole). Linkkit deletes for good and
@@ -1629,7 +1658,7 @@ box's parent, and back. Where it doesn't fit:
 **Decided (2026-10-06, owner's review of this plan):**
 - Opt-in, one map at a time. A tree map gets a "Link to Boardkit"
   action; connections maps can't be linked. The map will need a field
-  saying it is linked (and to which board): not built yet
+  saying it is linked (and to which board): `linkedBoard`, built in 3b3
 - A linked map has at most three levels (start → board, lists, cards).
   Linkkit won't add a next step under a card, and a move never changes
   depth: a card can go to another list or be reordered, a list can only
