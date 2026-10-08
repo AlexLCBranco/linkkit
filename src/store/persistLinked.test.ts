@@ -28,6 +28,7 @@ const view: LinkedView = {
   places: {},
   colors: {},
   labels: {},
+  notes: {},
 };
 
 /** Boardkit's "Move?" board: lists rent (a, b) and buy (c). */

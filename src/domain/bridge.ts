@@ -49,6 +49,9 @@ export interface LinkedView {
   /** Arrow labels, by the box the arrow points into, so a card moved to
       another list keeps its label (decided for 14b). */
   readonly labels: Readonly<Record<NodeId, string>>;
+  /** Box notes, by box (Linkkit's own: Boardkit never sees them). A box
+      with none has no entry. */
+  readonly notes: Readonly<Record<NodeId, string>>;
 }
 
 /** The `LinkedView` of a map: what Linkkit keeps of it once linked. */
@@ -56,13 +59,15 @@ export function viewOf(map: LinkMap): LinkedView {
   const places: Record<NodeId, Point> = {};
   const colors: Record<NodeId, PaletteColor> = {};
   const labels: Record<NodeId, string> = {};
+  const notes: Record<NodeId, string> = {};
   for (const node of Object.values(map.nodes)) {
     places[node.id] = { x: node.x, y: node.y };
     if (node.color) colors[node.id] = node.color;
+    if (node.notes) notes[node.id] = node.notes;
   }
   for (const link of Object.values(map.links)) if (link.label) labels[link.to] = link.label;
   const { page, direction, arrowLength, hideCut, collapsed } = map;
-  return { page, direction, arrowLength, hideCut, collapsed, places, colors, labels };
+  return { page, direction, arrowLength, hideCut, collapsed, places, colors, labels, notes };
 }
 
 const statusOf = (item: BoardItem): NodeStatus | null =>
@@ -88,7 +93,8 @@ export function boardToTree(
   const addBox = (id: NodeId, name: string, status: NodeStatus | null, parent: NodeId | null) => {
     const place = view.places[id];
     if (!place) unplaced.push(id);
-    nodes[id] = { id, name, x: place?.x ?? 0, y: place?.y ?? 0, color: view.colors[id] ?? null, status };
+    const notes = view.notes[id];
+    nodes[id] = { id, name, x: place?.x ?? 0, y: place?.y ?? 0, color: view.colors[id] ?? null, status, ...(notes ? { notes } : {}) };
     if (parent) {
       const linkId = id as string as LinkId;
       links[linkId] = { id: linkId, from: parent, to: id, label: view.labels[id] ?? "" };

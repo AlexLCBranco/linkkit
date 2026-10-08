@@ -84,6 +84,11 @@ export interface MapNode {
   /** Trees only (`canSetStatus` in rules.ts): keep / maybe / cut, or
       `null` for none. Always `null` in a connections map. */
   readonly status: NodeStatus | null;
+  /** Free multi-line text behind the name (Treekit's notes), edited in
+      the side panel. Absent = no notes: never stored empty, so saves from
+      before notes existed read the same. Never drawn on the box itself,
+      so it never changes the layout. */
+  readonly notes?: string;
 }
 
 /** An arrow. In a connections map `from` needs `to` (A -> B reads "A

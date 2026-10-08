@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-07, v0.0.51 (templates get a name when saved, and can be renamed)_
+_Last updated: 2026-10-08, v0.0.52 (notes on boxes)_
 
 ## What it is
 
@@ -555,6 +555,20 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   links, never redirects, so nothing can loop; autosave and automatic
   backups don't run there and no storage is cleared. Check:
   `domain/address.ts` (tested).
+- **Notes on boxes** (v0.0.52, Treekit's): any box, in any map, can
+  carry free multi-line notes. Open them with the notebook in the box's
+  hover toolbar, "Notes…" in its right-click menu, or N. They open in a
+  side panel on the right (the map stays usable; it follows the
+  selection, Esc or a click elsewhere closes it) and save as you type;
+  one stretch of typing in one box is one undo step. A box with notes
+  shows a small note icon on its top-right corner, and its first four
+  lines on hover. Notes go along with save, Export all maps, automatic
+  backups, restore, the trash (a deleted box keeps them), duplicate,
+  templates, and two tabs (merged per box like a name or colour). Saved
+  as an optional `notes` on a box, absent when empty: older saves read
+  unchanged, no new save version. In a map linked to Boardkit the notes
+  it had are kept (Linkkit's own part, never sent to Boardkit) but
+  can't be edited yet (see T1b)
 
 ## What's next
 
@@ -591,7 +605,7 @@ Open problems): arrow labels can't be edited from the keyboard.
 
 Tree mode (a new map kind for decisions, "What should I choose?"; it
 will slowly take over Treekit's job; Treekit itself is left alone).
-Not in this version: notes, fork a branch, Mermaid import / export,
+Not in this version (now Treekit parity, T1-T3 below): notes, fork a branch, Mermaid import / export,
 turning a connections map into a tree.
 
 14. Tree mode:
@@ -1162,6 +1176,23 @@ One commit per item. Short entries only.
   closing the gallery, blank keeps the old name). A name another
   template has (built in or saved) is numbered, "Party 2"
   (`freeTemplateName`); older duplicates show numbered in the gallery
+
+Treekit parity (owner, 2026-10-08: Linkkit's tree mode does everything
+Treekit does, so Treekit can be retired; Treekit is the reference, read
+only). Decided: several trees on one map is not built (one tree per
+map); a Mermaid import opens each tree as its own new map and never
+replaces the open map.
+
+- ~~T1. Notes on boxes~~ (done, v0.0.52; see What works now)
+- T1b. Notes in maps linked to Boardkit: waiting for the owner's choice
+  (A: Linkkit-only, kept by box id; B: sync with a card's "pregame
+  thots" (`description`), lists and the start Linkkit-only; C: no notes
+  while linked). Until then a linked map shows no notes button and keeps
+  any notes it had. Rule: a note is never lost silently
+- T2. Fork a branch: a box and everything after it copied into a new
+  standalone map (always unlinked; named after its new start box)
+- T3. Export PNG / SVG / Mermaid (any map), import Mermaid (each tree its
+  own new map; a graph that breaks tree rules opens with tree rules off)
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 

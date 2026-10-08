@@ -303,7 +303,10 @@ function readNode(id: NodeId, node: Record<string, unknown>, kind: MapKind, fix:
       : kind === "tree" && NODE_STATUSES.includes(node.status as NodeStatus)
         ? (node.status as NodeStatus)
         : fix(null);
-  return { id, name, x, y, color, status };
+  // Saves from before notes existed have none: not damage. An empty one
+  // is the same as none (never stored).
+  const notes = node.notes === undefined ? "" : typeof node.notes === "string" ? node.notes : fix("");
+  return notes.trim() ? { id, name, x, y, color, status, notes } : { id, name, x, y, color, status };
 }
 
 /**

@@ -26,6 +26,7 @@ import {
   setLinkLabel,
   setDirection,
   setNodeColor,
+  setNodeNotes,
   setNodesColor,
   setNodesStatus,
   setHideCut,
@@ -38,6 +39,7 @@ import { defaultPageSize } from "../domain/page";
 import {
   boxDeleteRefusal,
   canCollapse,
+  canHaveNotes,
   canMove,
   canPaste,
   canSetStatus,
@@ -253,6 +255,9 @@ export interface MapState {
   /** A delete that would push the oldest thing out of a full trash,
       waiting for the user's yes (Boardkit's warning). */
   readonly trashWarning: TrashWarning | null;
+  /** The notes panel is open on the selected box (Treekit's). It follows
+      the selection, and closes when no single box is selected. */
+  readonly notesOpen: boolean;
 
   /** Puts every box where Tidy up (or Align) said, and records the page
       size and settings Tidy up used, in one change. Changes with the same
@@ -294,6 +299,13 @@ export interface MapState {
   nudgeBoxes(positions: ReadonlyMap<NodeId, Point>): void;
   /** `null` clears the colour. */
   setBoxColor(id: NodeId, color: PaletteColor | null): void;
+  /** Replaces a box's notes as they are typed. One stretch of typing in
+      one box's notes (until the panel closes or shows another box) is one
+      undo step. */
+  setBoxNotes(id: NodeId, notes: string): void;
+  /** Opens the notes panel on this box, selecting it. */
+  openNotes(id: NodeId): void;
+  closeNotes(): void;
   /** Deletes a box and every arrow touching it, into the trash. In a tree, also every box
       only reachable through it (asking first, through `confirmingDelete`,
       when that is more than the box itself); the start is never deleted. */
@@ -520,6 +532,7 @@ function open(s: MapState, map: LinkMap, maps: Registry, needsTidy = takeUnplace
     confirmingDelete: null,
     editAfterTidy: null,
     placeRequest: null,
+    notesOpen: false,
   };
 }
 
@@ -782,6 +795,9 @@ export function linkPreview(map: LinkMap): LinkPreview {
 /** The undo step a new box and its first name share. */
 const newBoxKey = (id: NodeId) => `new:${id}`;
 
+/** The undo step one stretch of typing in a box's notes shares. */
+const notesKey = (id: NodeId) => `notes:${id}`;
+
 /** How far down-right each paste or duplicate lands from the boxes it
     copies, so a copy never hides exactly behind them. */
 const PASTE_STEP = 24;
@@ -816,6 +832,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
   confirmingDelete: null,
   editAfterTidy: null,
   trashWarning: null,
+  notesOpen: false,
 
   // The example's first tidy places boxes that were never shown anywhere
   // else: not something to undo back to.
@@ -912,6 +929,12 @@ export const useMapStore = create<MapState>()((set, get) => ({
       return { map: next, history: history.amendLast(s.history, s.map, next) };
     }),
   setBoxColor: (id, color) => set((s) => commit(s, setNodeColor(s.map, id, color))),
+  setBoxNotes: (id, notes) => set((s) => commit(s, setNodeNotes(s.map, id, notes), notesKey(id))),
+  openNotes: (id) => {
+    get().stopEditing();
+    set((s) => (s.map.nodes[id] && canHaveNotes(s.map) ? { ...selecting([id]), notesOpen: true } : {}));
+  },
+  closeNotes: () => set((s) => ({ notesOpen: false, stepKey: s.stepKey?.startsWith("notes:") ? null : s.stepKey })),
   deleteBox: (id) => get().deleteBoxes([id]),
   deleteBoxes: (ids) =>
     set((s) => {
@@ -1397,3 +1420,12 @@ export function initOtherTabs(): void {
     }
   });
 }
+
+// The notes panel follows the selection (Treekit's): showing another box
+// ends the open notes' undo step, and picking no box (or several) closes
+// the panel.
+useMapStore.subscribe((s, prev) => {
+  if (s.selected === prev.selected || !s.notesOpen) return;
+  const stepKey = s.stepKey?.startsWith("notes:") ? null : s.stepKey;
+  useMapStore.setState(s.selected ? { stepKey } : { notesOpen: false, stepKey });
+});

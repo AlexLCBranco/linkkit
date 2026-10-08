@@ -1,10 +1,10 @@
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { ChevronsDownUp, ChevronsUpDown, Palette, Pencil, Plus, Tag, Trash2 } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, NotebookPen, Palette, Pencil, Plus, StickyNote, Tag, Trash2 } from "lucide-react";
 import { memo, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
 
 import { InlineEditable } from "../../components/InlineEditable";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
-import { canAddNextStep, canCollapse, canDeleteBox, canSetStatus } from "../../domain/rules";
+import { canAddNextStep, canCollapse, canDeleteBox, canHaveNotes, canSetStatus } from "../../domain/rules";
 import { hiddenAfter } from "../../domain/shown";
 import { looksCut } from "../../domain/status";
 import type { NodeId, NodeStatus } from "../../domain/types";
@@ -38,6 +38,11 @@ const keepToButton = (e: PointerEvent | MouseEvent) => e.stopPropagation();
  * choices (BoxContextMenu). In a tree the toolbar also has "+" (add a
  * next step; not on a card in a tree linked to Boardkit), and the start
  * has no bin (it can't be deleted).
+ *
+ * Any box can carry notes (the notebook in the toolbar, the right-click
+ * menu, or N): they open in a side panel (NotesPanel), and a box with
+ * notes shows an icon on its top-right corner and their first lines on
+ * hover.
  *
  * A tree step can be marked keep / maybe / cut (the tag in the toolbar, or
  * the right-click menu): a badge on its top-left corner shows it, and a box
@@ -97,6 +102,8 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   const folded = useMapStore((s) => (s.map.collapsed.includes(nodeId) ? hiddenAfter(s.map, nodeId) : 0));
   const direction = useMapStore((s) => s.map.direction);
   const toggleCollapsed = useMapStore((s) => s.toggleCollapsed);
+  const notable = useMapStore((s) => canHaveNotes(s.map));
+  const openNotes = useMapStore((s) => s.openNotes);
   const { dragging, onBoxPointerDown, onDotPointerDown } = useBoxGestures(nodeId);
   if (!node) return null;
 
@@ -142,6 +149,20 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
 
       {node.status && <StatusBadge status={node.status} />}
 
+      {/* Notes: a small icon on the top-right corner says there are some;
+          hovering shows their first lines. Both float, so notes never
+          resize the box (Treekit's). */}
+      {node.notes && (
+        <>
+          <span className={`${styles.badge} ${styles.notesIcon}`} role="img" aria-label="Has notes">
+            <StickyNote size={10} aria-hidden />
+          </span>
+          <div className={styles.notesPreview} aria-hidden>
+            <p className={styles.notesPreviewText}>{node.notes}</p>
+          </div>
+        </>
+      )}
+
       {isCollapsed && folded > 0 && (
         <button
           type="button"
@@ -184,6 +205,17 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
         <button type="button" className={styles.toolbarButton} onClick={rename} aria-label="Rename" title="Rename">
           <Pencil size={14} />
         </button>
+        {notable && (
+          <button
+            type="button"
+            className={styles.toolbarButton}
+            onClick={() => openNotes(nodeId)}
+            aria-label="Notes"
+            title="Notes (N)"
+          >
+            <NotebookPen size={14} />
+          </button>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button" className={styles.toolbarButton} aria-label="Colour" title="Colour">

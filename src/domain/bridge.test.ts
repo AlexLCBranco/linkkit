@@ -33,6 +33,7 @@ const view: LinkedView = {
   places: {},
   colors: {},
   labels: {},
+  notes: {},
 };
 
 const item = (key: string, extra: Record<string, unknown> = {}): BoardItem => ({ id: key, title: key.toUpperCase(), ...extra });

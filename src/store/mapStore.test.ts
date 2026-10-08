@@ -986,7 +986,7 @@ describe("a linked tree in the store", () => {
     );
     const { boardToTree } = await import("../domain/bridge");
     const { serializeStored } = await import("../domain/persistence");
-    const view = { page: PAGE, direction: "TB" as const, arrowLength: 47, hideCut: false, collapsed: [], places: {}, colors: {}, labels: {} };
+    const view = { page: PAGE, direction: "TB" as const, arrowLength: 47, hideCut: false, collapsed: [], places: {}, colors: {}, labels: {}, notes: {} };
     const tree = boardToTree("move", "Move?", board, view).map;
     const nodes = Object.fromEntries(Object.values(tree.nodes).map((n, i) => [n.id, { ...n, x: 100 * (i + 1), y: 50 }]));
     const copy = { ...tree, id: asMapId("m1"), nodes, linkedBoard: "move" };
@@ -1180,5 +1180,42 @@ describe("a linked tree in the store", () => {
     useMapStore.getState().renameBox(asNodeId("a"), "Nope");
     useMapStore.getState().moveBox(asNodeId("a"), { x: 1, y: 1 });
     expect(useMapStore.getState().map).toBe(before);
+  });
+});
+
+describe("map store (notes)", () => {
+  it("makes one stretch of typing in one box's notes one undo step", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().placeAll(new Map(), PAGE);
+    const [a, b] = Object.keys(useMapStore.getState().map.nodes) as NodeId[];
+    const s = () => useMapStore.getState();
+    s().openNotes(a);
+    expect(s().notesOpen).toBe(true);
+    expect(s().selected).toBe(a);
+    s().setBoxNotes(a, "h");
+    s().setBoxNotes(a, "hi");
+    s().setBoxNotes(a, "hi\nthere");
+    // Showing another box ends the step.
+    s().openNotes(b);
+    s().setBoxNotes(b, "b");
+    s().closeNotes();
+    expect(s().notesOpen).toBe(false);
+    s().undo();
+    expect(s().map.nodes[b]).not.toHaveProperty("notes");
+    expect(s().map.nodes[a].notes).toBe("hi\nthere");
+    s().undo();
+    expect(s().map.nodes[a]).not.toHaveProperty("notes");
+  });
+
+  it("closes the panel when no box is selected, and on another map", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().placeAll(new Map(), PAGE);
+    const [a] = Object.keys(useMapStore.getState().map.nodes) as NodeId[];
+    useMapStore.getState().openNotes(a);
+    useMapStore.getState().select(null);
+    expect(useMapStore.getState().notesOpen).toBe(false);
+    useMapStore.getState().openNotes(a);
+    useMapStore.getState().newMap();
+    expect(useMapStore.getState().notesOpen).toBe(false);
   });
 });

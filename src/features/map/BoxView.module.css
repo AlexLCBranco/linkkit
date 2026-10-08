@@ -361,3 +361,69 @@
 .box[data-refused-target] {
   opacity: 1;
 }
+
+/* ---- Notes ---- */
+
+/* The notes icon: the status badge's twin, on the top-right corner. */
+.notesIcon {
+  left: auto;
+  right: calc(-1 * var(--status-badge-size) / 2);
+  pointer-events: none;
+}
+
+/* Hovering shows the notes' first lines in a card under the box (below
+   the "+N" badge in a top-down tree). A short delay keeps it from
+   flashing while the mouse just passes over (Treekit's). */
+.notesPreview {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 50%;
+  z-index: 1;
+  width: max-content;
+  max-width: var(--box-max-width);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--weight-normal);
+  line-height: var(--line-normal);
+  text-align: left;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, calc(-1 * var(--space-1)));
+  transition:
+    opacity var(--duration-fast) var(--ease-standard),
+    transform var(--duration-fast) var(--ease-spring);
+}
+
+/* The first four lines. Clamped here, not on the card, so a fifth line
+   can't peek into the card's padding. */
+.notesPreviewText {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  overflow: hidden;
+}
+
+.box[data-direction="TB"] .notesPreview {
+  top: calc(100% + var(--fold-badge-size) / 2 + var(--space-2));
+}
+
+.box:hover .notesPreview {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  transition-delay: var(--delay-hover-preview);
+}
+
+/* Not while typing a name or dragging: the card would cover the drop. */
+.box.box[data-editing] .notesPreview,
+.box.box[data-dragging] .notesPreview {
+  opacity: 0;
+}

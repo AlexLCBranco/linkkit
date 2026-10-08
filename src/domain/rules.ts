@@ -113,6 +113,12 @@ export function arrowsInto(map: LinkMap, id: NodeId): number {
  * one; every other box is reached by at least one arrow (a new step comes
  * with its arrow in the same edit, see tree.ts).
  */
+/** Whether boxes take notes. Every map's do, except (for now) a tree
+    shared with Boardkit: how notes travel with a board is still to be
+    decided by the owner. A linked map keeps the notes it had (Linkkit's
+    own part, `LinkedView`), it just offers no editing. */
+export const canHaveNotes = (map: LinkMap): boolean => map.linkedBoard === undefined;
+
 export const isStart = (map: LinkMap, id: NodeId): boolean =>
   map.kind === "tree" && !!map.nodes[id] && arrowsInto(map, id) === 0;
 

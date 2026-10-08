@@ -43,6 +43,7 @@ function focusedBox(target: EventTarget | null): NodeId | null {
  *   Delete, Backspace          delete (with their arrows)
  *   1-8, 0                     set a palette colour; 0 clears it
  *   X                          cut, or uncut (a tree's steps)
+ *   N                          open its notes (one box)
  *   Space                      collapse, or expand (a tree's branches)
  *   Ctrl/Cmd+C, X, D           copy, cut, duplicate (not in a tree)
  *
@@ -107,6 +108,10 @@ export function useMapShortcuts() {
         store.setBoxesColor(picked, index === 0 ? null : PALETTE_COLORS[index - 1]);
       } else if (key === "x" && !e.shiftKey) {
         store.toggleCut(picked);
+      } else if (key === "n" && picked.length === 1) {
+        // Otherwise the "n" would be typed into the notes as they open.
+        e.preventDefault();
+        store.openNotes(picked[0]);
       } else if (key === " " && store.map.kind === "tree" && !(e.target instanceof HTMLButtonElement)) {
         // Not the page scrolling down. (On a focused button, Space presses
         // the button instead.)

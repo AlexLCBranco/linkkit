@@ -1,3 +1,4 @@
+import { withNotes } from "./map";
 import { isOrdered, normalizeOrder } from "./order";
 import { basicLinkCheck } from "./rules";
 import { trashEntryId } from "./trash";
@@ -26,7 +27,7 @@ import type { Link, LinkId, LinkMap, MapNode, NodeId, SiblingOrder, TrashEntry }
  * told. The items:
  *
  *  - a box, one field at a time: its name, its colour, its status, its
- *    place (x and y together). A box renamed here and moved there keeps
+ *    notes, its place (x and y together). A box renamed here and moved there keeps
  *    both changes. A box deleted on one side and changed on the other
  *    stays as the other tab has it (deleted, or there);
  *  - an arrow, whole (its ends and its label);
@@ -152,6 +153,7 @@ const BOX_FIELDS = {
   name: (n: MapNode) => n.name,
   color: (n: MapNode) => n.color,
   status: (n: MapNode) => n.status,
+  notes: (n: MapNode) => n.notes ?? "",
   place: (n: MapNode) => ({ x: n.x, y: n.y }),
 } as const;
 
@@ -164,6 +166,8 @@ function withField(into: MapNode, from: MapNode, field: keyof typeof BOX_FIELDS)
       return { ...into, color: from.color };
     case "status":
       return { ...into, status: from.status };
+    case "notes":
+      return withNotes(into, from.notes ?? "");
     case "place":
       return { ...into, x: from.x, y: from.y };
   }

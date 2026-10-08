@@ -71,6 +71,24 @@ export const moveNode = (map: LinkMap, id: NodeId, to: Point): LinkMap => update
 export const setNodeColor = (map: LinkMap, id: NodeId, color: PaletteColor | null): LinkMap =>
   updateNode(map, id, { color });
 
+/** `node` with `notes`; an empty text takes the field away (absent = no
+    notes, see `MapNode.notes`). */
+export function withNotes(node: MapNode, notes: string): MapNode {
+  if (notes) return { ...node, notes };
+  const { notes: _, ...rest } = node;
+  return rest;
+}
+
+/** Replaces a box's notes, kept exactly as typed (line breaks and all,
+    so the panel can show what is being typed); emptied, the field goes.
+    Notes that are only whitespace are dropped when read back (see
+    `readMap`). The same map when nothing changes. */
+export function setNodeNotes(map: LinkMap, id: NodeId, notes: string): LinkMap {
+  const node = map.nodes[id];
+  if (!node || (node.notes ?? "") === notes) return map;
+  return { ...map, nodes: { ...map.nodes, [id]: withNotes(node, notes) } };
+}
+
 /** Moves many boxes at once (Tidy up); ids not on the map are ignored. */
 export function moveNodes(map: LinkMap, positions: ReadonlyMap<NodeId, Point>): LinkMap {
   let next = map;

@@ -10,6 +10,7 @@ import { ReachStatus } from "../features/map/ReachStatus";
 import { SelectionBar } from "../features/map/SelectionBar";
 import { TidyButton } from "../features/map/TidyButton";
 import { MapSwitcher } from "../features/maps/MapSwitcher";
+import { NotesPanel } from "../features/notes/NotesPanel";
 import { LinkedChip } from "../features/maps/BoardLink";
 import { LinkHoldBanner } from "../features/maps/LinkHoldBanner";
 import { MissingMapsBanner } from "../features/maps/MissingMapsBanner";
@@ -54,6 +55,7 @@ export function App() {
             measurements, glide and scroll) instead of inheriting this one's. */}
         <MapCanvas key={mapId} />
         <SelectionBar />
+        <NotesPanel />
       </main>
       <DeleteBranchDialog />
       <TrashFullDialog />
