@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-08, v0.0.58 (label styles: Linkkit's or Treekit's, per map, beside arrow styles)_
+_Last updated: 2026-10-08, v0.0.59 (fix: PNG / SVG export draws boxes where they are on screen, never re-tidied)_
 
 ## What it is
 
@@ -615,9 +615,11 @@ in"). Loops and arrows into the start are refused in both. Code:
   (tested)
 - **Export and import** (v0.0.54, Treekit's export menu), "Export" in
   the header, for every map: "Export PNG image" / "Export SVG image" (a
-  clean picture, no buttons; a tree is drawn unfolded and freshly tidied,
-  cut branches greyed or, with Hide cut on, left out, as in Treekit; a
-  map without tree rules is drawn where its boxes are), "Copy as
+  clean picture, no buttons, of exactly what is on screen: every box
+  where it is, moved by hand or not, never re-tidied; folded boxes left
+  out; cut branches greyed or, with Hide cut on, left out. Fixed in
+  v0.0.59: a tree used to be drawn unfolded and freshly tidied, so boxes
+  the owner had dragged came out in their old tidied places), "Copy as
   Mermaid", "Download Mermaid (.mmd)" and "Import Mermaid…". The Mermaid
   text is Treekit's format (checked against Treekit's own code: Treekit
   -> Linkkit -> Treekit gives the same text), plus the map's name as
@@ -635,7 +637,9 @@ in"). Loops and arrows into the start are refused in both. Code:
   folds, Hide cut, arrow length, arrow style (an import is always
   Straight), label style (always Linkkit's), line breaks in names (Linkkit names are
   one line), the trash. Check: `domain/mermaid.ts` (tested);
-  `features/export/` (`html-to-image`, as in Treekit)
+  `features/export/` (`html-to-image`, as in Treekit); where the
+  image puts things: `domain/imageLayout.ts` (tested: a moved box is
+  drawn where it was moved, in any arrow or label style)
 - **Zoom** (v0.0.56, Treekit's zoom pill): bottom-left of the screen,
   "−  100%  +"; click the percentage to go back to 100%. 50% to 200% in
   10% steps, in every map (tree rules on or off). Zoom is a magnifying

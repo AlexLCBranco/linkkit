@@ -5,17 +5,15 @@ import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 
 import inlineStyles from "../../components/InlineEditable.module.css";
-import { arrowRoutes, headPath, roundedPath } from "../../domain/arrows";
-import type { Box } from "../../domain/geometry";
-import { placeLabels } from "../../domain/labels";
+import { headPath, roundedPath } from "../../domain/arrows";
+import { imageLayout } from "../../domain/imageLayout";
 import { arrowsInto } from "../../domain/rules";
-import { layoutMap } from "../../domain/layout";
 import { shownMap } from "../../domain/shown";
 import { looksCut } from "../../domain/status";
-import type { LinkId, LinkMap, NodeId, Point, Size } from "../../domain/types";
+import type { LinkId, LinkMap, NodeId, Size } from "../../domain/types";
 import boxStyles from "../map/BoxView.module.css";
 import edgeStyles from "../map/LinkEdgeView.module.css";
-import { LABELS, layoutOptions, ROUTES } from "../map/layoutConfig";
+import { LABELS, ROUTES } from "../map/layoutConfig";
 import { STATUS_META } from "../map/statusMeta";
 
 /** Empty space around the map, in CSS pixels (Treekit's). */
@@ -36,11 +34,11 @@ function iconElement(icon: LucideIcon): Element {
 }
 
 /**
- * Draws the whole map as a PNG or SVG data URL (Treekit's image export).
- * A tree is drawn unfolded and freshly tidied, as Treekit does; cut
- * branches follow "Hide cut": left out while it is on, greyed out as on
- * screen while it is off. A map without tree rules is drawn where its
- * boxes are, since its layout may be the user's own.
+ * Draws the whole map as a PNG or SVG data URL (Treekit's image export),
+ * exactly as it shows on screen: every box where it is (dragged by hand or
+ * placed by Tidy up), folded boxes and hidden cut branches left out, cut
+ * boxes greyed out while "Hide cut" is off. It never re-tidies: positions
+ * come from the store alone (`domain/imageLayout.ts`).
  *
  * The page can't be snapshotted directly: folded boxes are not on it, and
  * it carries buttons, the selection and the dot grid. So this builds a
@@ -52,8 +50,8 @@ function iconElement(icon: LucideIcon): Element {
  */
 export async function renderMapImage(source: LinkMap, format: ImageFormat): Promise<string> {
   const isTree = source.kind === "tree";
-  const map = shownMap(isTree ? { ...source, collapsed: [] } : source);
-  const cut = isTree ? looksCut(map) : new Set<NodeId>();
+  const map = shownMap(source);
+  const cut = looksCut(source);
   const nodeIds = Object.keys(map.nodes) as NodeId[];
   const linkIds = Object.keys(map.links) as LinkId[];
 
@@ -109,44 +107,12 @@ export async function renderMapImage(source: LinkMap, format: ImageFormat): Prom
     const labelSizes = new Map<LinkId, Size>();
     for (const [id, el] of labelEls) labelSizes.set(id, { width: el.offsetWidth, height: el.offsetHeight });
 
-    // 2. Where each box goes: a tree is tidied as Tidy up would, with
-    //    room for its labels; any other map keeps its own places.
-    const centres = isTree
-      ? layoutMap(map, sizes, layoutOptions(map.arrowLength, map.direction, labelSizes.values())).positions
-      : new Map<NodeId, Point>(nodeIds.map((id) => [id, { x: map.nodes[id].x, y: map.nodes[id].y }]));
-    const boxes = new Map<NodeId, Box>(nodeIds.map((id) => [id, { center: centres.get(id)!, size: sizes.get(id)! }]));
-
-    // 3. Arrows and label spots, as the canvas works them out, in the
-    //    map's arrow style.
-    const geometries = arrowRoutes(Object.values(map.links), boxes, map.arrowStyle, map.direction, ROUTES, labelSizes);
-    const spots = placeLabels(
-      [...labelEls.keys()]
-        .filter((id) => geometries.has(id))
-        .map((id) => {
-          const g = geometries.get(id)!;
-          return { id, start: g.labelFrom, tip: g.labelTo, size: labelSizes.get(id)!, path: g.corner ? g.points : undefined };
-        }),
-      [...boxes.values()],
-      LABELS,
-    );
-
-    // 4. The bounds of everything drawn, then the scene around it.
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    const grow = (c: Point, s: Size) => {
-      minX = Math.min(minX, c.x - s.width / 2);
-      minY = Math.min(minY, c.y - s.height / 2);
-      maxX = Math.max(maxX, c.x + s.width / 2);
-      maxY = Math.max(maxY, c.y + s.height / 2);
-    };
-    for (const box of boxes.values()) grow(box.center, box.size);
-    for (const [id, at] of spots) grow(at, labelSizes.get(id)!);
-    const shiftX = MARGIN - minX;
-    const shiftY = MARGIN - minY;
-    const width = Math.ceil(maxX - minX + MARGIN * 2);
-    const height = Math.ceil(maxY - minY + MARGIN * 2);
+    // 2. Where everything goes: each box at its saved place, exactly as
+    //    on screen (never re-tidied), arrows and labels as the canvas
+    //    works them out.
+    const { routes: geometries, spots, shift, width, height, boxes } = imageLayout(map, sizes, labelSizes, ROUTES, LABELS, MARGIN);
+    const shiftX = shift.x;
+    const shiftY = shift.y;
 
     const scene = document.createElement("div");
     scene.style.cssText = `position:relative;width:${width}px;height:${height}px;overflow:hidden;`;
