@@ -87,6 +87,9 @@ describe("page", () => {
     expect(visibleCenter(page, { left: 0, top: 500, right: 800, bottom: 1000 })).toEqual({ x: 350, y: 700 });
     // None of the page on screen: the page's own middle.
     expect(visibleCenter(page, { left: 2000, top: 0, right: 2400, bottom: 400 })).toEqual({ x: 500, y: 500 });
+    // Drawn at 200%: the same screen spots are half as far into the page.
+    expect(visibleCenter(page, { left: 0, top: 500, right: 800, bottom: 1000 }, 2)).toEqual({ x: 175, y: 350 });
+    expect(visibleCenter(page, { left: 2000, top: 0, right: 2400, bottom: 400 }, 2)).toEqual({ x: 250, y: 250 });
   });
 
   it("centres a layout on the screen, on a bigger page only when needed", () => {

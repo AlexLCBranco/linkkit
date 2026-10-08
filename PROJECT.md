@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-08, v0.0.55 (notes in maps linked to Boardkit: card notes are pregame thots)_
+_Last updated: 2026-10-08, v0.0.56 (zoom, Treekit's pill, kept per map)_
 
 ## What it is
 
@@ -24,7 +24,7 @@ project, and Linkkit stays its own repo. Behaviour reference:
 ## Stack
 
 Vite, React 19, TypeScript (strict), Zustand, React Flow (`@xyflow/react`)
-as the renderer (camera locked: no pan, no zoom; the page scrolls
+as the renderer (camera locked: no pan; zoom only from the pill; the page scrolls
 natively), a small hand-written layout (no layout library), CSS Modules +
 design tokens (copied from Treekit) for the page, Tailwind v4 + shadcn/ui
 (Radix) for menus and dialogs, lucide icons, html-to-image (PNG / SVG export, as in
@@ -635,6 +635,26 @@ in"). Loops and arrows into the start are refused in both. Code:
   folds, Hide cut, arrow length, line breaks in names (Linkkit names are
   one line), the trash. Check: `domain/mermaid.ts` (tested);
   `features/export/` (`html-to-image`, as in Treekit)
+- **Zoom** (v0.0.56, Treekit's zoom pill): bottom-left of the screen,
+  "−  100%  +"; click the percentage to go back to 100%. 50% to 200% in
+  10% steps, in every map (tree rules on or off). Zoom is a magnifying
+  glass: no box moves, nothing goes on the undo list, and Tidy up, Align,
+  dragging, Add box and double-click work the same at any zoom. As in
+  Treekit, the scrolling area is the screen and grows (scrollbars) only
+  where the zoomed page doesn't fit: zoomed in, the page scrolls; zoomed
+  out, the page (with its dots) gets smaller and sits where Align says
+  (centred unless chosen otherwise), the plain paper around it is not
+  page, and a box can't be dragged onto it. A zoom keeps what was in the
+  middle of the screen in the middle. Each map keeps its own zoom, also
+  after a reload (`linkkit:zoom`, map id -> zoom; a map at 100% has no
+  entry); it is a view setting, so never in a map's save, an export, a
+  backup or the Boardkit link. Differences from Treekit: Treekit's zoom
+  is one for the visit, forgotten on reload (owner asked for per map,
+  kept); Treekit re-places its tree at each zoom, Linkkit's boxes stay
+  where they were put. Like Treekit, no keys: Ctrl + wheel and Ctrl +/−
+  are still the browser's own zoom. Check: `domain/zoom.ts`,
+  `store/viewStore.ts` (tested); `features/map/ZoomControls.tsx`,
+  `MapCanvas.tsx`
 
 ## What's next
 
@@ -1194,7 +1214,7 @@ One commit per item. Short entries only.
   all". Missing: notes on boxes, fork a branch (copy / paste is off with
   tree rules; "Duplicate this map" copies everything), export PNG / SVG /
   Mermaid (only "Export all maps" as JSON), import Mermaid, zoom (the
-  camera is locked by design; the page scrolls)
+  camera is locked by design; the page scrolls; zoom came later as T4)
 - ~~U8. Outline paste without tree rules~~ (done, v0.0.45; replaces U5's
   whole-map re-tidy, owner's call). Only the new boxes are laid out, as a
   small tidy block in free space beside the box pasted into (below it,
@@ -1260,6 +1280,10 @@ replaces the open map.
 - ~~T3. Export PNG / SVG / Mermaid, import Mermaid~~ (done, v0.0.54; see
   What works now). Decided by the owner: export works for every map; an
   import that breaks tree rules opens with tree rules off, never refused
+- ~~T4. Zoom~~ (done, v0.0.56; see What works now). Asked by the owner:
+  Treekit's range, pill and behaviour; locked camera and native scroll
+  kept; every map, tree rules on or off; per map, kept across reloads,
+  never in exports or the Boardkit link
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 

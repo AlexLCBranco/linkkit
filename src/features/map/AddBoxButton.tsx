@@ -5,7 +5,7 @@ import { canAddNextStep, nextStepRefusal } from "../../domain/rules";
 import { useMapStore } from "../../store/mapStore";
 import styles from "./HeaderButton.module.css";
 import { ADD_SPOT, MAP_LAYOUT, PAGE_INSETS } from "./layoutConfig";
-import { boxSizes, MAP_PAGE_ATTRIBUTE, MAP_VIEW_ATTRIBUTE, screenSize } from "./pageMarkers";
+import { boxSizes, drawnZoom, MAP_PAGE_ATTRIBUTE, MAP_SHEET_ATTRIBUTE, MAP_VIEW_ATTRIBUTE, screenSize } from "./pageMarkers";
 
 /**
  * "Add box": puts a new box in the middle of the part of the page that is
@@ -40,12 +40,13 @@ export function AddBoxButton() {
     }
     const page = document.querySelector(`[${MAP_PAGE_ATTRIBUTE}]`);
     const view = document.querySelector(`[${MAP_VIEW_ATTRIBUTE}]`);
-    if (!page || !view) return;
+    const sheet = document.querySelector<HTMLElement>(`[${MAP_SHEET_ATTRIBUTE}]`);
+    if (!page || !view || !sheet) return;
     const { map } = useMapStore.getState();
     const sizes = boxSizes(page);
     // The new box is not measured yet: a typical box's size stands in.
     const size = MAP_LAYOUT.fallbackSize;
-    const middle = visibleCenter(page.getBoundingClientRect(), view.getBoundingClientRect());
+    const middle = visibleCenter(sheet.getBoundingClientRect(), view.getBoundingClientRect(), drawnZoom(sheet));
     const spot = freeSpot(map, sizes, middle, size, { ...ADD_SPOT, fallbackSize: size });
     const room = pageSize(map, sizes, MAP_LAYOUT.fallbackSize, PAGE_INSETS, screenSize(view));
     addBox(clampToPage(spot, size, room, PAGE_INSETS));

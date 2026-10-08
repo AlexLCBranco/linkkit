@@ -12,10 +12,25 @@
   background: var(--page-paper);
 }
 
-/* Dotted paper, sized by MapCanvas: the screen, or bigger where the boxes
-   reach further. */
+/* The scrolling area, sized by MapCanvas: the screen, or bigger where the
+   page drawn at its zoom needs more room. */
 .page {
   position: relative;
+}
+
+/* The page itself, in page units, placed and scaled to the zoom by
+   MapCanvas (so at 50% it is half the size, and its dots too). The paper
+   lies under React Flow; the sheet holds the previews over it. */
+.paper,
+.sheet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+.paper {
   background-image: radial-gradient(var(--canvas-dots) var(--page-dot-radius), transparent calc(var(--page-dot-radius) + 0.25px));
   background-size: var(--page-dot-gap) var(--page-dot-gap);
 }

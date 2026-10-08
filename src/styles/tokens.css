@@ -116,6 +116,10 @@
   /* Treekit's canvas dots: 1.5px across, every 24px. */
   --page-dot-gap: 24px;
   --page-dot-radius: 0.75px;
+  /* The zoom pill (Treekit's): its square − / + buttons, and the room the
+     percentage takes so the pill keeps its width from 50% to 200%. */
+  --zoom-button-size: 28px;
+  --zoom-value-width: 52px;
 
   /* ---- Stacking order ---- */
   --z-canvas: 1;

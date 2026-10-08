@@ -17,9 +17,10 @@ import { layoutMap } from "../../domain/layout";
 import { shownMap } from "../../domain/shown";
 import { boxesIn, marqueeSelection, rectBetween, type Rect } from "../../domain/marquee";
 import { boxBounds, clampToPage, keepOnPage, pageSize, placeBlockBeside, placeOnPage } from "../../domain/page";
+import { scrollAfterZoom, ZOOM_MAX, ZOOM_MIN, zoomPage, type ZoomedPage } from "../../domain/zoom";
 import type { ArrowLength, LayoutDirection, LinkId, LinkMap, NodeId, Point, Size } from "../../domain/types";
 import { selectionOf, useMapStore } from "../../store/mapStore";
-import { useViewStore } from "../../store/viewStore";
+import { useViewStore, zoomOf } from "../../store/viewStore";
 import { BoxContextMenu } from "./BoxContextMenu";
 import { BoxView, type BoxFlowNode } from "./BoxView";
 import { ConnectPreview } from "./ConnectPreview";
@@ -42,7 +43,7 @@ import {
 } from "./layoutConfig";
 import { LinkEdgeView, type LinkFlowEdge } from "./LinkEdgeView";
 import styles from "./MapCanvas.module.css";
-import { MAP_PAGE_ATTRIBUTE, MAP_VIEW_ATTRIBUTE, screenSize } from "./pageMarkers";
+import { MAP_PAGE_ATTRIBUTE, MAP_SHEET_ATTRIBUTE, MAP_VIEW_ATTRIBUTE, screenSize } from "./pageMarkers";
 import { useGlide } from "./useGlide";
 import { useMapShortcuts } from "./useMapShortcuts";
 
@@ -57,6 +58,17 @@ const NO_DATA = {};
 const PAPER_REFUSAL = "With tree rules on, every box needs a parent: use a box’s + button, or drag its dot onto the paper.";
 /** The page before the screen is first measured. */
 const FILL = { width: "100%", height: "100%" };
+
+/** The page (in page units) placed and scaled where it is drawn; the whole
+    area until measured. */
+function sheetStyle(page: Size | null, drawn: ZoomedPage | null) {
+  if (!page || !drawn) return FILL;
+  return {
+    width: page.width,
+    height: page.height,
+    transform: `translate(${drawn.x}px, ${drawn.y}px) scale(${drawn.zoom})`,
+  };
+}
 
 /** A label's size: measured, or a typical one's if not yet. An arrow with
     no label (a tree's) takes no room until something on it is measured. */
@@ -74,9 +86,15 @@ function tidyOptions(map: LinkMap, labelSizes: ReadonlyMap<LinkId, Size>, arrowL
 
 /**
  * The map on its page: dotted paper filling the screen (the area under the
- * header), as in Treekit. The camera never moves (no pan, no zoom). The
- * page grows past the screen only where the boxes need it (a big tidied
- * map, or a window made smaller), and then the browser scrolls natively.
+ * header), as in Treekit. The camera never pans. The page grows past the
+ * screen only where the boxes need it (a big tidied map, or a window made
+ * smaller), and then the browser scrolls natively.
+ *
+ * Zoom (the pill, per map) is a magnifying glass: every box keeps its place
+ * on the page, and every rule above works in page units at any zoom. Only
+ * the drawing scales: React Flow draws at the zoom, and the page's dotted
+ * paper and the previews on it (the "sheet") scale with it. What scrolls
+ * is the zoomed page (see `zoomPage`).
  *
  * Data flow, one direction only:
  *   store map (+ measured sizes) -> arrow geometry and label spots
@@ -194,6 +212,36 @@ function MapCanvasInner() {
     () => (screen ? pageSize(map, sizes, MAP_LAYOUT.fallbackSize, PAGE_INSETS, screen) : null),
     [map, sizes, screen],
   );
+
+  // The page as drawn at this map's zoom, and React Flow's camera to match:
+  // never panned, only scaled and set where the zoomed page goes.
+  const zoom = useViewStore((s) => zoomOf(s.zooms, map.id));
+  const alignment = useViewStore((s) => s.alignment);
+  const drawn = useMemo(
+    () => (page && screen ? zoomPage(page, screen, zoom, alignment) : null),
+    [page, screen, zoom, alignment],
+  );
+  const viewport = useMemo(() => (drawn ? { x: drawn.x, y: drawn.y, zoom: drawn.zoom } : undefined), [drawn]);
+
+  // A zoom keeps the spot in the middle of the screen in the middle. The
+  // scroll is the one before the zoom (kept as it scrolls): by now the
+  // browser may already have cut it short to fit a smaller page.
+  const scrolled = useRef({ left: 0, top: 0 });
+  const onScroll = useCallback(() => {
+    const view = viewRef.current;
+    if (view) scrolled.current = { left: view.scrollLeft, top: view.scrollTop };
+  }, []);
+  const drawnBefore = useRef<ZoomedPage | null>(null);
+  useLayoutEffect(() => {
+    const before = drawnBefore.current;
+    drawnBefore.current = drawn;
+    const view = viewRef.current;
+    if (!view || !before || !drawn || before.zoom === drawn.zoom) return;
+    const { left, top } = scrolled.current;
+    const to = scrollAfterZoom({ left, top, width: view.clientWidth, height: view.clientHeight }, before, drawn);
+    view.scrollTo(to);
+    scrolled.current = { left: view.scrollLeft, top: view.scrollTop };
+  }, [drawn]);
 
   // Read by handlers outside rendering (Tidy up, double-click), which need
   // the sizes and the page at that moment without re-subscribing on every
@@ -469,16 +517,24 @@ function MapCanvasInner() {
         ref={viewRef}
         className={styles.canvas}
         data-ready={needsTidy ? undefined : true}
+        onScroll={onScroll}
         {...{ [MAP_VIEW_ATTRIBUTE]: true }}
       >
         <div
           className={styles.page}
-          style={page ? { width: page.width, height: page.height } : FILL}
+          style={drawn ? { width: drawn.width, height: drawn.height } : FILL}
           onDoubleClick={onPageDoubleClick}
           onPointerDown={onPagePointerDown}
           data-marquee={marquee ? true : undefined}
           {...{ [MAP_PAGE_ATTRIBUTE]: true }}
         >
+          {/* The dotted paper, under React Flow, zoomed with the boxes. */}
+          <div
+            className={styles.paper}
+            style={sheetStyle(page, drawn)}
+            aria-hidden
+            {...{ [MAP_SHEET_ATTRIBUTE]: true }}
+          />
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -502,8 +558,9 @@ function MapCanvasInner() {
             zoomOnPinch={false}
             zoomOnDoubleClick={false}
             preventScrolling={false}
-            minZoom={1}
-            maxZoom={1}
+            viewport={viewport}
+            minZoom={ZOOM_MIN}
+            maxZoom={ZOOM_MAX}
             panActivationKeyCode={null}
             selectionKeyCode={null}
             multiSelectionKeyCode={null}
@@ -512,17 +569,20 @@ function MapCanvasInner() {
             // Bottom-right belongs to the version badge.
             attributionPosition="top-right"
           />
-          <ConnectPreview boxes={boxes} />
-          <RelinkPreview boxes={boxes} />
-          <DropPreview />
-          <HintBubble />
-          {marquee && (
-            <div
-              className={styles.marquee}
-              style={{ left: marquee.x, top: marquee.y, width: marquee.width, height: marquee.height }}
-              aria-hidden
-            />
-          )}
+          {/* Previews over the boxes, in page units like them, zoomed the same way. */}
+          <div className={styles.sheet} style={sheetStyle(page, drawn)}>
+            <ConnectPreview boxes={boxes} />
+            <RelinkPreview boxes={boxes} />
+            <DropPreview />
+            <HintBubble />
+            {marquee && (
+              <div
+                className={styles.marquee}
+                style={{ left: marquee.x, top: marquee.y, width: marquee.width, height: marquee.height }}
+                aria-hidden
+              />
+            )}
+          </div>
         </div>
       </div>
     </BoxContextMenu>

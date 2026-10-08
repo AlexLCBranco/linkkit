@@ -22,7 +22,7 @@ import { useSyncNotice } from "./syncNotice";
  *   linkkit:damaged:…  a damaged map's original text, kept aside
  *   linkkit:trash:maps the deleted maps (their own keys stay until erased)
  *
- * (`linkkit:align` belongs to `viewStore.ts`.) Every key starts with
+ * (`linkkit:align` and `linkkit:zoom` belong to `viewStore.ts`.) Every key starts with
  * "linkkit:" because the shared gauntlet site gives Linkkit and Boardkit
  * one localStorage between them.
  *

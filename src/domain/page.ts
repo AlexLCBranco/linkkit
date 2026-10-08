@@ -177,17 +177,18 @@ export function keepOnPage(
 /**
  * The middle of the part of the page that is on screen, in page
  * coordinates ("Add box" puts the new box there). Both rectangles are in
- * screen coordinates; if none of the page shows, the page's own middle.
+ * screen coordinates, `page` as drawn at `zoom`; if none of the page
+ * shows, the page's own middle.
  */
-export function visibleCenter(page: Bounds, view: Bounds): Point {
+export function visibleCenter(page: Bounds, view: Bounds, zoom = 1): Point {
   const left = Math.max(page.left, view.left);
   const right = Math.min(page.right, view.right);
   const top = Math.max(page.top, view.top);
   const bottom = Math.min(page.bottom, view.bottom);
   if (left >= right || top >= bottom) {
-    return { x: (page.right - page.left) / 2, y: (page.bottom - page.top) / 2 };
+    return { x: (page.right - page.left) / 2 / zoom, y: (page.bottom - page.top) / 2 / zoom };
   }
-  return { x: (left + right) / 2 - page.left, y: (top + bottom) / 2 - page.top };
+  return { x: ((left + right) / 2 - page.left) / zoom, y: ((top + bottom) / 2 - page.top) / zoom };
 }
 
 /**
