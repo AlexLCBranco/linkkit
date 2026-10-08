@@ -64,6 +64,7 @@ import {
 } from "../domain/trash";
 import { addNextStep, branchesOf, createTree, moveToParent as moveUnder, startOf } from "../domain/tree";
 import { followBoxName, numberedName } from "../domain/names";
+import { forkBranch } from "../domain/fork";
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
 import { ARROW_LENGTH_PRESETS, type LinkId, type LinkMap, type MapId, type NodeId, type NodeStatus, type PaletteColor, type Point, type Size } from "../domain/types";
@@ -393,6 +394,10 @@ export interface MapState {
   newMap(): void;
   /** Copies the open map ("Name (copy)") and opens the copy. */
   duplicateMap(): void;
+  /** "Fork into a new map": box `id` and everything after it, copied
+      into a new map (never linked) that opens, tidied; the open map is
+      left as it is (`domain/fork.ts`). */
+  forkBranch(id: NodeId): void;
   /** Starts a blank tree (only its start box, its name open for typing). */
   newTree(): void;
   /** Opens `map` (made from a template: fresh ids, boxes not yet placed)
@@ -1171,6 +1176,16 @@ export const useMapStore = create<MapState>()((set, get) => ({
     const s = get();
     const map = duplicateMap(s.map, createMapId(), copyName(s.map.name, s.maps));
     set(open(s, map, createStored(map, s.maps)));
+  },
+  forkBranch: (id) => {
+    get().stopEditing();
+    flushSave();
+    const s = get();
+    const from = s.map.name;
+    const map = forkBranch(s.map, id, createMapId(), s.maps.map((m) => m.name));
+    if (!map) return;
+    set((st) => open(st, map, createStored(map, st.maps), true));
+    useSyncNotice.getState().say(`Forked into a new map. “${from}” is unchanged, in the map menu.`);
   },
   newTree: () => {
     get().stopEditing();

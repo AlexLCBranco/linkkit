@@ -1,5 +1,5 @@
 import { useReactFlow } from "@xyflow/react";
-import { ChevronsDownUp, ChevronsUpDown, ClipboardPaste, Copy, CopyPlus, NotebookPen, Pencil, Plus, Scissors, Tag, Trash2 } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, ClipboardPaste, Copy, CopyPlus, GitFork, NotebookPen, Pencil, Plus, Scissors, Tag, Trash2 } from "lucide-react";
 import { useRef, useState, type MouseEvent, type ReactElement } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -29,7 +29,8 @@ type Target =
   | { readonly kind: "paper"; readonly at: Point };
 
 /**
- * The right-click menu. On a box: rename, copy, duplicate, colour, delete
+ * The right-click menu. On a box: rename, notes, fork (it and everything
+ * after it into a new map), copy, duplicate, colour, delete
  * (in a tree, also "Add next step" and keep / maybe / cut; the start has
  * neither a status nor delete, and nothing is copied). On a box that is one of several picked: the same for the whole
  * group. On an arrow (its line or label): its label, and delete. On empty
@@ -182,6 +183,7 @@ function BoxMenuItems({
   const statusable = useMapStore((s) => canSetStatus(s.map, nodeId));
   const setBoxesStatus = useMapStore((s) => s.setBoxesStatus);
   const notable = useMapStore((s) => canHaveNotes(s.map));
+  const isTree = useMapStore((s) => s.map.kind === "tree");
   const openNotes = useMapStore((s) => s.openNotes);
 
   return (
@@ -208,6 +210,10 @@ function BoxMenuItems({
       )}
       <CollapseItem ids={() => [nodeId]} />
       <CopyItems ids={() => [nodeId]} />
+      <ContextMenuItem onSelect={() => useMapStore.getState().forkBranch(nodeId)}>
+        <GitFork aria-hidden />
+        {isTree ? "Fork branch into a new map" : "Fork into a new map"}
+      </ContextMenuItem>
       {statusable && (
         <>
           <ContextMenuSeparator />

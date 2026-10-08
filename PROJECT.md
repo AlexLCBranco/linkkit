@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-08, v0.0.52 (notes on boxes)_
+_Last updated: 2026-10-08, v0.0.53 (fork a branch into a new map)_
 
 ## What it is
 
@@ -569,6 +569,18 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   unchanged, no new save version. In a map linked to Boardkit the notes
   it had are kept (Linkkit's own part, never sent to Boardkit) but
   can't be edited yet (see T1b)
+- **Fork into a new map** (v0.0.53, Treekit's fork a branch): right-click
+  a box, "Fork branch into a new map" (in a connections map "Fork into a
+  new map"). The box and everything after it (what it leads to, or what
+  it needs; folded and cut boxes too) is copied into a new map that
+  opens, tidied; a note at the bottom says the original is unchanged and
+  in the map menu. The copy keeps names, colours, statuses, notes, arrow
+  labels, sibling order, folds and the map's settings; the forked box is
+  its start (a start has no keep / maybe / cut, so that one status stays
+  behind). Fresh ids, no trash, never linked to Boardkit even when the
+  original is. Named after its start box, and follows it until renamed
+  by hand (a blank box: "Untitled map N"). Not an undo step (like
+  Duplicate this map). Check: `domain/fork.ts` (tested)
 
 ## What's next
 
@@ -1189,8 +1201,8 @@ replaces the open map.
   thots" (`description`), lists and the start Linkkit-only; C: no notes
   while linked). Until then a linked map shows no notes button and keeps
   any notes it had. Rule: a note is never lost silently
-- T2. Fork a branch: a box and everything after it copied into a new
-  standalone map (always unlinked; named after its new start box)
+- ~~T2. Fork a branch~~ (done, v0.0.53; see What works now). Decided by
+  the owner: the fork is always unlinked; its name follows its start box
 - T3. Export PNG / SVG / Mermaid (any map), import Mermaid (each tree its
   own new map; a graph that breaks tree rules opens with tree rules off)
 

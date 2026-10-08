@@ -1219,3 +1219,21 @@ describe("map store (notes)", () => {
     expect(useMapStore.getState().notesOpen).toBe(false);
   });
 });
+
+describe("map store (fork)", () => {
+  it("opens a branch as a new stored map, tidied once shown, and leaves the original as it was", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().newFromTemplate(exampleTree(PAGE));
+    useMapStore.getState().placeAll(new Map(), PAGE);
+    const original = useMapStore.getState().map;
+    const [, second] = Object.values(original.links).map((l) => l.to);
+    useMapStore.getState().forkBranch(second);
+    const { map, needsTidy, maps } = useMapStore.getState();
+    expect(map.id).not.toBe(original.id);
+    expect(map.name).toBe(original.nodes[second].name);
+    expect(needsTidy).toBe(true);
+    expect(maps.some((m) => m.id === map.id)).toBe(true);
+    expect(loadMap(map.id, PAGE)?.nodes).toEqual(map.nodes);
+    expect(loadMap(original.id, PAGE)?.nodes).toEqual(original.nodes);
+  });
+});
