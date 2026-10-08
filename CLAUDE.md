@@ -78,6 +78,15 @@ chat:
   belongs to someone else). The Vercel CLI is logged in: `npx -y
   vercel@latest ls linkkit` lists deployments.
 
+## Dev servers
+
+- One dev server only: `linkkit` in `.claude/launch.json`, port 5181,
+  `--strictPort`. No second configs or fallback ports.
+- Reuse it if it's already running (check `preview_list`, or whether 5181
+  is listening) instead of starting another.
+- Stop what you started (`preview_stop`) when the chat's work is done. Don't
+  stop a server another chat started without asking the owner.
+
 ## Testing in the browser pane
 
 When the Claude window is behind other windows, the pane stops drawing:

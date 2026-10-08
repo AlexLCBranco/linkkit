@@ -6,24 +6,6 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--port", "5181", "--strictPort"],
       "port": 5181
-    },
-    {
-      "name": "linkkit-2",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "5182", "--strictPort"],
-      "port": 5182
-    },
-    {
-      "name": "linkkit-3",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "5183", "--strictPort"],
-      "port": 5183
-    },
-    {
-      "name": "linkkit-4",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--", "--port", "5184", "--strictPort"],
-      "port": 5184
     }
   ]
 }
