@@ -23,6 +23,7 @@ let dragCount = 0;
  *   that other boxes already make). In a tree, one box let go over
  *   another box becomes that box's last next step, and let go in a gap
  *   between siblings goes there (`dropTargetAt`); the tree re-tidies.
+ *   Let go anywhere else, a tree's boxes glide home (`cancelDrag`).
  * - Press on the box's dot: drags out a dashed arrow; letting go over
  *   another box draws the arrow, if the rules allow it. In a tree, letting
  *   go on empty paper adds a next step there.
@@ -103,10 +104,17 @@ export function useBoxGestures(id: NodeId) {
             useMapStore.getState().moveToParent(id, dropping.parent, dropping.before, gesture);
           } else {
             // Let go on a box it can't go under (or is already under):
-            // back where it started, rather than left on top of that box.
-            useMapStore.getState().moveBoxes(from, gesture);
+            // it glides back where it started, rather than left on top of
+            // that box.
+            useMapStore.getState().cancelDrag(gesture);
             if (dropping.refusal) useHint.getState().show(dropping.refusal, dropping.at);
           }
+          return;
+        }
+        // A tree keeps every box in its layout (Treekit's): let go on bare
+        // paper, the box (or picked boxes) glides home, leaving no step.
+        if (moved && useMapStore.getState().map.kind === "tree") {
+          useMapStore.getState().cancelDrag(gesture);
           return;
         }
         if (moved || ev.type !== "pointerup") return;

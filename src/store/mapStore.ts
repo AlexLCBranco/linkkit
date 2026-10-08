@@ -248,6 +248,15 @@ export interface MapState {
   /** A box whose name opens for typing once the first tidy has shown the
       map (a new tree's start: a hidden field could not take focus). */
   readonly editAfterTidy: NodeId | null;
+  /** A tree box just renamed, waiting for its new size to be measured so
+      the tree can re-tidy round it (joined to the rename's undo step).
+      `map` is the map the rename made: any edit since (a drag, Tab, ...)
+      calls the re-tidy off, as an arrow-key move does, so it never undoes
+      what came after (v0.0.60's rule). See `takeRenameSettle`. */
+  readonly renameSettle: { readonly id: NodeId; readonly map: LinkMap } | null;
+  /** Asks the canvas to glide boxes from these places to where they are
+      now (a tree box let go where it can't go, gliding home). */
+  readonly glideRequest: { readonly from: ReadonlyMap<NodeId, Point>; readonly count: number } | null;
   /** Every saved map (ids and names, oldest first): the switcher's list. */
   readonly maps: Registry;
   /** The example a first-ever visit opened, until it is first changed
@@ -293,6 +302,13 @@ export interface MapState {
   /** An empty name leaves the box blank, except a linked map's start
       (the board's name). */
   renameBox(id: NodeId, name: string): void;
+  /** The renamed box's new size is in: whether the tree should re-tidy now
+      (nothing else changed since the rename). Clears the wait either way. */
+  takeRenameSettle(): boolean;
+  /** A tree box (or group) let go somewhere it can't go, or on bare paper:
+      the drag `gesture` is taken back, leaving no undo step, and the boxes
+      glide home (Treekit's: no box floats free of a tree's layout). */
+  cancelDrag(gesture: string): void;
   /** Several lines pasted while typing box `id`'s name (`before` and
       `after` are the typed text either side of the paste): the first line
       goes into the name, each other line becomes a new box, placed by its
@@ -556,6 +572,7 @@ function open(s: MapState, map: LinkMap, maps: Registry, needsTidy = takeUnplace
     relinking: null,
     confirmingDelete: null,
     editAfterTidy: null,
+    renameSettle: null,
     placeRequest: null,
     notesOpen: false,
   };
@@ -866,6 +883,8 @@ export const useMapStore = create<MapState>()((set, get) => ({
   placeRequest: null,
   confirmingDelete: null,
   editAfterTidy: null,
+  renameSettle: null,
+  glideRequest: null,
   trashWarning: null,
   notesOpen: false,
 
@@ -889,11 +908,13 @@ export const useMapStore = create<MapState>()((set, get) => ({
   moveSelection: (key) =>
     set((s) => {
       if (s.map.kind !== "tree" || s.editing) return {};
+      // Moving on by key calls off a rename's re-tidy still waiting.
+      const off = s.renameSettle ? { renameSettle: null } : {};
       const shown = shownMap(s.map);
       const target = s.selected
         ? moveFrom(shown, s.selected, arrowToMove(key, shown.direction), nav)
         : startOf(shown);
-      return target ? selecting([target]) : {};
+      return target ? { ...off, ...selecting([target]) } : off;
     }),
   selectGroup: (ids) => set((s) => selecting(ids.filter((id) => s.map.nodes[id]))),
   toggleSelected: (id) =>
@@ -945,8 +966,34 @@ export const useMapStore = create<MapState>()((set, get) => ({
     if (!cleanName(name) && map.linkedBoard && id === (map.linkedBoard as NodeId)) return;
     // Naming a box just added joins its "add" step (`newBoxKey`); any other
     // rename is a step of its own.
-    set((s) => commit(s, renameNode(s.map, id, name), s.stepKey === newBoxKey(id) ? s.stepKey : null));
+    set((s) => {
+      const naming = s.stepKey === newBoxKey(id);
+      const done = commit(s, renameNode(s.map, id, name), naming ? s.stepKey : null);
+      // A new step makes room as it is typed; any other tree box waits for
+      // its new size (the canvas measures it, then `takeRenameSettle`).
+      if (naming || s.map.kind !== "tree" || !done.map) return done;
+      return { ...done, renameSettle: { id, map: done.map } };
+    });
   },
+  takeRenameSettle: () => {
+    const { renameSettle, map } = get();
+    if (!renameSettle) return false;
+    set({ renameSettle: null });
+    return renameSettle.map === map;
+  },
+  cancelDrag: (gesture) =>
+    set((s) => {
+      if (s.stepKey !== gesture) return {};
+      const from = new Map<NodeId, Point>(Object.values(s.map.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
+      const step = history.discardLast(s.history, s.map);
+      if (!step) return {};
+      return {
+        ...forget(s, step.map),
+        history: step.history,
+        stepKey: null,
+        glideRequest: { from, count: (s.glideRequest?.count ?? 0) + 1 },
+      };
+    }),
   pasteOutline: (id, text, before, after) =>
     set((s) => {
       const lines = parseOutline(text);

@@ -3,7 +3,7 @@ import type { ArrowOptions } from "../../domain/geometry";
 import type { LabelOptions } from "../../domain/labels";
 import { arrowGap, type LayoutOptions } from "../../domain/layout";
 import type { PageInsets } from "../../domain/page";
-import type { ArrowLength, LayoutDirection, Size } from "../../domain/types";
+import { ARROW_LENGTH_PRESETS, type ArrowLength, type LayoutDirection, type LinkId, type MapKind, type Size } from "../../domain/types";
 
 /**
  * Numbers the pure layout and arrow geometry need as plain JS values (as in
@@ -23,10 +23,25 @@ export const MAP_LAYOUT: LayoutOptions = {
     widest label, see `arrowGap`), in a direction, around these labels.
     Top-down, with the usual one-line labels, the presets make gaps of 56,
     88 (Tidy up's length before there was a choice) and 144. */
-export function layoutOptions(length: ArrowLength, direction: LayoutDirection, labels: Iterable<Size>): LayoutOptions {
+export function layoutOptions(
+  length: ArrowLength,
+  direction: LayoutDirection,
+  labels: ReadonlyMap<LinkId, Size>,
+  kind: MapKind = "connections",
+): LayoutOptions {
+  if (kind === "tree") {
+    // Treekit's gap at Medium, each row's labels on top (`layoutTree`).
+    const rowGap = Math.max(ROUTES.elbow.minGap, TREE_ROW_GAP + length - ARROW_LENGTH_PRESETS.medium);
+    return { ...MAP_LAYOUT, rowGap, labelSizes: labels };
+  }
   const ends = 2 * ARROW.gap + ARROW.headLength;
-  return { ...MAP_LAYOUT, rowGap: arrowGap(length, labels, direction, ends) };
+  return { ...MAP_LAYOUT, rowGap: arrowGap(length, labels.values(), direction, ends) };
 }
+
+/** A tree's gap between rows at Medium arrows, before labels: Treekit's
+    `rankGap`. Short and Long move it as much as they move a map's
+    (32 and 120). */
+export const TREE_ROW_GAP = 64;
 
 /** One notch of the mouse wheel over the arrow length (deltaY 100 in most
     browsers) changes it by this many pixels. Trackpads send smaller

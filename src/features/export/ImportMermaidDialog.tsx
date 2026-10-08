@@ -35,8 +35,8 @@ function guessSize(name: string): Size {
 /** `map` tidied with guessed box sizes, on a window-sized page. */
 function roughlyPlaced(map: LinkMap): LinkMap {
   const sizes = new Map(Object.values(map.nodes).map((n) => [n.id, guessSize(n.name)] as [NodeId, Size]));
-  const labels = Object.values(map.links).map((l) => (l.label ? guessSize(l.label) : { width: 0, height: 0 }));
-  const layout = layoutMap(map, sizes, layoutOptions(map.arrowLength, map.direction, labels));
+  const labels = new Map(Object.values(map.links).map((l) => [l.id, l.label ? guessSize(l.label) : { width: 0, height: 0 }]));
+  const layout = layoutMap(map, sizes, layoutOptions(map.arrowLength, map.direction, labels, map.kind));
   const placed = placeOnPage(layout, newPageSize(), PAGE_MARGIN, useViewStore.getState().alignment);
   const nodes = { ...map.nodes };
   for (const [id, at] of placed.positions) nodes[id] = { ...nodes[id], x: at.x, y: at.y };

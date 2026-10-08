@@ -82,8 +82,8 @@ function labelSize(map: LinkMap, labelSizes: ReadonlyMap<LinkId, Size>, id: Link
 /** Tidy up's options: the arrow length and direction asked for, with room
     for every arrow's label. */
 function tidyOptions(map: LinkMap, labelSizes: ReadonlyMap<LinkId, Size>, arrowLength: ArrowLength, direction: LayoutDirection) {
-  const labels = (Object.keys(map.links) as LinkId[]).map((id) => labelSize(map, labelSizes, id));
-  return layoutOptions(arrowLength, direction, labels);
+  const labels = new Map((Object.keys(map.links) as LinkId[]).map((id) => [id, labelSize(map, labelSizes, id)]));
+  return layoutOptions(arrowLength, direction, labels, map.kind);
 }
 
 /**
@@ -392,6 +392,34 @@ function MapCanvasInner() {
     if (before && before.width === namingSize.width && before.height === namingSize.height) return;
     settleTree(sizes, screen);
   }, [naming, namingSize, sizes, screen, needsTidy, settleTree]);
+
+  // A tree box renamed: once its new size is measured, the tree re-tidies
+  // round it, joined to the rename's undo step. Anything done before the
+  // size comes in (a drag, Tab, an arrow-key move) calls it off
+  // (`takeRenameSettle`), so a late re-tidy never undoes it.
+  const renamed = useMapStore((s) => s.renameSettle);
+  const renamedSize = renamed ? sizes.get(renamed.id) : undefined;
+  const sizeAtRename = useRef<{ for: typeof renamed; size: Size | undefined } | null>(null);
+  useLayoutEffect(() => {
+    if (!renamed) {
+      sizeAtRename.current = null;
+      return;
+    }
+    const at = sizeAtRename.current;
+    if (!at || at.for !== renamed) {
+      sizeAtRename.current = { for: renamed, size: renamedSize };
+      return;
+    }
+    if (!renamedSize || (at.size && at.size.width === renamedSize.width && at.size.height === renamedSize.height)) return;
+    if (!screen || needsTidy) return;
+    if (useMapStore.getState().takeRenameSettle()) settleTree(sizes, screen);
+  }, [renamed, renamedSize, sizes, screen, needsTidy, settleTree]);
+
+  // A tree box let go where it can't stay glides home (`cancelDrag`).
+  const glideRequest = useMapStore((s) => s.glideRequest);
+  useLayoutEffect(() => {
+    if (glideRequest) startGlide(glideRequest.from, shownMap(useMapStore.getState().map).nodes);
+  }, [glideRequest, startGlide]);
 
   // Switching a tree's label style resizes its boxes (Treekit's are wider):
   // once the new sizes are measured, it re-tidies as a tree that grew does,

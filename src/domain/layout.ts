@@ -37,6 +37,11 @@ export interface LayoutOptions {
   readonly rowGap: number;
   /** Used for a box that has not been measured yet. */
   readonly fallbackSize: Size;
+  /** A tree's arrow labels (only those with text): each row's gap grows
+      by the deepest label on the arrows into it, and a label counts as
+      wide as a box beside its neighbours (`layoutTree`). Unused by other
+      maps, whose `rowGap` already holds the deepest label. */
+  readonly labelSizes?: ReadonlyMap<LinkId, Size>;
 }
 
 export interface Bounds {
@@ -148,7 +153,8 @@ export function layoutMap(
   if (direction === "TB") return layoutTopDown(map, sizes, options);
   const flip = ({ width, height }: Size): Size => ({ width: height, height: width });
   const flipped = new Map([...sizes].map(([id, s]) => [id, flip(s)]));
-  const down = layoutTopDown(map, flipped, { ...options, fallbackSize: flip(options.fallbackSize) });
+  const labelSizes = options.labelSizes && new Map([...options.labelSizes].map(([id, s]) => [id, flip(s)]));
+  const down = layoutTopDown(map, flipped, { ...options, fallbackSize: flip(options.fallbackSize), labelSizes });
   const b = down.bounds;
   return {
     positions: new Map([...down.positions].map(([id, p]) => [id, { x: p.y, y: p.x }])),
@@ -158,6 +164,10 @@ export function layoutMap(
 }
 
 function layoutTopDown(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, options: LayoutOptions): MapLayout {
+  return map.kind === "tree" ? layoutTree(map, sizes, options) : layoutLayers(map, sizes, options);
+}
+
+function layoutLayers(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, options: LayoutOptions): MapLayout {
   const { columnGap, rowGap, fallbackSize } = options;
   const sizeOf = (id: NodeId) => sizes.get(id) ?? fallbackSize;
   const loopLinks = loopBreakingLinks(map);
@@ -210,4 +220,126 @@ function layoutTopDown(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, options: 
 
   const bounds = rows.length ? { left, top: 0, right, bottom: y - rowGap } : { left: 0, top: 0, right: 0, bottom: 0 };
   return { positions, bounds, loopLinks };
+}
+
+/**
+ * A tree's Tidy up: Treekit's tidy tree (its `domain/layout.ts`), for a
+ * tree whose boxes may have two parents (the owner's rule, 2026-10-08).
+ *
+ *  1. Rows: a box goes one row below its lowest parent (`layerNodes`), so
+ *     every arrow points down the map and every row lines up, as Treekit's
+ *     generations do.
+ *  2. Home: that lowest parent is the box's home, where it and its branch
+ *     are laid out. Two parents in the same row: the one first in reading
+ *     order (left top-down, top left-right) is home. The other parent's
+ *     arrow just runs across into the box and takes no room.
+ *  3. Each branch is as wide as its box (or the label above it) or its
+ *     next steps side by side, `columnGap` apart, whichever is wider; the
+ *     next steps go in sibling order, their block centred under the box.
+ *  4. Row gaps: `rowGap` plus the deepest label on the arrows into the
+ *     row (Treekit's "label band"), so a tall label widens only its own
+ *     gap. Each box is centred in its row's depth.
+ *
+ * Several starts (only in a damaged tree) sit side by side, three column
+ * gaps apart (Treekit's board of trees). A loop (likewise) has its closing
+ * arrow set aside, as in any map.
+ */
+function layoutTree(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, options: LayoutOptions): MapLayout {
+  const { columnGap, rowGap, fallbackSize } = options;
+  const labelSizes = options.labelSizes ?? new Map<LinkId, Size>();
+  const sizeOf = (id: NodeId) => sizes.get(id) ?? fallbackSize;
+  const ids = Object.keys(map.nodes) as NodeId[];
+  const loopLinks = loopBreakingLinks(map);
+  const row = layerNodes(map, loopLinks);
+  const kept = Object.values(map.links).filter((l) => !loopLinks.has(l.id) && map.nodes[l.from] && map.nodes[l.to]);
+  const keptInto = new Set(kept.map((l) => l.to));
+  const keptPairs = new Set(kept.map((l) => `${l.from}>${l.to}`));
+
+  // Reading order: a walk from the start(s) through next steps in sibling
+  // order. It settles which of two same-row parents is home.
+  const roots = ids.filter((id) => !keptInto.has(id));
+  const reading = new Map<NodeId, number>();
+  const walk = [...roots].reverse();
+  while (walk.length > 0) {
+    const id = walk.pop()!;
+    if (reading.has(id)) continue;
+    reading.set(id, reading.size);
+    const next = nextSteps(map, id).filter((c) => keptPairs.has(`${id}>${c}`));
+    for (let i = next.length - 1; i >= 0; i--) walk.push(next[i]);
+  }
+  const readingOf = (id: NodeId) => reading.get(id) ?? Infinity;
+
+  const home = new Map<NodeId, { readonly parent: NodeId; readonly link: LinkId }>();
+  for (const l of kept) {
+    if (row.get(l.from)! !== row.get(l.to)! - 1) continue;
+    const now = home.get(l.to);
+    if (!now || readingOf(l.from) < readingOf(now.parent)) home.set(l.to, { parent: l.from, link: l.id });
+  }
+  const childrenOf = (id: NodeId) => nextSteps(map, id).filter((c) => home.get(c)?.parent === id);
+
+  // Row depths, each gap's label band, and where each row starts.
+  const rowDepth: number[] = [];
+  const band: number[] = [];
+  for (const id of ids) {
+    const r = row.get(id)!;
+    rowDepth[r] = Math.max(rowDepth[r] ?? 0, sizeOf(id).height);
+  }
+  for (const l of kept) {
+    const label = l.label ? labelSizes.get(l.id) : undefined;
+    const r = row.get(l.to)!;
+    band[r] = Math.max(band[r] ?? 0, label?.height ?? 0);
+  }
+  const rowStart: number[] = [];
+  let depth = 0;
+  for (let r = 0; r < rowDepth.length; r++) {
+    if (r > 0) depth += rowGap + (band[r] ?? 0);
+    rowStart[r] = depth;
+    depth += rowDepth[r] ?? 0;
+  }
+
+  // Branch widths, bottom-up; then each box centred over its block.
+  const slotOf = (id: NodeId) => {
+    const h = home.get(id);
+    const label = h && map.links[h.link]?.label ? labelSizes.get(h.link) : undefined;
+    return Math.max(sizeOf(id).width, label?.width ?? 0);
+  };
+  const branch = new Map<NodeId, number>();
+  const block = new Map<NodeId, number>();
+  const measure = (id: NodeId): number => {
+    const next = childrenOf(id);
+    const b = next.reduce((sum, c) => sum + measure(c), 0) + columnGap * Math.max(0, next.length - 1);
+    block.set(id, b);
+    const width = Math.max(slotOf(id), b);
+    branch.set(id, width);
+    return width;
+  };
+  const positions = new Map<NodeId, Point>();
+  const place = (id: NodeId, start: number) => {
+    const center = start + branch.get(id)! / 2;
+    const r = row.get(id)!;
+    positions.set(id, { x: center, y: rowStart[r] + rowDepth[r] / 2 });
+    let cursor = center - block.get(id)! / 2;
+    for (const c of childrenOf(id)) {
+      place(c, cursor);
+      cursor += branch.get(c)! + columnGap;
+    }
+  };
+  let cursor = 0;
+  for (const id of [...roots].sort((a, b) => readingOf(a) - readingOf(b))) {
+    measure(id);
+    place(id, cursor);
+    cursor += branch.get(id)! + columnGap * 3;
+  }
+  if (positions.size === 0) return { positions, bounds: { left: 0, top: 0, right: 0, bottom: 0 }, loopLinks };
+
+  // Centred on x = 0, like the other layout.
+  let left = Infinity;
+  let right = -Infinity;
+  for (const [id, p] of positions) {
+    left = Math.min(left, p.x - sizeOf(id).width / 2);
+    right = Math.max(right, p.x + sizeOf(id).width / 2);
+  }
+  const shift = (left + right) / 2;
+  const centred = new Map([...positions].map(([id, p]) => [id, { x: p.x - shift, y: p.y }]));
+  return { positions: centred, bounds: { left: left - shift, top: 0, right: right - shift, bottom: depth }, loopLinks };
 }

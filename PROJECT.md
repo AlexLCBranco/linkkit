@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-08, v0.0.61 (Treekit parity batch 1: Tab / arrows / Enter / F2 in trees, new boxes focus at once and make room before they show, the selected box scrolls into view, new trees in Elbow + Treekit text)_
+_Last updated: 2026-10-08, v0.0.62 (Treekit parity batch 2: trees tidy as Treekit's tidy tree, rows 64 apart, re-tidy after a rename, a box let go on bare paper glides home; v0.0.61: Treekit's keyboard flow in trees)_
 
 ## What it is
 
@@ -426,8 +426,7 @@ in"). Loops and arrows into the start are refused in both. Code:
     banner was offered and is easy to add if wanted)
   - Sibling order: each box keeps its next steps in order (a new step
     goes last), and Tidy up lines them up that way, left to right (top to
-    bottom in Left-right), so a tree doesn't reshuffle as it grows. A box
-    with two parents sits under the middle of both, as before. The order
+    bottom in Left-right), so a tree doesn't reshuffle as it grows. The order
     is what Boardkit's column and card order map onto. Trees saved
     earlier keep the order they show
   - Moving a box to another place in the tree (step 21): drag one box.
@@ -444,8 +443,11 @@ in"). Loops and arrows into the start are refused in both. Code:
     either parent. A collapsed box opens when something is dropped on
     it. The tree then re-tidies with its glide; the drag, the move and
     the tidy are one undo step. Let go on bare paper (or somewhere that
-    would change nothing): the box just moves on the page, as before.
-    Several picked boxes, and connections maps, only move on the page.
+    would change nothing, or where it can't go): it glides back home and
+    leaves no undo step, as in Treekit, so no box floats free of a tree's
+    layout (v0.0.62; before, it stayed where it was let go). Several
+    picked boxes in a tree glide home the same way. In a connections map
+    boxes still move anywhere on the page.
     In a tree linked to Boardkit a card can go to another list or be
     reordered, a list only reordered among lists ("'Rent' is a list in
     Boardkit: lists can only be reordered"), and a list already showing
@@ -523,10 +525,11 @@ in"). Loops and arrows into the start are refused in both. Code:
     to break loops. It never moves anything itself: the canvas
     (`features/map/MapCanvas.tsx`) calls it, `page.ts` places the result
     at the chosen alignment, and the store saves the new positions as one
-    undo step. The method is a small hand-written layered layout: set one
-    arrow of each loop aside, put each box one row below the lowest box
-    that needs it, order each row by where the boxes above it sit, centre
-    the rows. Left-right runs the same thing on its side (width and
+    undo step. A connections map uses a small hand-written layered
+    layout: set one arrow of each loop aside, put each box one row below
+    the lowest box that needs it, order each row by where the boxes above
+    it sit, centre the rows. A tree uses Treekit's tidy tree (`layoutTree`,
+    v0.0.62, see "Tree layout" below). Left-right runs the same thing on its side (width and
     height swapped, then x and y swapped back). `arrowGap` turns the
     arrow length plus the widest label into the gap between rows. It is
     the only file that knows how placement works, so another algorithm
@@ -725,6 +728,37 @@ in"). Loops and arrows into the start are refused in both. Code:
   straight line. Check: `domain/arrows.ts` (tested),
   `domain/arrowStyle.test.ts`; `features/map/ArrowLengthPanel.tsx`,
   `LinkEdgeView.tsx`, `features/export/renderMapImage.ts`
+- **Tree layout: Treekit's tidy tree** (v0.0.62, Treekit parity batch 2,
+  rule OK'd by the owner 2026-10-08). Tidy up (and a tree's own re-tidy
+  as it grows) now lays a tree out as Treekit does: each box's next steps
+  side by side in sibling order, their block centred under it, every
+  generation in one row. Before, rows were centred on their own, so on a
+  wide tree parents sat far from their children. The owner's rules for
+  what Treekit never has:
+  - A box with two parents goes one row below its lowest parent, which is
+    its "home": it and its branch are laid out there like any next step.
+    Both parents in one row: the one first in reading order (left, or top
+    in Left-right) is home. The other parent's arrow runs across into it
+    and takes no room. (Before: under the middle of both.) Known limit:
+    that arrow can cross a row of boxes on its way down
+  - Loops can't be in a tree (refused, and repaired on open); a damaged
+    one still has its closing arrow set aside, as before
+  - Rows are 64px apart at Medium (Treekit's), plus room for the tallest
+    label on the arrows into that row only. Short / Long make it 32 / 120;
+    the slider moves in between. Labels as wide as a box keep their
+    neighbours apart. Connections maps keep their layout and gaps
+  - Elbow lines needed nothing new: every arrow still points down the map
+  - Left-right is the same on its side
+  - Re-tidy after a rename: once the renamed box's new size is measured,
+    the tree re-tidies round it, in the rename's undo step. Anything done
+    before the size comes in (a drag, Tab, an arrow-key move) calls it
+    off, so a late re-tidy never undoes it (v0.0.60's rule). Clicking
+    another box doesn't (that click is often what ends the typing)
+  - Existing trees keep their places until their next tidy; that first
+    reflow (Tidy up, or the tree growing) is one undo step
+  Check: `domain/layout.ts` (`layoutTree`), `domain/treeLayout.test.ts`
+  (the audit's 34-box tree), `store/treeSettle.test.ts`,
+  `features/map/layoutConfig.ts` (`TREE_ROW_GAP`)
 - **Label styles** (v0.0.58): in the same "Arrows" panel, right under
   "Arrow style", a "Label style": **Linkkit** (the default; every map
   made before keeps it) or **Treekit**. Set apart from the arrow style:
@@ -770,11 +804,11 @@ status / fold, shortcuts dialog, laser, several trees per map.
    Enter / F2 rename; a new box focused at once and kept selected after
    naming; never on top of its siblings while typed; the selected box
    scrolls into view; new trees in Elbow + Treekit text~~ (done, v0.0.61)
-2. Batch 2, layout: Tidy up centres each parent over its next steps
-   (Treekit's `domain/layout.ts` as reference), rows 64 apart as in
-   Treekit; re-tidy after a rename. Before coding: give the owner the rule
-   for boxes with two parents and for loops, and how it works with Elbow
-   routing, and wait for the OK. Tests with the audit's 34-box tree
+2. ~~Batch 2, layout: Tidy up centres each parent over its next steps
+   (Treekit's tidy tree), rows 64 apart; re-tidy after a rename (called
+   off by any edit before it lands); a box let go on bare paper glides
+   home; the first reflow of an existing tree is one undo step~~ (done,
+   v0.0.62; rule in "Tree layout" under What works now)
 3. Batch 3, names and the start: multi-line names (Shift+Enter), kept
    through Mermaid import / export; the start box can have a status
 
