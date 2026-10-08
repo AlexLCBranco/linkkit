@@ -54,6 +54,21 @@
   padding: var(--space-1) 0;
 }
 
+/* Treekit's label style (a map setting, see `LabelStyle`): names in the
+   regular weight, in Treekit's wider node bounds, and a tree's start box
+   as its heading (Treekit's root). Set on the canvas, or on the image
+   export's stage. */
+:global([data-label-style="treekit"]) .box {
+  min-width: var(--treekit-box-min-width);
+  max-width: var(--treekit-box-max-width);
+  font-weight: var(--weight-normal);
+}
+
+:global([data-label-style="treekit"]) .box[data-start] {
+  font-size: var(--font-size-lg);
+  font-weight: var(--weight-bold);
+}
+
 .box[data-editing] {
   cursor: text;
 }

@@ -40,6 +40,25 @@ path.line {
     opacity var(--duration-medium) var(--ease-standard);
 }
 
+/* Treekit's label style (a map setting, see `LabelStyle`): Treekit's
+   pill, taller and with a stronger border, wrapping past its widest
+   instead of ending in "…". Before the hover and typing rules, so they
+   still win. */
+:global([data-label-style="treekit"]) .label {
+  padding: var(--space-1) var(--space-2);
+  border-color: var(--border-strong);
+  line-height: var(--line-tight);
+}
+
+:global([data-label-style="treekit"]) .label[data-editing] {
+  min-width: var(--edge-label-min-width);
+}
+
+:global([data-label-style="treekit"]) .text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* One line; a long label ends in "…". */
 .text {
   display: block;

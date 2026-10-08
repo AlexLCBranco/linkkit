@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-08, v0.0.57 (arrow styles: straight or Treekit's elbows, per map)_
+_Last updated: 2026-10-08, v0.0.58 (label styles: Linkkit's or Treekit's, per map, beside arrow styles)_
 
 ## What it is
 
@@ -633,7 +633,7 @@ in"). Loops and arrows into the start are refused in both. Code:
   sibling order, colours, notes, keep / maybe / cut, direction, the map's
   name and whether tree rules are on. It loses: box places (re-tidied),
   folds, Hide cut, arrow length, arrow style (an import is always
-  Straight), line breaks in names (Linkkit names are
+  Straight), label style (always Linkkit's), line breaks in names (Linkkit names are
   one line), the trash. Check: `domain/mermaid.ts` (tested);
   `features/export/` (`html-to-image`, as in Treekit)
 - **Zoom** (v0.0.56, Treekit's zoom pill): bottom-left of the screen,
@@ -691,6 +691,34 @@ in"). Loops and arrows into the start are refused in both. Code:
   straight line. Check: `domain/arrows.ts` (tested),
   `domain/arrowStyle.test.ts`; `features/map/ArrowLengthPanel.tsx`,
   `LinkEdgeView.tsx`, `features/export/renderMapImage.ts`
+- **Label styles** (v0.0.58): in the same "Arrows" panel, right under
+  "Arrow style", a "Label style": **Linkkit** (the default; every map
+  made before keeps it) or **Treekit**. Set apart from the arrow style:
+  any label style goes with any arrow style. Treekit's style is Treekit's
+  text exactly: box names in the regular weight instead of medium, boxes
+  120-240 wide instead of 72-220 (so names wrap later), a tree's start
+  box as a heading (bold, a size up, like Treekit's root; a map without
+  tree rules has no start, so no heading); arrow labels a little taller
+  (4px above and below the text, tighter lines), with a stronger border,
+  and wrapping onto more lines past 160 wide instead of ending in "…".
+  Kept Linkkit's in both styles, since they are behaviour, not look: the
+  teal / orange label colours of the highlight, a label's hover, click to
+  type, and the × on its corner. Font, sizes, centring and padding in the
+  boxes, and the label's font size, page-coloured fill, corners and most
+  width, were already the same. Where a label sits on its arrow comes
+  with the arrow style (Elbow puts it on Treekit's spot), not the label
+  style. Picking one is one undo step. A map with tree rules on
+  re-tidies itself once its boxes have their new sizes (Treekit's are
+  wider, so the rows would touch), in that same undo step; any other map
+  keeps its boxes where they are (they grow or shrink about their
+  middles, as after a rename; Tidy up if they crowd). Saved with the map
+  (`labelStyle`, "linkkit" when a save has none) and carried everywhere
+  the arrow style is: Export all maps, backups, Restore, Duplicate, Fork,
+  templates, a linked map's own record (never the board), merged between
+  tabs; PNG / SVG export draws it; Mermaid can't carry it. Check:
+  `domain/labelStyle.test.ts`; `features/map/BoxView.module.css`,
+  `LinkEdgeView.module.css` (the `[data-label-style="treekit"]` rules),
+  `ArrowLengthPanel.tsx`, `MapCanvas.tsx`
 
 ## What's next
 
@@ -1332,6 +1360,16 @@ replaces the open map.
   switching style doesn't re-tidy. A busy row of shared boxes (the
   example's Outlook / Teams / SharePoint) reads better with Long arrows,
   which give the turns more room
+- ~~T6. Label styles~~ (done, v0.0.58; see What works now). Asked by the
+  owner: compare box text and arrow labels with Treekit's, list every
+  difference, and add a per-map label style (Linkkit's, the default, or
+  Treekit's) next to the arrow style but set on its own; older saves keep
+  Linkkit's; unknown fields kept on save. Choices made without asking,
+  easy to change: Treekit's style includes Treekit's wider box bounds
+  (they decide where names wrap) and a tree's start as a bold heading;
+  the highlight colours, hover and click-to-type stay Linkkit's; a tree
+  re-tidies after a switch, other maps don't move; the choice is in the
+  "Arrows" panel (its button still says "Arrows")
 
 ### Bridge mapping (plan for the shared store, bridge step 3)
 

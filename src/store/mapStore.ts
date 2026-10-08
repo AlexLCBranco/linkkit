@@ -24,6 +24,7 @@ import {
   renameNode,
   setArrowLength,
   setArrowStyle,
+  setLabelStyle,
   setLinkLabel,
   setDirection,
   setNodeColor,
@@ -69,7 +70,7 @@ import { followBoxName, numberedName } from "../domain/names";
 import { forkBranch } from "../domain/fork";
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
-import { ARROW_LENGTH_PRESETS, type ArrowStyle, type LinkId, type LinkMap, type MapId, type NodeId, type NodeStatus, type PaletteColor, type Point, type Size } from "../domain/types";
+import { ARROW_LENGTH_PRESETS, type ArrowStyle, type LabelStyle, type LinkId, type LinkMap, type MapId, type NodeId, type NodeStatus, type PaletteColor, type Point, type Size } from "../domain/types";
 import { mergeMaps, shareUnchanged, type MergeConflict } from "../domain/merge";
 import {
   boardProblems,
@@ -334,6 +335,8 @@ export interface MapState {
   setHideCut(hideCut: boolean): void;
   /** Straight arrows or Treekit's elbows. Undoable; moves no box. */
   setArrowStyle(style: ArrowStyle): void;
+  /** Linkkit's labels or Treekit's. Undoable; moves no box. */
+  setLabelStyle(style: LabelStyle): void;
   /** Folds the boxes' branches away, or opens them when all are folded
       (Treekit's collapse). Undoable; the tree re-tidies around what shows. */
   toggleCollapsed(ids: readonly NodeId[]): void;
@@ -988,6 +991,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
     }),
   setHideCut: (hideCut) => set((s) => withRoomMade(s, setHideCut(s.map, hideCut))),
   setArrowStyle: (style) => set((s) => commit(s, setArrowStyle(s.map, style))),
+  setLabelStyle: (style) => set((s) => commit(s, setLabelStyle(s.map, style))),
   toggleCollapsed: (ids) =>
     set((s) => {
       const foldable = ids.filter((id) => canCollapse(s.map, id));

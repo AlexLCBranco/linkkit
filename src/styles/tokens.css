@@ -76,6 +76,12 @@
   --cut-dash: 4 4;
   /* An arrow's label pill; longer labels end in "…". */
   --edge-label-max-width: 160px;
+  /* Treekit's label style (a map setting): its node width bounds, and the
+     least width of an arrow label being typed, so an empty one is still
+     a target. */
+  --treekit-box-min-width: 120px;
+  --treekit-box-max-width: 240px;
+  --edge-label-min-width: 56px;
   --edge-width: 1.5px;
   /* How close the pointer must come to a label-less arrow (a tree's) to
      show its ×. */

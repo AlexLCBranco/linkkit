@@ -57,6 +57,14 @@ export const ARROW_LENGTH_RANGE = { min: 0, max: 240 } as const;
 export const ARROW_STYLES = ["straight", "elbow"] as const;
 export type ArrowStyle = (typeof ARROW_STYLES)[number];
 
+/** How a map's text looks, set apart from its arrow style: "linkkit" (the
+    default: medium-weight box names, one-line arrow labels that end in
+    "…") or "treekit" (Treekit's: regular-weight names in wider boxes, a
+    tree's start box as a bold heading, and taller arrow labels that wrap).
+    Only CSS reads it (`[data-label-style]`); see BoxView and LinkEdgeView. */
+export const LABEL_STYLES = ["linkkit", "treekit"] as const;
+export type LabelStyle = (typeof LABEL_STYLES)[number];
+
 /** The label an arrow gets when none is typed (or one is emptied), per
     kind. A connections arrow always says something ("needs"); a tree arrow
     has no label at first, and shows no pill. */
@@ -131,6 +139,10 @@ export interface LinkMap {
   /** How the arrows are drawn. Saved with the map and undoable; it moves
       no box. Saves from before it existed read as "straight". */
   readonly arrowStyle: ArrowStyle;
+  /** How the box names and arrow labels look. Saved with the map and
+      undoable; it moves no box. Saves from before it existed read as
+      "linkkit". */
+  readonly labelStyle: LabelStyle;
   readonly nodes: Readonly<Record<NodeId, MapNode>>;
   readonly links: Readonly<Record<LinkId, Link>>;
   /** Trees only: each box's next steps in order, which Tidy up follows.

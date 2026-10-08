@@ -83,6 +83,22 @@ describe("map store", () => {
     expect(useMapStore.getState().map.arrowStyle).toBe("elbow");
   });
 
+  it("switches the label style as one undo step, moving no box and keeping the arrow style", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().placeAll(new Map(), { width: 1200, height: 700 });
+    useMapStore.getState().setArrowStyle("elbow");
+    const before = useMapStore.getState().map;
+    useMapStore.getState().setLabelStyle("treekit");
+    const after = useMapStore.getState().map;
+    expect(after).toMatchObject({ labelStyle: "treekit", arrowStyle: "elbow" });
+    expect(after.nodes).toBe(before.nodes);
+    expect(useMapStore.getState().tidyRequest.count).toBe(0);
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map).toMatchObject({ labelStyle: "linkkit", arrowStyle: "elbow" });
+    useMapStore.getState().redo();
+    expect(useMapStore.getState().map.labelStyle).toBe("treekit");
+  });
+
   it("makes one undo step of a dragged or scrolled arrow length", async () => {
     const useMapStore = await freshStore();
     useMapStore.getState().placeAll(new Map(), { width: 1200, height: 700 });

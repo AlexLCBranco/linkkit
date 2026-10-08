@@ -3,6 +3,7 @@ import { basicLinkCheck } from "./rules";
 import type {
   ArrowLength,
   ArrowStyle,
+  LabelStyle,
   LayoutDirection,
   Link,
   LinkId,
@@ -25,6 +26,7 @@ import { repairTree } from "./tree";
 import {
   ARROW_LENGTH_PRESETS,
   ARROW_STYLES,
+  LABEL_STYLES,
   DEFAULT_LINK_LABELS,
   LAYOUT_DIRECTIONS,
   MAP_KINDS,
@@ -104,7 +106,7 @@ export function revOf(data: unknown): number {
 }
 
 export function serializeMap(map: LinkMap, rev?: number): PersistedMap {
-  const { id, name, kind, page, direction, arrowLength, arrowStyle, nodes, links, order, hideCut, collapsed, trash } = map;
+  const { id, name, kind, page, direction, arrowLength, arrowStyle, labelStyle, nodes, links, order, hideCut, collapsed, trash } = map;
   // The content fields, plus any field a newer Linkkit added that this
   // build doesn't know (`extras.ts`): an older tab must never drop it.
   // Never `linkedBoard`: an exported map is an ordinary tree (see
@@ -121,6 +123,7 @@ export function serializeMap(map: LinkMap, rev?: number): PersistedMap {
       direction,
       arrowLength,
       arrowStyle,
+      labelStyle,
       nodes,
       links,
       order,
@@ -218,6 +221,14 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
         ? (raw.arrowStyle as ArrowStyle)
         : fix("straight");
 
+  // And the label style: older saves had Linkkit's.
+  const labelStyle: LabelStyle =
+    raw.labelStyle === undefined
+      ? "linkkit"
+      : LABEL_STYLES.includes(raw.labelStyle as LabelStyle)
+        ? (raw.labelStyle as LabelStyle)
+        : fix("linkkit");
+
   // Boxes.
   const rawNodes: Record<string, unknown> = isObject(raw.nodes) ? raw.nodes : fix({});
   const nodes: Record<NodeId, MapNode> = {};
@@ -262,6 +273,7 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
     direction,
     arrowLength,
     arrowStyle,
+    labelStyle,
     nodes,
     links,
     order: {},

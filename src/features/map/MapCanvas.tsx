@@ -319,20 +319,50 @@ function MapCanvasInner() {
   // re-tidies itself once every box is measured, and the boxes glide to
   // make room. The tidy joins the change's own undo step (`nudgeBoxes`), so
   // undo takes back the step and the room made for it together.
+  const settleTree = useCallback(
+    (sizes: ReadonlyMap<NodeId, Size>, screen: Size) => {
+      const s = useMapStore.getState();
+      const shown = shownMap(s.map);
+      const options = tidyOptions(shown, labelSizesRef.current, shown.arrowLength, shown.direction);
+      const layout = layoutMap(shown, sizes, options, shown.direction);
+      const placed = placeOnPage(layout, screen, PAGE_MARGIN, useViewStore.getState().alignment);
+      const from = new Map<NodeId, Point>(Object.values(shown.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
+      s.nudgeBoxes(placed.positions);
+      startGlide(from, shownMap(useMapStore.getState().map).nodes);
+    },
+    [startGlide],
+  );
   const settleRequest = useMapStore((s) => s.settleRequest);
   const settled = useRef(settleRequest);
   useEffect(() => {
     if (settleRequest === settled.current || !allMeasured || !screen || needsTidy) return;
     settled.current = settleRequest;
-    const s = useMapStore.getState();
-    const shown = shownMap(s.map);
-    const options = tidyOptions(shown, labelSizesRef.current, shown.arrowLength, shown.direction);
-    const layout = layoutMap(shown, sizes, options, shown.direction);
-    const placed = placeOnPage(layout, screen, PAGE_MARGIN, useViewStore.getState().alignment);
-    const from = new Map<NodeId, Point>(Object.values(shown.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
-    s.nudgeBoxes(placed.positions);
-    startGlide(from, shownMap(useMapStore.getState().map).nodes);
-  }, [settleRequest, allMeasured, screen, needsTidy, sizes, startGlide]);
+    settleTree(sizes, screen);
+  }, [settleRequest, allMeasured, screen, needsTidy, sizes, settleTree]);
+
+  // Switching a tree's label style resizes its boxes (Treekit's are wider):
+  // once the new sizes are measured, it re-tidies as a tree that grew does,
+  // joined to the switch's undo step. Only a switch on this map: opening
+  // another map with another style moves nothing. It waits a moment past
+  // the boxes' new sizes, so the arrow labels (measured on their own) have
+  // reported theirs too.
+  const styled = useRef({ id: map.id, style: map.labelStyle });
+  const sizesAtSwitch = useRef<ReadonlyMap<NodeId, Size> | null>(null);
+  useEffect(() => {
+    const before = styled.current;
+    styled.current = { id: map.id, style: map.labelStyle };
+    if (before.style !== map.labelStyle) {
+      sizesAtSwitch.current = before.id === map.id && map.kind === "tree" ? sizes : null;
+      return;
+    }
+    if (!sizesAtSwitch.current || sizesAtSwitch.current === sizes) return;
+    if (!allMeasured || !screen || needsTidy) return;
+    const later = setTimeout(() => {
+      sizesAtSwitch.current = null;
+      settleTree(sizesRef.current, screen);
+    });
+    return () => clearTimeout(later);
+  }, [map.id, map.kind, map.labelStyle, sizes, allMeasured, screen, needsTidy, settleTree]);
 
   // An outline pasted into a map without tree rules: only the new boxes
   // are laid out, as a block beside the box they were pasted into, in free
@@ -510,6 +540,8 @@ function MapCanvasInner() {
         ref={viewRef}
         className={styles.canvas}
         data-ready={needsTidy ? undefined : true}
+        // Box names and arrow labels in the map's label style (CSS only).
+        data-label-style={map.labelStyle}
         onScroll={onScroll}
         {...{ [MAP_VIEW_ATTRIBUTE]: true }}
       >

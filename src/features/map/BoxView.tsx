@@ -4,7 +4,7 @@ import { memo, type CSSProperties, type MouseEvent, type PointerEvent } from "re
 
 import { InlineEditable } from "../../components/InlineEditable";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
-import { canAddNextStep, canCollapse, canDeleteBox, canSetStatus } from "../../domain/rules";
+import { arrowsInto, canAddNextStep, canCollapse, canDeleteBox, canSetStatus } from "../../domain/rules";
 import { hiddenAfter } from "../../domain/shown";
 import { looksCut } from "../../domain/status";
 import type { NodeId, NodeStatus } from "../../domain/types";
@@ -92,6 +92,8 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   const setBoxColor = useMapStore((s) => s.setBoxColor);
   const addNextStep = useMapStore((s) => s.addNextStep);
   const isTree = useMapStore((s) => s.map.kind === "tree");
+  // A tree's start box: Treekit's label style shows it as the heading.
+  const isStart = useMapStore((s) => s.map.kind === "tree" && arrowsInto(s.map, nodeId) === 0);
   const addable = useMapStore((s) => canAddNextStep(s.map, nodeId));
   const deletable = useMapStore((s) => canDeleteBox(s.map, nodeId));
   const statusable = useMapStore((s) => canSetStatus(s.map, nodeId));
@@ -126,6 +128,7 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
       data-drop-refused={isDropRefused || undefined}
       data-connect-source={isSource || undefined}
       data-cut={isCut || undefined}
+      data-start={isStart || undefined}
       data-direction={direction}
       style={style}
       onPointerDown={onBoxPointerDown}

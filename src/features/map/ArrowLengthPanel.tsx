@@ -1,9 +1,9 @@
-import { MoveRight, Network, type LucideIcon } from "lucide-react";
+import { MoveRight, Network, Tag, WrapText, type LucideIcon } from "lucide-react";
 import { Popover } from "radix-ui";
 import { useCallback, useRef } from "react";
 
 import { clampArrowLength } from "../../domain/map";
-import { ARROW_LENGTH_PRESETS, ARROW_LENGTH_RANGE, type ArrowLengthPreset, type ArrowStyle } from "../../domain/types";
+import { ARROW_LENGTH_PRESETS, ARROW_LENGTH_RANGE, type ArrowLengthPreset, type ArrowStyle, type LabelStyle } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import alignStyles from "./AlignPanel.module.css";
 import styles from "./ArrowLengthPanel.module.css";
@@ -20,6 +20,16 @@ const STYLES: { value: ArrowStyle; label: string; title: string; icon: LucideIco
   { value: "elbow", label: "Elbow", title: "Right-angled lines from each box to the boxes after it (Treekit's)", icon: Network },
 ];
 
+const LABEL_STYLES: { value: LabelStyle; label: string; title: string; icon: LucideIcon }[] = [
+  { value: "linkkit", label: "Linkkit", title: "Medium-weight box names, one-line arrow labels (Linkkit's)", icon: Tag },
+  {
+    value: "treekit",
+    label: "Treekit",
+    title: "Regular box names in wider boxes, a tree's start as a heading, taller arrow labels that wrap (Treekit's)",
+    icon: WrapText,
+  },
+];
+
 /** Each drag of the slider, or burst of wheel turns, is one gesture: one
     undo step however many times the map is re-tidied along the way. */
 let gestures = 0;
@@ -34,6 +44,9 @@ const wheelPixels = (e: WheelEvent) => e.deltaY * (e.deltaMode === 1 ? 33 : e.de
  * Style: Linkkit's straight arrows, or Treekit's elbow lines. Saved with
  * the map and undoable; it moves no box.
  *
+ * Label style, set apart from the arrow style: how box names and arrow
+ * labels look, Linkkit's or Treekit's. Saved and undoable the same way.
+ *
  * Length: Three presets, a slider for anything
  * in between (or beyond), and the mouse wheel: scrolling over the "Arrows"
  * button (no need to open it) or the panel stretches the arrows (wheel up)
@@ -46,6 +59,8 @@ export function ArrowLengthPanel() {
   const arrowLength = useMapStore((s) => s.map.arrowLength);
   const arrowStyle = useMapStore((s) => s.map.arrowStyle);
   const setArrowStyle = useMapStore((s) => s.setArrowStyle);
+  const labelStyle = useMapStore((s) => s.map.labelStyle);
+  const setLabelStyle = useMapStore((s) => s.setLabelStyle);
   const requestTidy = useMapStore((s) => s.requestTidy);
   const sliderGesture = useRef("");
 
@@ -83,7 +98,7 @@ export function ArrowLengthPanel() {
       <Popover.Trigger
         ref={wheelRef}
         className={`${alignStyles.trigger} ${styles.trigger}`}
-        title="Arrow style and length: click for choices, or scroll the mouse wheel here to stretch or shrink the arrows"
+        title="Arrow style, label style and length: click for choices, or scroll the mouse wheel here to stretch or shrink the arrows"
       >
         <MoveRight size={16} className={styles.icon} aria-hidden />
         <span className={styles.word}>Arrows</span>
@@ -101,6 +116,25 @@ export function ArrowLengthPanel() {
                 title={title}
                 className={styles.option}
                 onClick={() => setArrowStyle(value)}
+              >
+                <span className={styles.styleIcon} aria-hidden>
+                  <Icon size={16} />
+                </span>
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className={alignStyles.title}>Label style</div>
+          <div className={styles.list} role="radiogroup" aria-label="Label style">
+            {LABEL_STYLES.map(({ value, label, title, icon: Icon }) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={labelStyle === value}
+                title={title}
+                className={styles.option}
+                onClick={() => setLabelStyle(value)}
               >
                 <span className={styles.styleIcon} aria-hidden>
                   <Icon size={16} />

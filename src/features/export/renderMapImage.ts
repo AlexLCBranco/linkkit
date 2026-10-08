@@ -8,6 +8,7 @@ import inlineStyles from "../../components/InlineEditable.module.css";
 import { arrowRoutes, headPath, roundedPath } from "../../domain/arrows";
 import type { Box } from "../../domain/geometry";
 import { placeLabels } from "../../domain/labels";
+import { arrowsInto } from "../../domain/rules";
 import { layoutMap } from "../../domain/layout";
 import { shownMap } from "../../domain/shown";
 import { looksCut } from "../../domain/status";
@@ -59,6 +60,8 @@ export async function renderMapImage(source: LinkMap, format: ImageFormat): Prom
   const stage = document.createElement("div");
   // Off-screen but still laid out (display:none would measure as zero).
   stage.style.cssText = "position:fixed;left:-100000px;top:0;pointer-events:none;";
+  // Box names and labels in the map's label style, measured that way too.
+  stage.dataset.labelStyle = map.labelStyle;
   document.body.append(stage);
 
   try {
@@ -74,6 +77,7 @@ export async function renderMapImage(source: LinkMap, format: ImageFormat): Prom
         el.style.setProperty("--box-accent", `var(--palette-${node.color})`);
       }
       if (cut.has(id)) el.dataset.cut = "";
+      if (isTree && arrowsInto(map, id) === 0) el.dataset.start = "";
       el.style.position = "absolute";
       const name = document.createElement("span");
       name.className = `${inlineStyles.display} ${boxStyles.name}`;
