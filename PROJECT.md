@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-08, v0.0.59 (fix: PNG / SVG export draws boxes where they are on screen, never re-tidied)_
+_Last updated: 2026-10-08, v0.0.60 (fix: a label-style re-tidy no longer undoes a box moved before it lands; v0.0.59: export draws boxes where they are on screen)_
 
 ## What it is
 
@@ -713,7 +713,10 @@ in"). Loops and arrows into the start are refused in both. Code:
   with the arrow style (Elbow puts it on Treekit's spot), not the label
   style. Picking one is one undo step. A map with tree rules on
   re-tidies itself once its boxes have their new sizes (Treekit's are
-  wider, so the rows would touch), in that same undo step; any other map
+  wider, so the rows would touch), in that same undo step. A box moved
+  before the new sizes come in calls that re-tidy off, so it never
+  undoes the move (fixed in v0.0.60: a late re-tidy could put a just
+  dragged box back); any other map
   keeps its boxes where they are (they grow or shrink about their
   middles, as after a rename; Tidy up if they crowd). Saved with the map
   (`labelStyle`, "linkkit" when a save has none) and carried everywhere

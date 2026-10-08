@@ -345,24 +345,30 @@ function MapCanvasInner() {
   // joined to the switch's undo step. Only a switch on this map: opening
   // another map with another style moves nothing. It waits a moment past
   // the boxes' new sizes, so the arrow labels (measured on their own) have
-  // reported theirs too.
+  // reported theirs too. Any edit to the boxes before then (a box dragged
+  // while the sizes were still coming in, or another map opened) calls it
+  // off, so a late re-tidy never undoes the user's own move.
   const styled = useRef({ id: map.id, style: map.labelStyle });
-  const sizesAtSwitch = useRef<ReadonlyMap<NodeId, Size> | null>(null);
+  const atSwitch = useRef<{ sizes: ReadonlyMap<NodeId, Size>; nodes: LinkMap["nodes"] } | null>(null);
   useEffect(() => {
     const before = styled.current;
     styled.current = { id: map.id, style: map.labelStyle };
     if (before.style !== map.labelStyle) {
-      sizesAtSwitch.current = before.id === map.id && map.kind === "tree" ? sizes : null;
+      atSwitch.current = before.id === map.id && map.kind === "tree" ? { sizes, nodes: map.nodes } : null;
       return;
     }
-    if (!sizesAtSwitch.current || sizesAtSwitch.current === sizes) return;
-    if (!allMeasured || !screen || needsTidy) return;
+    if (!atSwitch.current) return;
+    if (atSwitch.current.nodes !== map.nodes) {
+      atSwitch.current = null;
+      return;
+    }
+    if (atSwitch.current.sizes === sizes || !allMeasured || !screen || needsTidy) return;
     const later = setTimeout(() => {
-      sizesAtSwitch.current = null;
+      atSwitch.current = null;
       settleTree(sizesRef.current, screen);
     });
     return () => clearTimeout(later);
-  }, [map.id, map.kind, map.labelStyle, sizes, allMeasured, screen, needsTidy, settleTree]);
+  }, [map.id, map.kind, map.labelStyle, map.nodes, sizes, allMeasured, screen, needsTidy, settleTree]);
 
   // An outline pasted into a map without tree rules: only the new boxes
   // are laid out, as a block beside the box they were pasted into, in free
