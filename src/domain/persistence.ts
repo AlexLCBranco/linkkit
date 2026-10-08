@@ -1,3 +1,4 @@
+import { LINK_FIELDS, MAP_FIELDS, NODE_FIELDS, TRASH_ENTRY_FIELDS, unknownFields } from "./extras";
 import { basicLinkCheck } from "./rules";
 import type {
   ArrowLength,
@@ -92,13 +93,15 @@ export function revOf(data: unknown): number {
 
 export function serializeMap(map: LinkMap, rev?: number): PersistedMap {
   const { id, name, kind, page, direction, arrowLength, nodes, links, order, hideCut, collapsed, trash } = map;
-  // Copies out exactly the content fields, so nothing else that happens to
-  // ride along on the object can leak into storage. Never `linkedBoard`:
-  // an exported map is an ordinary tree (see `serializeStored`).
+  // The content fields, plus any field a newer Linkkit added that this
+  // build doesn't know (`extras.ts`): an older tab must never drop it.
+  // Never `linkedBoard`: an exported map is an ordinary tree (see
+  // `serializeStored`).
   return {
     version: SCHEMA_VERSION,
     ...(rev === undefined ? {} : { rev }),
     map: {
+      ...unknownFields(map, MAP_FIELDS),
       id,
       name,
       kind,
@@ -228,6 +231,8 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
   if (collapsed.length !== rawCollapsed.length) fix(null);
 
   const map: LinkMap = {
+    // Fields a newer Linkkit added ride along untouched (`extras.ts`).
+    ...unknownFields(raw, MAP_FIELDS),
     id: raw.id as MapId,
     name,
     kind,
@@ -258,7 +263,7 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
     const fallback = DEFAULT_LINK_LABELS[kind];
     const label =
       typeof link.label === "string" && (link.label.trim() || link.label === fallback) ? link.label : fix(fallback);
-    links[id] = { id, from, to, label };
+    links[id] = { ...unknownFields(link, LINK_FIELDS), id, from, to, label };
   }
 
   // Sibling order (trees only). A tree saved before it existed has none: its
@@ -306,7 +311,8 @@ function readNode(id: NodeId, node: Record<string, unknown>, kind: MapKind, fix:
   // Saves from before notes existed have none: not damage. An empty one
   // is the same as none (never stored).
   const notes = node.notes === undefined ? "" : typeof node.notes === "string" ? node.notes : fix("");
-  return notes.trim() ? { id, name, x, y, color, status, notes } : { id, name, x, y, color, status };
+  const extra = unknownFields(node, NODE_FIELDS);
+  return notes.trim() ? { ...extra, id, name, x, y, color, status, notes } : { ...extra, id, name, x, y, color, status };
 }
 
 /**
@@ -359,7 +365,7 @@ function readTrashEntry(raw: unknown, seen: ReadonlySet<string>, kind: MapKind):
     const { id, from, to, label } = link;
     if (typeof id !== "string" || typeof from !== "string" || typeof to !== "string" || typeof label !== "string") return null;
     if (!ids.has(from) && !ids.has(to)) return null;
-    links.push({ id: id as LinkId, from: from as NodeId, to: to as NodeId, label });
+    links.push({ ...unknownFields(link, LINK_FIELDS), id: id as LinkId, from: from as NodeId, to: to as NodeId, label });
   }
   const rawPlaces = raw.places === undefined ? [] : raw.places;
   if (!Array.isArray(rawPlaces)) return null;
@@ -369,7 +375,7 @@ function readTrashEntry(raw: unknown, seen: ReadonlySet<string>, kind: MapKind):
     if (typeof place.index !== "number" || !Number.isInteger(place.index) || place.index < 0) return null;
     places.push({ parent: place.parent as NodeId, child: place.child as NodeId, index: place.index });
   }
-  return bad ? null : { deletedAt: raw.deletedAt, nodes, links, places };
+  return bad ? null : { ...unknownFields(raw, TRASH_ENTRY_FIELDS), deletedAt: raw.deletedAt, nodes, links, places };
 }
 
 /** The saved order's well-formed entries (lists of ids); anything else is

@@ -1,4 +1,5 @@
 import { isShownCard, MAX_CARDS_PER_LIST, type BoardContent, type BoardItem } from "./boardRecord";
+import { hasUnknownFields, LINK_FIELDS, MAP_FIELDS, NODE_FIELDS, unknownFields, type Extras } from "./extras";
 import { nextSteps } from "./order";
 import { arrowsInto, BOARD_LEVELS } from "./rules";
 import { startOf } from "./tree";
@@ -52,6 +53,15 @@ export interface LinkedView {
   /** Box notes, by box (Linkkit's own: Boardkit never sees them). A box
       with none has no entry. */
   readonly notes: Readonly<Record<NodeId, string>>;
+  /** Fields a newer Linkkit added that this build doesn't know
+      (`extras.ts`): the map's own, each box's, and each arrow's (by the
+      box it points into, like labels). Kept so an older tab never drops
+      them. Absent: none. */
+  readonly extras?: {
+    readonly map: Extras;
+    readonly nodes: Readonly<Record<NodeId, Extras>>;
+    readonly links: Readonly<Record<NodeId, Extras>>;
+  };
 }
 
 /** The `LinkedView` of a map: what Linkkit keeps of it once linked. */
@@ -67,7 +77,12 @@ export function viewOf(map: LinkMap): LinkedView {
   }
   for (const link of Object.values(map.links)) if (link.label) labels[link.to] = link.label;
   const { page, direction, arrowLength, hideCut, collapsed } = map;
-  return { page, direction, arrowLength, hideCut, collapsed, places, colors, labels, notes };
+  const nodeExtras: Record<NodeId, Extras> = {};
+  const linkExtras: Record<NodeId, Extras> = {};
+  for (const node of Object.values(map.nodes)) if (hasUnknownFields(node, NODE_FIELDS)) nodeExtras[node.id] = unknownFields(node, NODE_FIELDS);
+  for (const link of Object.values(map.links)) if (hasUnknownFields(link, LINK_FIELDS)) linkExtras[link.to] = unknownFields(link, LINK_FIELDS);
+  const extras = { map: unknownFields(map, MAP_FIELDS), nodes: nodeExtras, links: linkExtras };
+  return { page, direction, arrowLength, hideCut, collapsed, places, colors, labels, notes, extras };
 }
 
 const statusOf = (item: BoardItem): NodeStatus | null =>
@@ -94,10 +109,19 @@ export function boardToTree(
     const place = view.places[id];
     if (!place) unplaced.push(id);
     const notes = view.notes[id];
-    nodes[id] = { id, name, x: place?.x ?? 0, y: place?.y ?? 0, color: view.colors[id] ?? null, status, ...(notes ? { notes } : {}) };
+    nodes[id] = {
+      ...view.extras?.nodes[id],
+      id,
+      name,
+      x: place?.x ?? 0,
+      y: place?.y ?? 0,
+      color: view.colors[id] ?? null,
+      status,
+      ...(notes ? { notes } : {}),
+    };
     if (parent) {
       const linkId = id as string as LinkId;
-      links[linkId] = { id: linkId, from: parent, to: id, label: view.labels[id] ?? "" };
+      links[linkId] = { ...view.extras?.links[id], id: linkId, from: parent, to: id, label: view.labels[id] ?? "" };
       order[parent] = [...(order[parent] ?? []), id];
     }
   };
@@ -116,6 +140,7 @@ export function boardToTree(
   }
 
   const map: LinkMap = {
+    ...view.extras?.map,
     id: boardId as MapId,
     name: boardName,
     kind: "tree",

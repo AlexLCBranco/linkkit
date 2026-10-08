@@ -582,6 +582,15 @@ domain`; `domain/` is pure TypeScript with Vitest tests.
   original is. Named after its start box, and follows it until renamed
   by hand (a blank box: "Untitled map N"). Not an undo step (like
   Duplicate this map). Check: `domain/fork.ts` (tested)
+- **Saves keep what they don't know** (owner's rule, 2026-10-08): a field
+  a newer Linkkit adds to a map, a box, an arrow or a trash entry is kept
+  as it is by an older Linkkit (another tab not yet reloaded): read,
+  carried through its edits and two-tab merges, and saved back, also in
+  Export all maps, backups, templates and a linked map's own part (never
+  sent to Boardkit). Before this an older tab silently dropped such a
+  field on its next save. Unknown *values* of known fields (a colour this
+  build doesn't have) are still repaired. Check: `domain/extras.ts`
+  (tested)
 - **Export and import** (v0.0.54, Treekit's export menu), "Export" in
   the header, for every map: "Export PNG image" / "Export SVG image" (a
   clean picture, no buttons; a tree is drawn unfolded and freshly tidied,

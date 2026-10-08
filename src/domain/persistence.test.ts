@@ -18,9 +18,11 @@ describe("readMap", () => {
     expect(readMap(roundTrip(serializeMap(map)), fallbackPage)).toEqual({ status: "ok", map });
   });
 
-  it("saves only the content fields", () => {
-    const map = { ...build(["a"]), extra: "leak" };
-    expect(roundTrip(serializeMap(map)).map.extra).toBeUndefined();
+  it("keeps fields it doesn't know (a newer Linkkit's), and never the link", () => {
+    const map = { ...build(["a"]), future: { x: 1 }, linkedBoard: "b1" };
+    const saved = roundTrip(serializeMap(map)).map;
+    expect(saved.future).toEqual({ x: 1 });
+    expect(saved.linkedBoard).toBeUndefined();
   });
 
   it("rejects data with nothing to salvage, or from an unknown version or kind", () => {

@@ -92,9 +92,16 @@ const CONTENT_KEYS = [
   "linkedBoard",
 ] as const satisfies readonly (keyof LinkMap)[];
 
-/** Whether two maps hold the same saved content. */
+/** Every field either map has: the known ones, plus any a newer Linkkit
+    added that this build doesn't know (`extras.ts`). */
+const fieldsOf = (...maps: LinkMap[]): string[] => [...new Set([...CONTENT_KEYS, ...maps.flatMap((m) => Object.keys(m))])];
+
+/** Any field of a map by name, known or not. */
+const fieldOf = (map: LinkMap, key: string): unknown => (map as unknown as Record<string, unknown>)[key];
+
+/** Whether two maps hold the same saved content (unknown fields too). */
 export const sameMap = (a: LinkMap, b: LinkMap): boolean =>
-  a === b || CONTENT_KEYS.every((key) => sameValue(a[key], b[key]));
+  a === b || fieldsOf(a, b).every((key) => sameValue(fieldOf(a, key), fieldOf(b, key)));
 
 /**
  * Ids in `order` that are not part of the longest run they share, in order,
@@ -335,6 +342,11 @@ function wholeLinks(map: LinkMap): LinkMap {
   return next;
 }
 
+/** The fields `mergeMaps` merges in its own way; any other is merged whole. */
+const MERGED_FIELDS: ReadonlySet<string> = new Set([
+  ...CONTENT_KEYS,
+]);
+
 /**
  * Theirs, with this tab's changes since `base` re-applied wherever the
  * other tab left that item alone. See the file comment.
@@ -363,6 +375,16 @@ export function mergeMaps(base: LinkMap, mine: LinkMap, theirs: LinkMap): MapMer
     collapsed: mergeCollapsed(base, mine, theirs, nodes),
     trash: mergeTrash(base, mine, theirs, nodes),
   });
+  // Any other field (one a newer Linkkit added, say): whole, like a setting.
+  const merged = map as unknown as Record<string, unknown>;
+  for (const key of fieldsOf(base, mine, theirs)) {
+    if (MERGED_FIELDS.has(key)) continue;
+    const [b, m, t] = [base, mine, theirs].map((x) => fieldOf(x, key));
+    const value = sameValue(b, m) ? t : sameValue(b, t) ? m : t;
+    if (!sameValue(b, m) && !sameValue(b, t) && !sameValue(m, t)) conflicts.push({ kind: "map", title: theirs.name });
+    if (value === undefined) delete merged[key];
+    else merged[key] = value;
+  }
   if (isOrdered(map)) {
     map = repairTree(map).map;
     map = { ...map, order: normalizeOrder(map, map.direction) };
