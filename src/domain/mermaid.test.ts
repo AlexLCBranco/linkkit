@@ -54,7 +54,7 @@ describe("Mermaid import", () => {
     const start = startOf(map)!;
     expect(map.nodes[start].name).toBe("Move?");
     expect(names(map, nextSteps(map, start))).toEqual(["Rent", "Buy"]);
-    expect(arrows(map)).toEqual(["Buy -> Two lines here", "Move? -> Buy", "Move? -> Rent (if cheap)"]);
+    expect(arrows(map)).toEqual(["Buy -> Two lines\nhere", "Move? -> Buy", "Move? -> Rent (if cheap)"]);
     expect(byName(map, "Rent").color).toBe("teal");
     expect(byName(map, "Buy").notes).toBe('Check the "mortgage"\n  rates first');
     expect(byName(map, "Buy").status).toBe("cut");

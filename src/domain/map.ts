@@ -46,8 +46,21 @@ export function createMap(id: MapId, name: string, page: Size, kind: MapKind = "
   };
 }
 
-/** Tidies a typed name: runs of whitespace become one space, ends trimmed. */
+/** Tidies a typed name or label: runs of whitespace become one space, ends trimmed. */
 export const cleanName = (text: string): string => text.replace(/\s+/g, " ").trim();
+
+/** Tidies a box's name, which may run over several lines (Shift+Enter, as
+    in Treekit): each line tidied like `cleanName`, blank lines dropped. */
+export const cleanBoxName = (text: string): string =>
+  text
+    .split(/\r?\n/)
+    .map(cleanName)
+    .filter(Boolean)
+    .join("\n");
+
+/** A box's name on one line, for places that show one line (the map's
+    name, a Boardkit card's title). */
+export const oneLine = (name: string): string => cleanName(name);
 
 export function addNode(
   map: LinkMap,
@@ -55,7 +68,7 @@ export function addNode(
   name = "",
   id: NodeId = createNodeId(),
 ): { map: LinkMap; nodeId: NodeId } {
-  const node: MapNode = { id, name: cleanName(name), x: at.x, y: at.y, color: null, status: null };
+  const node: MapNode = { id, name: cleanBoxName(name), x: at.x, y: at.y, color: null, status: null };
   return { map: { ...map, nodes: { ...map.nodes, [id]: node } }, nodeId: id };
 }
 
@@ -68,7 +81,7 @@ function updateNode(map: LinkMap, id: NodeId, change: Partial<Omit<MapNode, "id"
 }
 
 export const renameNode = (map: LinkMap, id: NodeId, name: string): LinkMap =>
-  updateNode(map, id, { name: cleanName(name) });
+  updateNode(map, id, { name: cleanBoxName(name) });
 
 export const moveNode = (map: LinkMap, id: NodeId, to: Point): LinkMap => updateNode(map, id, { x: to.x, y: to.y });
 

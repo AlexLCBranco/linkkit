@@ -16,8 +16,8 @@ import type { Link, LinkId, LinkMap, MapId, MapNode, NodeId } from "./types";
  * arrows between them with their labels, the sibling order, what is
  * folded, and the map's settings (direction, arrow length, hide cut). It
  * gets fresh ids, no trash, and is never linked to Boardkit (even when
- * the original is). In a tree the forked box becomes the start, which has
- * no keep / maybe / cut, so its own status is left behind.
+ * the original is). In a tree the forked box becomes the start, keeping
+ * its keep / maybe / cut (a start may have one, as in Treekit).
  *
  * Named after its first (start) box, so the name follows that box until
  * renamed by hand (`followBoxName`); a blank box gives the next free
@@ -35,7 +35,7 @@ export function forkBranch(
   if (!root) return null;
   const branch = new Set<NodeId>([from, ...walk(map, from, "forward")]);
   // The forked box first: a connections map is named after its first box.
-  const nodes: Record<NodeId, MapNode> = { [from]: map.kind === "tree" ? { ...root, status: null } : root };
+  const nodes: Record<NodeId, MapNode> = { [from]: root };
   for (const nodeId of branch) if (nodeId !== from) nodes[nodeId] = map.nodes[nodeId];
   const links: Record<LinkId, Link> = {};
   for (const link of Object.values(map.links)) if (branch.has(link.from) && branch.has(link.to)) links[link.id] = link;

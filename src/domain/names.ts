@@ -1,4 +1,5 @@
 import { startOf } from "./tree";
+import { oneLine } from "./map";
 import type { LinkMap, NodeId } from "./types";
 
 /**
@@ -66,9 +67,9 @@ export function namingBox(map: LinkMap): NodeId | null {
 export function followBoxName(prev: LinkMap, next: LinkMap): LinkMap {
   if (next.linkedBoard || prev.name !== next.name) return next;
   const box = namingBox(next);
-  const now = box ? next.nodes[box]?.name : undefined;
+  const now = box ? oneLine(next.nodes[box]?.name ?? "") : "";
   if (!box || !now) return next;
-  const was = prev.nodes[box]?.name;
+  const was = oneLine(prev.nodes[box]?.name ?? "");
   if (was === now) return next;
   return isUntitled(next.name) || next.name === was ? { ...next, name: now } : next;
 }

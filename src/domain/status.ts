@@ -10,9 +10,8 @@ import type { LinkMap, NodeId } from "./types";
  *   A box looks cut when it is cut itself, or when every way into it comes
  *   from a box that looks cut.
  *
- * So a box with two parents stays alive while one way in is. The start has
- * no way in and can't be cut, so it never looks cut (a status saved on it
- * by mistake is ignored).
+ * So a box with two parents stays alive while one way in is. The start may
+ * be cut too (Treekit's root can): then the whole tree looks cut.
  */
 
 let cached: { map: LinkMap; cut: ReadonlySet<NodeId> } | null = null;
@@ -34,7 +33,7 @@ function computeLooksCut(map: LinkMap): Set<NodeId> {
   const judged = new Set(order);
   for (const id of order) {
     const ins = parents.get(id) ?? [];
-    if (ins.length > 0 && (map.nodes[id].status === "cut" || ins.every((p) => cut.has(p)))) cut.add(id);
+    if (map.nodes[id].status === "cut" || (ins.length > 0 && ins.every((p) => cut.has(p)))) cut.add(id);
   }
   for (const id of Object.keys(map.nodes) as NodeId[]) {
     if (!judged.has(id) && arrowsInto(map, id) > 0 && map.nodes[id].status === "cut") cut.add(id);

@@ -53,7 +53,7 @@ describe("forkBranch", () => {
     for (const n of Object.keys(fork.nodes)) expect(source.nodes[n as NodeId]).toBeUndefined();
   });
 
-  it("keeps colours, notes, statuses, the order, folds and settings; drops the new start's status", () => {
+  it("keeps colours, notes, statuses, the order, folds and settings; the new start keeps its status", () => {
     let source = tree();
     source = setNodeColor(source, id("a2"), "teal");
     source = setNodeNotes(source, id("a2x"), "why\nbecause");
@@ -61,7 +61,7 @@ describe("forkBranch", () => {
     source = setCollapsed(source, [id("a2"), id("s")], true);
     source = { ...source, direction: "LR", arrowLength: 103, hideCut: true, order: { ...source.order, [id("a")]: [id("a2"), id("a1")] } };
     const fork = forkBranch(source, id("a"), M2, [])!;
-    expect(byName(fork, "a").status).toBeNull();
+    expect(byName(fork, "a").status).toBe("cut");
     expect(byName(fork, "a1").status).toBe("cut");
     expect(byName(fork, "a2").color).toBe("teal");
     expect(byName(fork, "a2x").notes).toBe("why\nbecause");

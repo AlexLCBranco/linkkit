@@ -28,15 +28,15 @@ const mark = (map: LinkMap, status: NodeStatus | null, ...names: string[]) => se
 const sorted = (set: ReadonlySet<string>) => [...set].sort();
 
 describe("canSetStatus", () => {
-  it("is for a tree's steps, never its start nor a connections map", () => {
+  it("is for every box of a tree, its start too, never a connections map", () => {
     expect(canSetStatus(job(), id("yes"))).toBe(true);
-    expect(canSetStatus(job(), id("job"))).toBe(false);
+    expect(canSetStatus(job(), id("job"))).toBe(true);
     expect(canSetStatus(build(["a", "b"], [["a", "b"]]), id("b"))).toBe(false);
   });
 
   it("is what setNodesStatus follows", () => {
     const map = mark(job(), "cut", "job", "yes");
-    expect(map.nodes[id("job")].status).toBeNull();
+    expect(map.nodes[id("job")].status).toBe("cut");
     expect(map.nodes[id("yes")].status).toBe("cut");
     expect(mark(map, "cut", "yes")).toBe(map);
     expect(mark(map, null, "yes").nodes[id("yes")].status).toBeNull();

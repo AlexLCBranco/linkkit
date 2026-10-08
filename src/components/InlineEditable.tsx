@@ -17,12 +17,15 @@ interface InlineEditableProps {
   /** Several lines pasted (one line pastes as usual): the pasted text and
       the typed text either side of it. Typing ends with it. */
   readonly onPasteLines?: (text: string, before: string, after: string) => void;
+  /** Shift+Enter starts a new line (a box name, as in Treekit); Enter
+      still ends typing. Off, Shift+Enter ends typing too. */
+  readonly multiline?: boolean;
 }
 
 /**
  * Click-to-edit text, copied from Treekit (which adapted Boardkit's). Generic:
- * it knows nothing about maps. Enter commits (names and labels are one
- * line; long ones wrap on screen), Esc cancels, clicking away commits.
+ * it knows nothing about maps. Enter commits, Shift+Enter starts a new line
+ * where allowed (`multiline`: box names), Esc cancels, clicking away commits.
  *
  * The edit field is its own component, mounted only while editing. Its
  * draft starts from `value` on mount, so every edit begins fresh with no
@@ -59,6 +62,7 @@ function EditField({
   placeholder,
   className,
   onPasteLines,
+  multiline = false,
 }: Omit<InlineEditableProps, "editing">) {
   const [draft, setDraft] = useState(value);
   // Set once the edit has ended, so the blur that follows Enter/Esc (as the
@@ -117,7 +121,9 @@ function EditField({
           // Keep every key local: canvas shortcuts (Delete = delete the box)
           // must not fire while typing.
           event.stopPropagation();
-          if (event.key === "Enter") {
+          if (event.key === "Enter" && event.shiftKey && multiline) {
+            // A new line in the name: the browser types it.
+          } else if (event.key === "Enter") {
             event.preventDefault();
             finish(true);
           } else if (event.key === "Escape") {

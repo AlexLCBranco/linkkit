@@ -71,6 +71,15 @@ export function LinkDialog({ preview, onClose }: { preview: LinkPreview | null; 
                     It becomes a board in Boardkit with {count(preview.lists, "list", "lists")} and{" "}
                     {count(preview.cards, "card", "cards")}. From then on, a change in either app shows in both.
                   </p>
+                  {preview.multiLine > 0 && (
+                    <p>
+                      {count(preview.multiLine, "name", "names")} over several lines will be put on one line: card
+                      and list titles in Boardkit are one line.
+                    </p>
+                  )}
+                  {preview.startStatus && (
+                    <p>The start's keep / maybe / cut will be left behind: a board in Boardkit has none.</p>
+                  )}
                   {preview.trashed > 0 && (
                     <p>
                       The {count(preview.trashed, "deleted box", "deleted boxes")} in this map's trash will be erased: a

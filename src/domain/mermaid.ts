@@ -1,5 +1,5 @@
 import { createLinkId, createMapId, createNodeId } from "./ids";
-import { cleanName, createMap } from "./map";
+import { cleanBoxName, cleanName, createMap } from "./map";
 import { isUntitled, numberedName, UNTITLED_MAP } from "./names";
 import { nextSteps, normalizeOrder } from "./order";
 import { startOf } from "./tree";
@@ -550,18 +550,17 @@ function buildMap(
   const ids = new Map<string, NodeId>(group.map((k) => [k, createNodeId()]));
   const nodes: Record<NodeId, MapNode> = {};
   const links: Record<LinkId, Link> = {};
-  const pointedTo = new Set(edges.filter((e) => ids.has(e.target)).map((e) => e.target));
   let statusesLeft = 0;
   for (const key of group) {
     const id = ids.get(key)!;
     const status = draft.statuses.get(key) ?? null;
-    // Only a tree's boxes have a status, and never its start.
-    const keeps = kind === "tree" && pointedTo.has(key);
+    // Only a tree's boxes have a status (its start too, as in Treekit).
+    const keeps = kind === "tree";
     if (status && !keeps) statusesLeft++;
     const notes = draft.notes.get(key) ?? "";
     nodes[id] = {
       id,
-      name: cleanName(draft.titles.get(key) ?? ""),
+      name: cleanBoxName(draft.titles.get(key) ?? ""),
       x: 0,
       y: 0,
       color: draft.colors.get(key) ?? null,
@@ -575,8 +574,7 @@ function buildMap(
     links[id] = { id, from: ids.get(edge.source)!, to: ids.get(edge.target)!, label: cleanName(edge.label) || DEFAULT_LINK_LABELS[kind] };
   }
   if (statusesLeft) {
-    const where = kind === "tree" ? "a start box" : "a map without tree rules";
-    warnings.push(`Keep / maybe / cut was left off ${statusesLeft === 1 ? "1 box" : `${statusesLeft} boxes`}: ${where} has none.`);
+    warnings.push(`Keep / maybe / cut was left off ${statusesLeft === 1 ? "1 box" : `${statusesLeft} boxes`}: a map without tree rules has none.`);
   }
   const map: LinkMap = { ...createMap(createMapId(), UNTITLED_MAP, page, kind), direction, nodes, links };
   return kind === "tree" ? { ...map, order: normalizeOrder(map) } : map;

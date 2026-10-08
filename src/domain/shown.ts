@@ -27,7 +27,8 @@ function compute(map: LinkMap): { hidden: ReadonlySet<NodeId>; shown: LinkMap } 
   const judged = new Set(order);
   for (const id of order) {
     const ins = parents.get(id) ?? [];
-    if (cut.has(id) || (ins.length > 0 && ins.every((p) => hidden.has(p) || folded.has(p)))) hidden.add(id);
+    // The start always shows (greyed when cut), so a tree never vanishes.
+    if ((cut.has(id) && ins.length > 0) || (ins.length > 0 && ins.every((p) => hidden.has(p) || folded.has(p)))) hidden.add(id);
   }
   for (const id of cut) if (!judged.has(id)) hidden.add(id);
   if (hidden.size === 0) return { hidden, shown: map };

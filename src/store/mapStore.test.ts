@@ -576,14 +576,14 @@ describe("map store (tree)", () => {
     expect(useMapStore.getState().settleRequest).toBe(now);
   });
 
-  it("marks keep / maybe / cut as one undo step each, never on the start", async () => {
+  it("marks keep / maybe / cut as one undo step each, the start too", async () => {
     const useMapStore = await treeStore();
     const before = useMapStore.getState().map;
     const yes = named(useMapStore, "Yes, take it");
     const start = named(useMapStore, "Take the new job?");
     useMapStore.getState().setBoxesStatus([yes, start], "maybe");
     expect(useMapStore.getState().map.nodes[yes].status).toBe("maybe");
-    expect(useMapStore.getState().map.nodes[start].status).toBeNull();
+    expect(useMapStore.getState().map.nodes[start].status).toBe("maybe");
     // X: cuts, then uncuts once all are cut.
     useMapStore.getState().toggleCut([yes]);
     expect(useMapStore.getState().map.nodes[yes].status).toBe("cut");
@@ -1137,7 +1137,7 @@ describe("a linked tree in the store", () => {
     const { useMapStore } = await linkedStore();
     const { linkPreview } = await import("./mapStore");
     useMapStore.getState().unlinkFromBoard();
-    expect(linkPreview(useMapStore.getState().map)).toEqual({ kind: "ok", name: "Move?", lists: 2, cards: 1, trashed: 0 });
+    expect(linkPreview(useMapStore.getState().map)).toEqual({ kind: "ok", name: "Move?", lists: 2, cards: 1, trashed: 0, multiLine: 0, startStatus: false });
     expect(useMapStore.getState().linkToBoard()).toBe(true);
     const { map } = useMapStore.getState();
     // "move" is still a board in Boardkit: the start box got a fresh id.

@@ -9,6 +9,7 @@ import {
   addNode,
   clampArrowLength,
   cleanName,
+  oneLine,
   createMap,
   deleteLink,
   copyFragment,
@@ -74,6 +75,7 @@ import { copyName, removeMap, upsertMap, type Registry } from "../domain/registr
 import { ARROW_LENGTH_PRESETS, type ArrowStyle, type LabelStyle, type LinkId, type LinkMap, type MapId, type NodeId, type NodeStatus, type PaletteColor, type Point, type Size } from "../domain/types";
 import { mergeMaps, shareUnchanged, type MergeConflict } from "../domain/merge";
 import {
+  boardLosses,
   boardProblems,
   boardRefusal,
   linkedProblem,
@@ -616,7 +618,7 @@ function forget(s: MapState, map: LinkMap): Pick<MapState, "map" | "selected" | 
 /** A tree has no copy and paste: a pasted box would arrive with no way in. */
 const PASTE_REFUSAL = "With tree rules on, copy and paste are off: a pasted box would have no parent. Drag a box to move it.";
 const STATUS_REFUSAL = (map: LinkMap, id: NodeId) =>
-  `“${map.nodes[id]?.name || "Untitled"}” is the start, the question itself: it has no keep / maybe / cut.`;
+  `“${oneLine(map.nodes[id]?.name ?? "") || "Untitled"}” is this board in Boardkit, and a board has no keep / maybe / cut.`;
 
 /** Where a hint about box `id` (or arrow) shows when the action came from
     the keyboard: its centre, or the arrow's middle. */
@@ -818,6 +820,10 @@ export type LinkPreview =
       readonly cards: number;
       /** Boxes in the map's own trash, which linking erases. */
       readonly trashed: number;
+      /** Names over several lines, which become one line. */
+      readonly multiLine: number;
+      /** The start has a keep / maybe / cut, which is left behind. */
+      readonly startStatus: boolean;
     };
 
 export function linkPreview(map: LinkMap): LinkPreview {
@@ -832,6 +838,7 @@ export function linkPreview(map: LinkMap): LinkPreview {
     lists: result.board.listOrder.length,
     cards: Object.keys(result.board.cards).length,
     trashed: map.trash.reduce((n, entry) => n + entry.nodes.length, 0),
+    ...boardLosses(map),
   };
 }
 
@@ -964,6 +971,8 @@ export const useMapStore = create<MapState>()((set, get) => ({
     // name in Boardkit, which never has a blank one.
     const { map } = get();
     if (!cleanName(name) && map.linkedBoard && id === (map.linkedBoard as NodeId)) return;
+    // A linked map's names are Boardkit's card and list titles: one line.
+    if (map.linkedBoard) name = oneLine(name);
     // Naming a box just added joins its "add" step (`newBoxKey`); any other
     // rename is a step of its own.
     set((s) => {

@@ -92,6 +92,7 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   const setBoxColor = useMapStore((s) => s.setBoxColor);
   const addNextStep = useMapStore((s) => s.addNextStep);
   const isTree = useMapStore((s) => s.map.kind === "tree");
+  const isLinked = useMapStore((s) => !!s.map.linkedBoard);
   // A tree's start box: Treekit's label style shows it as the heading.
   const isStart = useMapStore((s) => s.map.kind === "tree" && arrowsInto(s.map, nodeId) === 0);
   const addable = useMapStore((s) => canAddNextStep(s.map, nodeId));
@@ -145,6 +146,9 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
         onPasteLines={(text, before, after) => pasteOutline(nodeId, text, before, after)}
         // Esc on a box just added takes it back; left blank otherwise, it stays.
         onDone={(committed) => stopEditing(!committed)}
+        // Shift+Enter: a name over several lines (a linked map's are
+        // Boardkit titles, one line).
+        multiline={!isLinked}
         placeholder={isEditing ? "Type a name" : "Untitled"}
         ariaLabel="Box name"
         className={styles.name}

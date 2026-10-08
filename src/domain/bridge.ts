@@ -1,6 +1,7 @@
 import { isShownCard, MAX_CARDS_PER_LIST, type BoardContent, type BoardItem } from "./boardRecord";
 import { hasUnknownFields, LINK_FIELDS, MAP_FIELDS, NODE_FIELDS, unknownFields, type Extras } from "./extras";
 import { nextSteps } from "./order";
+import { oneLine } from "./map";
 import { arrowsInto, BOARD_LEVELS } from "./rules";
 import { startOf } from "./tree";
 import type {
@@ -652,6 +653,31 @@ export type LinkTree =
  * trash doesn't (a linked map's deletes live in the board's trash).
  * Refused, with the reasons, when the tree doesn't fit a board.
  */
+/**
+ * What a tree loses on its way to a board, which the link question names
+ * (`boardLosses`): names over several lines become one line (card and list
+ * titles are one line), and the start's keep / maybe / cut is left behind
+ * (a board has none).
+ */
+export function boardLosses(map: LinkMap): { readonly multiLine: number; readonly startStatus: boolean } {
+  const start = startOf(map);
+  return {
+    multiLine: Object.values(map.nodes).filter((n) => n.name.includes("\n")).length,
+    startStatus: !!start && map.nodes[start].status !== null,
+  };
+}
+
+function fitForBoard(map: LinkMap, start: NodeId): LinkMap {
+  const nodes = Object.fromEntries(
+    Object.values(map.nodes).map((n) => {
+      const name = n.name.includes("\n") ? oneLine(n.name) : n.name;
+      const status = n.id === start ? null : n.status;
+      return [n.id, name === n.name && status === n.status ? n : { ...n, name, status }];
+    }),
+  );
+  return { ...map, nodes };
+}
+
 export function linkTree(map: LinkMap, boardTaken: (id: string) => boolean, freshId: () => NodeId): LinkTree {
   if (map.linkedBoard) return { ok: false, problems: [{ kind: "not-a-tree" }] };
   const problems = boardProblems(map);
@@ -660,6 +686,7 @@ export function linkTree(map: LinkMap, boardTaken: (id: string) => boolean, fres
   const start = startOf(tree)!;
   if (boardTaken(start)) tree = renamedBox(tree, start, freshId());
   const boardId = startOf(tree)!;
+  tree = fitForBoard(tree, boardId);
   const linking: LinkMap = { ...tree, linkedBoard: boardId, trash: [] };
   const result = treeToBoard(EMPTY_BOARD, linking, 0);
   if (!result.ok) return result;

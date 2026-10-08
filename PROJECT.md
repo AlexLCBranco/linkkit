@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-08, v0.0.62 (Treekit parity batch 2: trees tidy as Treekit's tidy tree, rows 64 apart, re-tidy after a rename, a box let go on bare paper glides home; v0.0.61: Treekit's keyboard flow in trees)_
+_Last updated: 2026-10-08, v0.0.63 (Treekit parity batch 3: box names over several lines with Shift+Enter, kept through Mermaid; a tree's start can have keep / maybe / cut. Batches 1-3 done: the owner migrates Treekit's trees by Mermaid next)_
 
 ## What it is
 
@@ -391,8 +391,9 @@ in"). Loops and arrows into the start are refused in both. Code:
     toolbar, or the "Status" row in its right-click menu (for several
     picked boxes, it sets them all): no status, Keep ✓, Maybe ?, Cut ✂.
     X cuts the selected box(es), or uncuts them when all are cut. Each is
-    one undo step, saved with the box. The start has no status (it is the
-    question). A small badge on a box's top-left corner shows its status.
+    one undo step, saved with the box. The start can have one too (v0.0.63,
+    as Treekit's root can), except in a map linked to Boardkit, where the
+    start is the board. A small badge on a box's top-left corner shows its status.
     A box looks cut when it is cut, or when every way into it comes from
     a box that looks cut (so a box with two parents stays alive while one
     way in is): it fades under a veil with a dashed border, and the
@@ -632,8 +633,7 @@ in"). Loops and arrows into the start are refused in both. Code:
   opens, tidied; a note at the bottom says the original is unchanged and
   in the map menu. The copy keeps names, colours, statuses, notes, arrow
   labels, sibling order, folds and the map's settings; the forked box is
-  its start (a start has no keep / maybe / cut, so that one status stays
-  behind). Fresh ids, no trash, never linked to Boardkit even when the
+  its start, keeping its keep / maybe / cut (v0.0.63). Fresh ids, no trash, never linked to Boardkit even when the
   original is. Named after its start box, and follows it until renamed
   by hand (a blank box: "Untitled map N"). Not an undo step (like
   Duplicate this map). Check: `domain/fork.ts` (tested)
@@ -663,13 +663,13 @@ in"). Loops and arrows into the start are refused in both. Code:
   map with them off (a box with two ways in is fine in a Linkkit tree).
   The first new map opens, tidied; the others are in the map menu,
   roughly laid out. What can't come across is said at the bottom (an
-  arrow from a box to itself; keep / maybe / cut on a start or in a map
-  without tree rules). Round trip keeps: box names, arrows and labels,
+  arrow from a box to itself; keep / maybe / cut in a map without tree
+  rules). Round trip keeps: box names, arrows and labels,
   sibling order, colours, notes, keep / maybe / cut, direction, the map's
   name and whether tree rules are on. It loses: box places (re-tidied),
   folds, Hide cut, arrow length, arrow style (an import is always
-  Straight), label style (always Linkkit's), line breaks in names (Linkkit names are
-  one line), the trash. Check: `domain/mermaid.ts` (tested);
+  Straight), label style (always Linkkit's), the trash. Line breaks in box names
+  come across both ways as `<br/>`, as in Treekit (v0.0.63). Check: `domain/mermaid.ts` (tested);
   `features/export/` (`html-to-image`, as in Treekit); where the
   image puts things: `domain/imageLayout.ts` (tested: a moved box is
   drawn where it was moved, in any arrow or label style)
@@ -728,6 +728,27 @@ in"). Loops and arrows into the start are refused in both. Code:
   straight line. Check: `domain/arrows.ts` (tested),
   `domain/arrowStyle.test.ts`; `features/map/ArrowLengthPanel.tsx`,
   `LinkEdgeView.tsx`, `features/export/renderMapImage.ts`
+- **Names over several lines, and a status on the start** (v0.0.63,
+  Treekit parity batch 3):
+  - While typing a box's name, Shift+Enter starts a new line (Enter still
+    ends typing), in any map. Each line is tidied (extra spaces go, blank
+    lines are dropped). The box shows the lines as typed. Mermaid writes
+    a line break as `<br/>` and reads it back, so Treekit's two-line
+    titles now arrive as two lines. Where one line is needed it is joined
+    with a space: the map's name when it follows its start box, and in a
+    map linked to Boardkit, whose names are card and list titles (there
+    Shift+Enter ends typing like Enter). "Link to Boardkit…" says how many
+    names will be put on one line
+  - A tree's start can be kept, weighed or cut (the toolbar's tag, its
+    menu, X), as Treekit's root can. A cut start greys the whole tree and
+    counts in "Hide cut"; with Hide cut on, the start still shows (greyed)
+    and the rest hides, so a tree never vanishes. Mermaid import keeps a
+    start's status (no more warning) and export writes it. Not in a map
+    linked to Boardkit (the start is the board, which has no status):
+    linking leaves it behind, and the link question says so
+  Check: `domain/namesAndStart.test.ts`; `cleanBoxName` / `oneLine` in
+  `domain/map.ts`; `components/InlineEditable.tsx` (`multiline`);
+  `domain/rules.ts`, `status.ts`, `shown.ts`, `bridge.ts` (`boardLosses`)
 - **Tree layout: Treekit's tidy tree** (v0.0.62, Treekit parity batch 2,
   rule OK'd by the owner 2026-10-08). Tidy up (and a tree's own re-tidy
   as it grows) now lays a tree out as Treekit does: each box's next steps
@@ -809,8 +830,15 @@ status / fold, shortcuts dialog, laser, several trees per map.
    off by any edit before it lands); a box let go on bare paper glides
    home; the first reflow of an existing tree is one undo step~~ (done,
    v0.0.62; rule in "Tree layout" under What works now)
-3. Batch 3, names and the start: multi-line names (Shift+Enter), kept
-   through Mermaid import / export; the start box can have a status
+3. ~~Batch 3, names and the start: multi-line names (Shift+Enter), kept
+   through Mermaid import / export; the start box can have a status~~
+   (done, v0.0.63)
+
+All three batches are done. Next (the owner): migrate the remaining
+Treekit trees by Mermaid (Treekit: Export > Copy / Download Mermaid; here:
+Export > Import Mermaid…). Still lost on the way, by Treekit's export:
+folds, Hide cut, the tree's own name (the map takes its start's name),
+Treekit's trash, and which trees shared a board (each becomes a map)
 
 The first build, in order:
 1. ~~Scaffold~~ (done)

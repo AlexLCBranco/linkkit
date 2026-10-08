@@ -204,9 +204,9 @@ const tree: KindRules = {
   },
   // A pasted box would arrive with no way into it: a loose box.
   canPaste: () => false,
-  // The start is the question itself (the board, in Boardkit, which has
-  // no status): only the steps after it are kept, weighed or cut.
-  canSetStatus: (map, id) => !!map.nodes[id] && !isStart(map, id),
+  // Every box, the start too (Treekit's root can be kept or cut): a cut
+  // start greys the whole tree.
+  canSetStatus: (map, id) => !!map.nodes[id],
   canCollapse: (map, id) => !!map.nodes[id] && Object.values(map.links).some((l) => l.from === id && map.nodes[l.to]),
   canAddNextStep: (map, id) => !!map.nodes[id],
   // The arrow in gets a new start, so the box keeps its one way in. With
@@ -237,6 +237,8 @@ const tree: KindRules = {
  */
 const linkedTree: KindRules = {
   ...tree,
+  // The start is the board in Boardkit, which has no status.
+  canSetStatus: (map, id) => !!map.nodes[id] && !isStart(map, id),
   canLink: (map, from, to) => {
     const verdict = tree.canLink(map, from, to);
     if (!verdict.ok) return verdict;
