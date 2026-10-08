@@ -60,6 +60,9 @@ export const TWIN_OFFSET = 7;
 /** How far the pointer must travel before a press on a box becomes a drag
     rather than a click (the prototype's number). */
 export const DRAG_THRESHOLD = 4;
+/** Clear space kept round the selected box when the screen scrolls to
+    show it (Treekit's: half its frame margin). */
+export const REVEAL_MARGIN = 36;
 
 /** "Add box" steps a new box this far aside (down-right) at a time while
     it would overlap another, and keeps this much clear space round it. */

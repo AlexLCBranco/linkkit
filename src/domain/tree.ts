@@ -20,7 +20,9 @@ import { DEFAULT_LINK_LABELS } from "./types";
 /** The name a new tree's start box has until one is typed. */
 export const START_NAME = "Start";
 
-/** A blank tree: just its start box (centred on 0, 0; Tidy up places it). */
+/** A blank tree: just its start box (centred on 0, 0; Tidy up places it),
+    drawn as Treekit draws trees (elbow lines, Treekit's text), the
+    owner's choice for new trees. Maps made before keep their styles. */
 export function createTree(
   id: MapId,
   name: string,
@@ -28,7 +30,8 @@ export function createTree(
   startName = START_NAME,
   startId: NodeId = createNodeId(),
 ): { map: LinkMap; startId: NodeId } {
-  const { map } = addNode(createMap(id, name, page, "tree"), { x: 0, y: 0 }, startName, startId);
+  const blank: LinkMap = { ...createMap(id, name, page, "tree"), arrowStyle: "elbow", labelStyle: "treekit" };
+  const { map } = addNode(blank, { x: 0, y: 0 }, startName, startId);
   return { map, startId };
 }
 

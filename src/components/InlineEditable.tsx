@@ -84,6 +84,15 @@ function EditField({
           if (el && !finishedRef.current && document.activeElement !== el) {
             el.focus();
             el.select();
+            // Not focusable yet (still hidden while it is measured): once
+            // more on the next frame.
+            if (document.activeElement !== el) {
+              requestAnimationFrame(() => {
+                if (finishedRef.current || !el.isConnected || document.activeElement === el) return;
+                el.focus();
+                el.select();
+              });
+            }
           }
         }}
         className={`${styles.textarea} nodrag nopan nowheel`}

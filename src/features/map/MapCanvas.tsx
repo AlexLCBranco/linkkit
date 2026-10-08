@@ -15,12 +15,13 @@ import { arrowRoutes } from "../../domain/arrows";
 import type { Box } from "../../domain/geometry";
 import { placeLabels } from "../../domain/labels";
 import { layoutMap } from "../../domain/layout";
+import { scrollToReveal } from "../../domain/navigation";
 import { shownMap } from "../../domain/shown";
 import { boxesIn, marqueeSelection, rectBetween, type Rect } from "../../domain/marquee";
 import { boxBounds, clampToPage, keepOnPage, pageSize, placeBlockBeside, placeOnPage } from "../../domain/page";
 import { scrollAfterZoom, ZOOM_MAX, ZOOM_MIN, zoomPage, type ZoomedPage } from "../../domain/zoom";
 import type { ArrowLength, LayoutDirection, LinkId, LinkMap, NodeId, Point, Size } from "../../domain/types";
-import { selectionOf, useMapStore } from "../../store/mapStore";
+import { namingNewBox, selectionOf, useMapStore } from "../../store/mapStore";
 import { useViewStore, zoomOf } from "../../store/viewStore";
 import { BoxContextMenu } from "./BoxContextMenu";
 import { BoxView, type BoxFlowNode } from "./BoxView";
@@ -38,12 +39,14 @@ import {
   PAGE_INSETS,
   PAGE_MARGIN,
   PASTE_BLOCK,
+  REVEAL_MARGIN,
   ROUTES,
   TIDY_GLIDE_MS,
 } from "./layoutConfig";
 import { LinkEdgeView, type LinkFlowEdge } from "./LinkEdgeView";
 import styles from "./MapCanvas.module.css";
 import { MAP_PAGE_ATTRIBUTE, MAP_SHEET_ATTRIBUTE, MAP_VIEW_ATTRIBUTE, screenSize } from "./pageMarkers";
+import { boxFlowNode } from "./flowNodes";
 import { useGlide } from "./useGlide";
 import { useMapShortcuts } from "./useMapShortcuts";
 
@@ -53,7 +56,6 @@ const nodeTypes = { box: BoxView };
 const edgeTypes = { link: LinkEdgeView };
 /** A node's position is its centre, matching how the map stores boxes. */
 const CENTER_ORIGIN: NodeOrigin = [0.5, 0.5];
-const NO_DATA = {};
 /** Double-clicking a tree's paper adds nothing: the hint says how instead. */
 const PAPER_REFUSAL = "With tree rules on, every box needs a parent: use a box’s + button, or drag its dot onto the paper.";
 /** The page before the screen is first measured. */
@@ -275,6 +277,41 @@ function MapCanvasInner() {
     [addBox, screenToFlowPosition],
   );
 
+  // The selected box stays on screen (Treekit's): selected with the arrow
+  // keys, added with Tab, or moved by a tidy, the screen scrolls just
+  // enough to show it. Not while a button is held (a box being dragged
+  // past the edge, a marquee), nor for a group.
+  const selectedId = useMapStore((s) => (s.group.length === 0 ? s.selected : null));
+  const selectedAt = selectedId ? map.nodes[selectedId] : undefined;
+  const selectedSize = selectedId ? sizes.get(selectedId) : undefined;
+  const pressing = useRef(false);
+  useEffect(() => {
+    const down = () => (pressing.current = true);
+    const up = () => (pressing.current = false);
+    window.addEventListener("pointerdown", down, true);
+    window.addEventListener("pointerup", up, true);
+    window.addEventListener("pointercancel", up, true);
+    return () => {
+      window.removeEventListener("pointerdown", down, true);
+      window.removeEventListener("pointerup", up, true);
+      window.removeEventListener("pointercancel", up, true);
+    };
+  }, []);
+  const revealX = selectedAt?.x;
+  const revealY = selectedAt?.y;
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view || !drawn || revealX === undefined || revealY === undefined || pressing.current) return;
+    const size = selectedSize ?? MAP_LAYOUT.fallbackSize;
+    const to = scrollToReveal(
+      { x: drawn.x + revealX * drawn.zoom, y: drawn.y + revealY * drawn.zoom },
+      { width: size.width * drawn.zoom, height: size.height * drawn.zoom },
+      { left: view.scrollLeft, top: view.scrollTop, width: view.clientWidth, height: view.clientHeight },
+      REVEAL_MARGIN,
+    );
+    if (to.left !== view.scrollLeft || to.top !== view.scrollTop) view.scrollTo({ ...to, behavior: "smooth" });
+  }, [selectedId, revealX, revealY, selectedSize, drawn]);
+
   // Tidy up and Align: the new places go into the store at once, as one
   // change; `useGlide` then draws the boxes on their way there.
   const glide = useGlide(map.nodes, TIDY_GLIDE_MS);
@@ -316,8 +353,10 @@ function MapCanvasInner() {
   }, [startGlide]);
 
   // A tree that grew (a next step, a second parent, a new step's name)
-  // re-tidies itself once every box is measured, and the boxes glide to
-  // make room. The tidy joins the change's own undo step (`nudgeBoxes`), so
+  // re-tidies itself, and the boxes glide to make room. A box not measured
+  // yet (one just added) counts at the typical size, so room is made for
+  // it before it is ever drawn on top of its siblings; its real size then
+  // re-tidies once more (below). The tidy joins the change's own undo step (`nudgeBoxes`), so
   // undo takes back the step and the room made for it together.
   const settleTree = useCallback(
     (sizes: ReadonlyMap<NodeId, Size>, screen: Size) => {
@@ -334,11 +373,25 @@ function MapCanvasInner() {
   );
   const settleRequest = useMapStore((s) => s.settleRequest);
   const settled = useRef(settleRequest);
-  useEffect(() => {
-    if (settleRequest === settled.current || !allMeasured || !screen || needsTidy) return;
+  useLayoutEffect(() => {
+    if (settleRequest === settled.current || !screen || needsTidy) return;
     settled.current = settleRequest;
     settleTree(sizes, screen);
-  }, [settleRequest, allMeasured, screen, needsTidy, sizes, settleTree]);
+  }, [settleRequest, screen, needsTidy, sizes, settleTree]);
+
+  // A new step's name, as it is typed, makes room for itself (Treekit's
+  // tree lays itself out from the measured sizes all the time). Only a box
+  // just added: its room joins its own "add" step.
+  const naming = useMapStore((s) => (s.map.kind === "tree" ? namingNewBox(s) : null));
+  const namingSize = naming ? sizes.get(naming) : undefined;
+  const roomFor = useRef<Size | undefined>(undefined);
+  useLayoutEffect(() => {
+    const before = roomFor.current;
+    roomFor.current = namingSize;
+    if (!naming || !namingSize || !screen || needsTidy) return;
+    if (before && before.width === namingSize.width && before.height === namingSize.height) return;
+    settleTree(sizes, screen);
+  }, [naming, namingSize, sizes, screen, needsTidy, settleTree]);
 
   // Switching a tree's label style resizes its boxes (Treekit's are wider):
   // once the new sizes are measured, it re-tidies as a tree that grew does,
@@ -399,24 +452,7 @@ function MapCanvasInner() {
 
   const at = useCallback((id: NodeId): Point => glide.shown?.get(id) ?? map.nodes[id], [glide.shown, map.nodes]);
 
-  const nodes = useMemo<BoxFlowNode[]>(
-    () =>
-      nodeIds.map((id) => {
-        const node = at(id);
-        return {
-          id,
-          type: "box",
-          position: { x: node.x, y: node.y },
-          data: NO_DATA,
-          // Handing React Flow back the size it measured (normally done by
-          // `applyNodeChanges`): these node objects are rebuilt every render,
-          // and without it React Flow forgets the measurement -- and with it
-          // the arrows, which need it.
-          measured: sizes.get(id),
-        };
-      }),
-    [nodeIds, at, sizes],
-  );
+  const nodes = useMemo<BoxFlowNode[]>(() => nodeIds.map((id) => boxFlowNode(id, at(id), sizes.get(id))), [nodeIds, at, sizes]);
 
   const onLabelSize = useCallback((id: LinkId, size: Size | null) => {
     const prev = labelSizesRef.current;

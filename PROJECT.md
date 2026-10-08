@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-08, v0.0.60 (fix: a label-style re-tidy no longer undoes a box moved before it lands; v0.0.59: export draws boxes where they are on screen)_
+_Last updated: 2026-10-08, v0.0.61 (Treekit parity batch 1: Tab / arrows / Enter / F2 in trees, new boxes focus at once and make room before they show, the selected box scrolls into view, new trees in Elbow + Treekit text)_
 
 ## What it is
 
@@ -59,7 +59,37 @@ in"). Loops and arrows into the start are refused in both. Code:
 - Keyboard extras for boxes: Tab moves through the boxes (and each box's
   toolbar buttons, which show while it has focus); Enter on a box selects
   it, as in the prototype. Tab skips the arrow lines; an arrow label's ×
-  shows when Tab reaches it
+  shows when Tab reaches it. Enter or F2 on the selected box renames it
+  (any map). In a tree, Tab is Treekit's instead (below)
+- **Treekit's keyboard flow in trees** (v0.0.61, Treekit parity batch 1):
+  - Tab adds a next step under the selected box; its name is open for
+    typing at once (also after the toolbar's +), and once named (Enter)
+    it stays selected, so Tab again goes one deeper. ↑ then Tab adds a
+    sibling. Esc on the blank new box takes it back and selects its parent
+    again. Shift+Tab, and Tab with nothing selected or on a header
+    button, move focus as usual. A new tree's start is selected while its
+    name is typed, so a whole tree can be typed without the mouse
+  - Arrow keys move the selection: ↑ to the parent, ↓ to a next step (the
+    one last visited, else the first), ←/→ along the row in the order the
+    boxes sit, crossing to cousins. Left-right turns them (← parent, →
+    next step, ↑/↓ the column). With nothing selected, any arrow picks the
+    start. A box with two parents goes back up the way it was reached
+    (else to the parent furthest left / up). Folded and hidden cut boxes
+    are skipped. Check: `domain/navigation.ts` (tested),
+    `features/map/useMapShortcuts.ts`, `keyboard.test.ts`
+  - The selected box stays on screen: selected by key, added with Tab, or
+    moved by a tidy, the screen scrolls (smoothly) just enough to show it
+    with 36px round it. Not while a mouse button is held (a drag, a
+    marquee), nor for a group
+  - A new box shows (and its name field takes focus) before it has been
+    measured: it is given a typical box's size until then (Treekit's
+    `initialWidth` / `initialHeight`). The tree makes room for it before
+    it is ever drawn, and again as its name grows while typing (one undo
+    step with the add), so it never sits on its siblings
+  - New trees ("+ New map with tree rules", the example tree, tree
+    templates) start with Elbow arrows and Treekit's text (owner's
+    choice); maps made before keep their styles, and both can still be
+    changed in "Arrows"
 - Several saved maps (Treekit's tree switcher): click the map's name in
   the header to rename it; the arrow beside it opens a menu listing every
   map (newest first, a tick on the open one; a name that repeats shows
@@ -728,6 +758,25 @@ in"). Loops and arrows into the start are refused in both. Code:
   `ArrowLengthPanel.tsx`, `MapCanvas.tsx`
 
 ## What's next
+
+### Treekit parity (owner's plan, 2026-10-08, after the parity audit)
+
+Goal: retire Treekit. Three batches, each shipped and tested before the
+next. After batch 3 the owner migrates the remaining Treekit trees by
+Mermaid. Not now (owner): fork F key, Shift+Del, L key, selection-bar
+status / fold, shortcuts dialog, laser, several trees per map.
+
+1. ~~Batch 1, keyboard flow in trees: Tab adds a next step, arrows move,
+   Enter / F2 rename; a new box focused at once and kept selected after
+   naming; never on top of its siblings while typed; the selected box
+   scrolls into view; new trees in Elbow + Treekit text~~ (done, v0.0.61)
+2. Batch 2, layout: Tidy up centres each parent over its next steps
+   (Treekit's `domain/layout.ts` as reference), rows 64 apart as in
+   Treekit; re-tidy after a rename. Before coding: give the owner the rule
+   for boxes with two parents and for loops, and how it works with Elbow
+   routing, and wait for the OK. Tests with the audit's 34-box tree
+3. Batch 3, names and the start: multi-line names (Shift+Enter), kept
+   through Mermaid import / export; the start box can have a status
 
 The first build, in order:
 1. ~~Scaffold~~ (done)

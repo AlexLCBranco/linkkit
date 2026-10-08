@@ -66,6 +66,7 @@ import {
   type TrashSummary,
 } from "../domain/trash";
 import { addNextStep, branchesOf, createTree, moveToParent as moveUnder, startOf } from "../domain/tree";
+import { arrowToMove, EMPTY_MEMORY, moveFrom, remember, type ArrowKey, type NavMemory } from "../domain/navigation";
 import { followBoxName, numberedName } from "../domain/names";
 import { forkBranch } from "../domain/fork";
 import { UNTITLED_MAP } from "../domain/persistence";
@@ -270,6 +271,9 @@ export interface MapState {
   placeAll(positions: ReadonlyMap<NodeId, Point>, page?: Size, settings?: TidySettings, gesture?: string | null): void;
   /** Selects a box (`null` clears the selection), ending any group. */
   select(id: NodeId | null): void;
+  /** An arrow key in a tree: up to a parent, down to a next step, along
+      the row (`domain/navigation.ts`). With nothing selected, the start. */
+  moveSelection(key: ArrowKey): void;
   /** Selects several boxes (one is a plain `select`, none clears). */
   selectGroup(ids: readonly NodeId[]): void;
   /** Shift+click: adds a box to the selection, or takes it out. */
@@ -817,6 +821,11 @@ export function linkPreview(map: LinkMap): LinkPreview {
 /** The undo step a new box and its first name share. */
 const newBoxKey = (id: NodeId) => `new:${id}`;
 
+/** The box just added and still being named (its add step still open), or
+    `null`. A tree makes room for it as its name grows. */
+export const namingNewBox = (s: Pick<MapState, "editing" | "stepKey">): NodeId | null =>
+  s.editing?.kind === "box" && s.stepKey === newBoxKey(s.editing.id) ? s.editing.id : null;
+
 /** The undo step one stretch of typing in a box's notes shares. */
 const notesKey = (id: NodeId) => `notes:${id}`;
 
@@ -834,6 +843,10 @@ function pasteInto(s: MapState, fragment: MapFragment, offset: Point): Partial<M
 /** Where a new step goes before the tree re-tidies (it glides from here):
     just after its parent, in the tree's direction. */
 const NEXT_STEP_OFFSET = { TB: { x: 0, y: 96 }, LR: { x: 200, y: 0 } };
+
+/** Where the arrow keys last went in this map (`NavMemory`): session view
+    state, kept outside the store so it never re-renders anything. */
+let nav: NavMemory = EMPTY_MEMORY;
 
 export const useMapStore = create<MapState>()((set, get) => ({
   ...initialState(),
@@ -865,11 +878,23 @@ export const useMapStore = create<MapState>()((set, get) => ({
       if (settings) next = setArrowLength(setDirection(next, settings.direction), settings.arrowLength);
       if (s.needsTidy) {
         const edit = s.editAfterTidy && next.nodes[s.editAfterTidy] ? s.editAfterTidy : null;
-        return { map: next, needsTidy: false, editAfterTidy: null, editing: edit ? { kind: "box", id: edit } : s.editing };
+        // A new tree's start opens for typing, selected, so Tab goes on
+        // to its first next step.
+        if (edit) return { map: next, needsTidy: false, editAfterTidy: null, editing: { kind: "box", id: edit }, ...selecting([edit]) };
+        return { map: next, needsTidy: false, editAfterTidy: null };
       }
       return commit(s, next, gesture && `arrows:${gesture}`);
     }),
   select: (id) => set({ selected: id, group: [], selectedLink: null }),
+  moveSelection: (key) =>
+    set((s) => {
+      if (s.map.kind !== "tree" || s.editing) return {};
+      const shown = shownMap(s.map);
+      const target = s.selected
+        ? moveFrom(shown, s.selected, arrowToMove(key, shown.direction), nav)
+        : startOf(shown);
+      return target ? selecting([target]) : {};
+    }),
   selectGroup: (ids) => set((s) => selecting(ids.filter((id) => s.map.nodes[id]))),
   toggleSelected: (id) =>
     set((s) => {
@@ -1111,6 +1136,8 @@ export const useMapStore = create<MapState>()((set, get) => ({
     if (useLinkHold.getState().held[map.id]) return null;
     set((s) => ({
       ...commit(s, added.map, newBoxKey(added.nodeId)),
+      // Selected too, so Tab adds the next one under it (Treekit's).
+      ...selecting([added.nodeId]),
       editing: { kind: "box", id: added.nodeId },
       settleRequest: s.settleRequest + 1,
     }));
@@ -1332,7 +1359,10 @@ export const useMapStore = create<MapState>()((set, get) => ({
         // Esc on a box just added, still blank: its "add" step is taken
         // back and forgotten, as if it had never been added.
         const step = history.discardLast(s.history, s.map);
-        if (step) return { ...forget(s, step.map), history: step.history, stepKey: null, editing: null };
+        // Its parent is selected again, ready for another Tab.
+        const parent = Object.values(s.map.links).find((l) => l.to === e.id)?.from;
+        const back = parent && step?.map.nodes[parent] ? selecting([parent]) : {};
+        if (step) return { ...forget({ ...s, ...back }, step.map), history: step.history, stepKey: null, editing: null };
       }
       // A new tree step just named: its final size is known now, so the
       // tree makes room for it (joined to the same step, see settleRequest).
@@ -1473,4 +1503,13 @@ useMapStore.subscribe((s, prev) => {
   if (s.selected === prev.selected || !s.notesOpen) return;
   const stepKey = s.stepKey?.startsWith("notes:") ? null : s.stepKey;
   useMapStore.setState(s.selected ? { stepKey } : { notesOpen: false, stepKey });
+});
+
+// Every selection in a tree, by key or click, is remembered, so ↑ then ↓
+// (or ↓ then ↑ into a box with two parents) comes back the same way.
+useMapStore.subscribe((s, prev) => {
+  if (s.map.id !== prev.map.id) nav = EMPTY_MEMORY;
+  if (s.map.kind === "tree" && s.selected && s.selected !== prev.selected) {
+    nav = remember(nav, s.map, prev.selected, s.selected);
+  }
 });
