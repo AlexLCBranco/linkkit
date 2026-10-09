@@ -199,7 +199,7 @@ describe("treeToBoard", () => {
   it("trashes a deleted card, and a deleted list with its cards kept in it", () => {
     const card = write((m) => deleteBranch(m, id("a")));
     expect(card.board.cardOrder.rent).toEqual(["div", "b"]);
-    expect(card.board.trash).toEqual([{ cardId: "a", listId: "rent", deletedAt: 1000 }]);
+    expect(card.board.trash).toEqual([{ cardId: "a", listId: "rent", deletedAt: 1000, prevCardId: null, nextCardId: "div" }]);
     expect(card.board.cards.a).toBeDefined();
 
     const list = write((m) => deleteBranch(m, id("rent")));

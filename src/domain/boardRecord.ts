@@ -38,6 +38,10 @@ export interface BoardCardTrash {
   readonly cardId: string;
   readonly listId: string;
   readonly deletedAt: number;
+  /** The cards just above and below it when it was deleted, so Boardkit's
+      restore can put it back between them. */
+  readonly prevCardId?: string | null;
+  readonly nextCardId?: string | null;
 }
 
 export interface BoardListTrash {

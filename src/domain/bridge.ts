@@ -490,9 +490,11 @@ export function treeToBoard(board: BoardContent, map: LinkMap, deletedAt: number
       cardOrder[listId] = ids.filter((id) => !cardHome.has(id));
       continue;
     }
-    for (const id of ids) {
-      if (isShownCard(board.cards[id]) && !cardHome.has(id)) trash.push({ cardId: id, listId, deletedAt });
-    }
+    ids.forEach((id, i) => {
+      if (isShownCard(board.cards[id]) && !cardHome.has(id)) {
+        trash.push({ cardId: id, listId, deletedAt, prevCardId: ids[i - 1] ?? null, nextCardId: ids[i + 1] ?? null });
+      }
+    });
   }
   const full: BoardProblem[] = [];
   for (const listId of listIds) {

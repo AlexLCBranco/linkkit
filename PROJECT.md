@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-09, v0.0.65 (BRIDGE-CHECKLIST steps 3-6 and 8 automated with Playwright, `npm run e2e`; three order mismatches found, not yet fixed; no app change)_
+_Last updated: 2026-10-09, v0.0.66 (a card Linkkit sends to Boardkit's trash records its neighbours, so restoring it in Boardkit puts it back in place: e2e 5.2 fixed)_
 
 ## What it is
 
@@ -856,7 +856,10 @@ can't re-join a map and its board. Work in this order, one chat each:
    fixed: 4.3 (Boardkit reorders A2 above A1; Linkkit still draws A1
    first), 4.5 (B2 moved back to List B: Boardkit has B1, B2; Linkkit
    draws B2, B1) and 5.2 (B1 restored from Boardkit's trash goes to the
-   end of List B in Boardkit, but Linkkit draws it in its old first place)
+   end of List B in Boardkit, but Linkkit draws it in its old first place).
+   5.2 fixed 2026-10-09 (Linkkit v0.0.66, Boardkit v0.0.89): a card trash
+   entry records its neighbours, from either app, and Boardkit restores
+   it between them
 2. ~~Refresh the Bridge mapping note (stale "not built" lines)~~ (done,
    2026-10-08)
 3. Linking moves the map's own trash into Boardkit's trash instead of
