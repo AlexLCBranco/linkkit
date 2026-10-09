@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-08, v0.0.65 (bridge audit: side-by-side checklist `BRIDGE-CHECKLIST.md` for the owner, Bridge mapping note refreshed, bridge follow-ups queued; no app change)_
+_Last updated: 2026-10-09, v0.0.65 (BRIDGE-CHECKLIST steps 3-6 and 8 automated with Playwright, `npm run e2e`; three order mismatches found, not yet fixed; no app change)_
 
 ## What it is
 
@@ -35,7 +35,11 @@ with "boardkit:"), plus an IndexedDB database "linkkit" holding only the
 automatic-backup folder (Boardkit's is "boardkit"). Built with Vite's `base: '/linkkit/'`, so every asset
 is under /linkkit/; `vercel.json` maps /linkkit/... back to the root on
 Linkkit's own address, so both addresses work. Layers: `app -> features -> components -> store ->
-domain`; `domain/` is pure TypeScript with Vitest tests.
+domain`; `domain/` is pure TypeScript with Vitest tests. Playwright
+(`npm run e2e`, `e2e/bridge.e2e.ts`) drives Linkkit and Boardkit side by
+side on the live shared site, in a fresh empty browser profile (Edge),
+for BRIDGE-CHECKLIST steps 3-6 and 8; it makes and removes its own
+"ZZ bridge test" map and board and checks every other record is untouched.
 
 ## What works now
 
@@ -843,8 +847,16 @@ can't re-join a map and its board. Work in this order, one chat each:
 
 1. ~~Side-by-side checklist: `BRIDGE-CHECKLIST.md`, for the owner to run
    on the gauntlet site with a throwaway map / board, including a backup
-   file actually appearing in each app's folder~~ (done, 2026-10-08;
-   waiting for the owner to run it)
+   file actually appearing in each app's folder~~ (done, 2026-10-08).
+   Owner ran steps 0-2 by hand on 2026-10-09: both backups write real
+   files, pass. Steps 3-6 and 8 are now automated (`npm run e2e`); 7
+   (backup files after linked edits) and 8.5 (backup folder) stay by hand,
+   since Playwright can't answer the folder picker. First run, 2026-10-09:
+   all pass except three order mismatches, reported to the owner, not yet
+   fixed: 4.3 (Boardkit reorders A2 above A1; Linkkit still draws A1
+   first), 4.5 (B2 moved back to List B: Boardkit has B1, B2; Linkkit
+   draws B2, B1) and 5.2 (B1 restored from Boardkit's trash goes to the
+   end of List B in Boardkit, but Linkkit draws it in its old first place)
 2. ~~Refresh the Bridge mapping note (stale "not built" lines)~~ (done,
    2026-10-08)
 3. Linking moves the map's own trash into Boardkit's trash instead of
