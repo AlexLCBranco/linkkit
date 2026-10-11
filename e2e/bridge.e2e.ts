@@ -1,9 +1,16 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 /**
- * BRIDGE-CHECKLIST.md steps 3-6 and 8, automated: Linkkit and Boardkit side
- * by side on the shared site, in one browser context (one localStorage,
- * like two windows of the same browser).
+ * BRIDGE-CHECKLIST.md steps 1-8, automated: Linkkit and Boardkit side by
+ * side on the shared site, in one browser context (one localStorage, like
+ * two windows of the same browser). Step 0 (safety copies) has nothing to
+ * protect in a fresh profile.
+ *
+ * Automatic backup (steps 1, 2, 7, 8.5) needs a folder picker, which a test
+ * can't click through. So the picker is swapped for one that hands back a
+ * private folder in the browser's own storage (OPFS): the apps write to it
+ * with the same File System Access calls as to a real folder, and the test
+ * reads the files back from there.
  *
  * Safety: the context is a fresh, empty profile, so the only maps and boards
  * in it are the apps' starter ones; the owner's real data lives in their own
@@ -149,6 +156,63 @@ async function centre(locator: Locator) {
   return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
 }
 
+// ----------------------------------------------------------------- backup
+
+/** Stands in for the folder picker: `showDirectoryPicker({ id })` returns
+    the OPFS folder `e2e-<id>`, so Linkkit ("linkkit-backup") and Boardkit
+    ("boardkit-backup") each get their own. */
+function fakeFolderPicker() {
+  (window as unknown as { showDirectoryPicker: unknown }).showDirectoryPicker = async ({ id }: { id: string }) =>
+    (await navigator.storage.getDirectory()).getDirectoryHandle(`e2e-${id}`, { create: true });
+}
+
+type BackupFile = { name: string; modified: number; text: string };
+
+/** The files in an app's backup folder, newest first. */
+const backupFiles = (page: Page, app: "linkkit" | "boardkit") =>
+  page.evaluate(async (app) => {
+    const root = await navigator.storage.getDirectory();
+    const folder = await root.getDirectoryHandle(`e2e-${app}-backup`, { create: true });
+    const files: { name: string; modified: number; text: string }[] = [];
+    for await (const entry of (folder as unknown as { values(): AsyncIterable<FileSystemHandle> }).values()) {
+      if (entry.kind !== "file") continue;
+      const file = await (entry as FileSystemFileHandle).getFile();
+      files.push({ name: entry.name, modified: file.lastModified, text: await file.text() });
+    }
+    return files.sort((a, b) => b.modified - a.modified);
+  }, app);
+
+/** The newest backup written after `since` (the browser's clock). Backups
+    wait for 10 s of quiet, so this allows 25 s. */
+async function backupAfter(page: Page, app: "linkkit" | "boardkit", since: number): Promise<BackupFile> {
+  let newest: BackupFile | undefined;
+  await expect
+    .poll(async () => ((newest = (await backupFiles(page, app))[0])?.modified ?? 0) > since, {
+      timeout: 25_000,
+      message: `a ${app} backup written after the last edit`,
+    })
+    .toBe(true);
+  return newest!;
+}
+
+const browserNow = (page: Page) => page.evaluate(() => Date.now());
+
+/** The text of an app's switcher menu, which holds the backup status line. */
+async function menuText(page: Page, button: RegExp | string) {
+  // A hidden tab doesn't run animations, so its menu would never finish
+  // closing.
+  await page.bringToFront();
+  await page.getByRole("button", { name: button }).click();
+  const text = await page.getByRole("menu").innerText();
+  await page.keyboard.press("Escape");
+  // Closed for good before the next look, so a click can't land on a menu
+  // still animating shut.
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  return text;
+}
+const linkkitMenu = (lk: Page) => menuText(lk, /^Switch map/);
+const boardkitMenu = (bk: Page) => menuText(bk, "Switch board");
+
 async function openBoardkitTrash(bk: Page) {
   await bk.getByRole("button", { name: "Recently deleted lists and cards" }).click();
   return bk.getByRole("dialog");
@@ -166,7 +230,8 @@ const records = (page: Page) =>
     ),
   );
 
-test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 3-6, 8)", async ({ context }) => {
+test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context }) => {
+  await context.addInitScript(fakeFolderPicker);
   // ---- Setup: both apps open, Boardkit first (Linkkit offers "Link to
   // Boardkit" only once Boardkit has made its data here).
   const bkFirst = await context.newPage();
@@ -183,6 +248,23 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 3-6, 8)", async ({ conte
   let bk: Page = bkFirst;
   shots.lk = lk;
   let ids: Record<string, string> = {};
+
+  // ---- 1.1 / 2.1 Turn on automatic backup in both apps. The rest of
+  // steps 1 and 2 waits for the edits in step 4: a first-visit Linkkit has
+  // nothing to back up yet (its example map isn't saved until tidied).
+  await check("1.1", "Linkkit: Automatic backup… with a folder: menu says backing up", async () => {
+    await mapMenu(lk, "Automatic backup…");
+    await expect.poll(() => linkkitMenu(lk)).toContain("Backing up to “e2e-linkkit-backup”");
+  });
+
+  await check("2.1", "Boardkit: Automatic backup… with a folder: menu says backing up", async () => {
+    await bkFirst.bringToFront();
+    await bkFirst.getByRole("button", { name: "Switch board" }).click();
+    await bkFirst.getByRole("menuitem", { name: "Automatic backup…" }).click();
+    await expect.poll(() => boardkitMenu(bkFirst)).toContain("Backing up to e2e-boardkit-backup");
+  });
+  // A hidden tab doesn't draw, and step 3 reads Linkkit's arrows.
+  await lk.bringToFront();
 
   // ---- 3. Link a throwaway tree
   await check("3.1", "New tree ZZ bridge test with List A (A1, A2) and List B (B1, B2)", async () => {
@@ -291,6 +373,36 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 3-6, 8)", async ({ conte
     await expect(box(lk, ids.A1)).toContainText(thot);
   });
 
+  // ---- 1.2-1.4 / 2.2-2.4 The edits in step 4 were backed up. (Boardkit
+  // here is the tab "Open in Boardkit" opened, so this also checks that a
+  // new tab picks the saved folder back up.)
+  const duringStep4 = (await browserNow(lk)) - 15_000;
+
+  await check("1.3", "Linkkit: a new linkkit-backup-YYYY-MM-DD-HHMM.json; menu says last just now", async () => {
+    const file = await backupAfter(lk, "linkkit", duringStep4);
+    expect(file.name).toMatch(/^linkkit-backup-\d{4}-\d{2}-\d{2}-\d{4}\.json$/);
+    expect(await linkkitMenu(lk)).toContain("Backing up to “e2e-linkkit-backup” · last just now");
+  });
+
+  await check("1.4", "Linkkit: the backup holds ZZ bridge test with step 4's edits", async () => {
+    const file = await backupAfter(lk, "linkkit", duringStep4);
+    expect(file.text).toContain(NAME);
+    expect(file.text).toContain("B1 renamed");
+  });
+
+  await check("2.3", "Boardkit: a new boardkit-backup-YYYY-MM-DD-HHMM.json; menu says last just now", async () => {
+    const file = await backupAfter(bk, "boardkit", duringStep4);
+    expect(file.name).toMatch(/^boardkit-backup-\d{4}-\d{2}-\d{2}-\d{4}\.json$/);
+    expect(await boardkitMenu(bk)).toContain("Backing up to e2e-boardkit-backup · last saved just now");
+  });
+
+  await check("2.4", "Boardkit: the backup holds ZZ bridge test with step 4's edits", async () => {
+    const file = await backupAfter(bk, "boardkit", duringStep4);
+    expect(file.text).toContain(NAME);
+    expect(file.text).toContain(thot);
+  });
+  await lk.bringToFront();
+
   // ---- 5. Deletes go to Boardkit's trash, and come back
   await check("5.1", "Delete B1 renamed in Linkkit: gone in Boardkit, in Boardkit's trash; Linkkit offers Boardkit's trash", async () => {
     await (await toolbarButton(lk, ids.B1, "Delete box")).click();
@@ -366,7 +478,28 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 3-6, 8)", async ({ conte
     await expect(listTitle(bk, ids["List A"])).toHaveText("List A 4");
   });
 
-  // ---- 8. Unlink and clean up (7 is about backup files: done by hand)
+  // ---- 7. Backups after linked edits
+  const afterStep6 = await browserNow(lk);
+
+  await check("7.1", "A new file in each backup folder after the last edit", async () => {
+    await backupAfter(lk, "linkkit", afterStep6 - 1_000);
+    await backupAfter(bk, "boardkit", afterStep6 - 1_000);
+  });
+
+  await check("7.2", "Newest Linkkit backup: has ZZ bridge test, no linkedBoard", async () => {
+    const [file] = await backupFiles(lk, "linkkit");
+    expect(file.text).toContain(NAME);
+    expect(file.text).toContain("List A 4");
+    expect(file.text).not.toContain("linkedBoard");
+  });
+
+  await check("7.3", "Newest Boardkit backup: has ZZ bridge test", async () => {
+    const [file] = await backupFiles(bk, "boardkit");
+    expect(file.text).toContain(NAME);
+    expect(file.text).toContain("List A 4");
+  });
+
+  // ---- 8. Unlink and clean up
   await check("8.1", "Delete this board… in Boardkit names the Linkkit map; Cancel", async () => {
     await bk.getByRole("button", { name: "Switch board" }).click();
     await bk.getByRole("menuitem", { name: "Delete this board…" }).click();
@@ -410,6 +543,30 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 3-6, 8)", async ({ conte
     }
     await expect(lkTrash.locator("li").filter({ hasText: NAME })).toHaveCount(0);
     await lk.keyboard.press("Escape");
+  });
+
+  await check("8.5", "Turn off automatic backup in both apps: still off after a reload", async () => {
+    await mapMenu(lk, "Turn off automatic backup");
+    await bk.bringToFront();
+    await bk.getByRole("button", { name: "Switch board" }).click();
+    await bk.getByRole("menuitem", { name: "Turn off automatic backup" }).click();
+    // Off on screen first: turning off forgets the folder asynchronously, and
+    // a reload straight after the click could cut that short.
+    await expect.poll(() => linkkitMenu(lk)).not.toContain("Backing up to");
+    await expect.poll(() => boardkitMenu(bk)).not.toContain("Backing up to");
+    await lk.waitForTimeout(500);
+    await Promise.all([lk.reload(), bk.reload()]);
+    await expect(lk.getByRole("button", { name: /^Switch map/ })).toBeVisible();
+    await expect(bk.getByRole("button", { name: "Switch board" })).toBeVisible();
+    for (const text of [await linkkitMenu(lk), await boardkitMenu(bk)]) {
+      expect(text).not.toContain("Backing up to");
+      expect(text).not.toContain("Turn off automatic backup");
+    }
+    // Then the test's folders go, like deleting a folder made for the test.
+    await lk.evaluate(async () => {
+      const root = await navigator.storage.getDirectory();
+      for (const app of ["linkkit", "boardkit"]) await root.removeEntry(`e2e-${app}-backup`, { recursive: true });
+    });
   });
 
   await check("8.6", "Every other map and board is exactly as before; no ZZ data left", async () => {

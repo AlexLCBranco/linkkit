@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 /**
  * End-to-end checks of Linkkit and Boardkit together (BRIDGE-CHECKLIST.md
- * steps 3-6 and 8). Kept apart from vitest: these drive the real apps on the
+ * steps 1-8). Kept apart from vitest: these drive the real apps on the
  * shared site in a real browser, so they are slow and need the network.
  *
  * Each run gets a fresh, empty browser profile, so the owner's own maps and

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-11, v0.0.67 (a card Boardkit reorders or moves to another list is redrawn in its new place in Linkkit: e2e 4.3 and 4.5 fixed)_
+_Last updated: 2026-10-11, v0.0.67 (bridge e2e now covers the whole checklist, backups included: all 32 checks pass)_
 
 ## What it is
 
@@ -38,7 +38,8 @@ Linkkit's own address, so both addresses work. Layers: `app -> features -> compo
 domain`; `domain/` is pure TypeScript with Vitest tests. Playwright
 (`npm run e2e`, `e2e/bridge.e2e.ts`) drives Linkkit and Boardkit side by
 side on the live shared site, in a fresh empty browser profile (Edge),
-for BRIDGE-CHECKLIST steps 3-6 and 8; it makes and removes its own
+for BRIDGE-CHECKLIST steps 1-8 (automatic backup goes to a private
+browser folder standing in for the folder picker); it makes and removes its own
 "ZZ bridge test" map and board and checks every other record is untouched.
 
 ## What works now
@@ -863,7 +864,10 @@ can't re-join a map and its board. Work in this order, one chat each:
    Linkkit took the new order in but only re-tidied when a box arrived,
    so a reordered or moved card kept its old place on the page; it now
    re-tidies on any change of order or parent. Re-run 2026-10-11 on
-   v0.0.67: all 22 automated checks pass
+   v0.0.67: all 22 automated checks pass. Steps 1, 2, 7 and 8.5 automated
+   too, 2026-10-11: the folder picker is swapped for a private browser
+   (OPFS) folder the test reads back. All 32 checks pass, three runs in a
+   row; nothing of the checklist is left by hand
 2. ~~Refresh the Bridge mapping note (stale "not built" lines)~~ (done,
    2026-10-08)
 3. Linking moves the map's own trash into Boardkit's trash instead of

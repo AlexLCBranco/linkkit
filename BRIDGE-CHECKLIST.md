@@ -1,6 +1,10 @@
 # Linkkit + Boardkit side-by-side checklist
 
-A hand check of the shared store with the real apps on the same site,
+> Fully automated since 2026-10-11: `npm run e2e` in Linkkit runs every
+> step below (backups go to a private browser folder instead of a picked
+> one) and prints pass / fail per step. Kept as the spec the test follows.
+
+A check of the shared store with the real apps on the same site,
 something every bridge step so far could only simulate. Takes about 20
 minutes. Tick each box; when something doesn't match "Expect", write down
 the step number and what you saw (a screenshot helps) and stop there.
