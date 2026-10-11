@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { asLinkId, asMapId, asNodeId } from "./ids";
 import { layoutMap } from "./layout";
 import { addLink, addNode, deleteLink, deleteNode, moveNode } from "./map";
-import { nextSteps, normalizeOrder, sameOrder, withNextStep, withoutBoxes, withoutNextStep } from "./order";
+import { nextSteps, normalizeOrder, sameOrder, sameShape, withNextStep, withoutBoxes, withoutNextStep } from "./order";
 import { readMap, serializeMap } from "./persistence";
 import { buildTree, build, ids } from "./testMaps";
 import { addNextStep, createTree, deleteBranch } from "./tree";
@@ -81,6 +81,32 @@ describe("normalizeOrder", () => {
     expect(sameOrder(ord({ p: ids("a", "b") }), ord({ p: ids("a", "b") }))).toBe(true);
     expect(sameOrder(ord({ p: ids("a", "b") }), ord({ p: ids("b", "a") }))).toBe(false);
     expect(sameOrder(ord({ p: ids("a") }), ord({}))).toBe(false);
+  });
+});
+
+describe("sameShape", () => {
+  // Boardkit's two moves from the bridge e2e (4.3, 4.5): no box comes or
+  // goes, so only the shape says the boxes need placing again.
+  it("is the same tree after a move of places only", () => {
+    const map = grown();
+    expect(sameShape(map, moveNode(map, id("a"), { x: 500, y: 9 }))).toBe(true);
+  });
+
+  it("differs when siblings are reordered (A2 dragged above A1)", () => {
+    const map = grown();
+    expect(sameShape(map, { ...map, order: { [id("s")]: ids("b", "a", "c") } })).toBe(false);
+  });
+
+  it("differs when a box moves to another parent (B2 back to List B)", () => {
+    const map = grown();
+    const links = { ...map.links, [asLinkId("s>c")]: { ...map.links[asLinkId("s>c")], from: id("a") } };
+    expect(sameShape(map, { ...map, links })).toBe(false);
+  });
+
+  it("differs when a box arrives or goes", () => {
+    const map = grown();
+    expect(sameShape(map, addNextStep(map, id("a"), at, "d", id("d"), asLinkId("a>d"))!.map)).toBe(false);
+    expect(sameShape(map, deleteBranch(map, id("c")))).toBe(false);
   });
 });
 

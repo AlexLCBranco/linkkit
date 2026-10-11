@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-09, v0.0.66 (a card Linkkit sends to Boardkit's trash records its neighbours, so restoring it in Boardkit puts it back in place: e2e 5.2 fixed)_
+_Last updated: 2026-10-11, v0.0.67 (a card Boardkit reorders or moves to another list is redrawn in its new place in Linkkit: e2e 4.3 and 4.5 fixed)_
 
 ## What it is
 
@@ -859,7 +859,10 @@ can't re-join a map and its board. Work in this order, one chat each:
    end of List B in Boardkit, but Linkkit draws it in its old first place).
    5.2 fixed 2026-10-09 (Linkkit v0.0.66, Boardkit v0.0.89): a card trash
    entry records its neighbours, from either app, and Boardkit restores
-   it between them
+   it between them. 4.3 and 4.5 fixed 2026-10-11 (Linkkit v0.0.67):
+   Linkkit took the new order in but only re-tidied when a box arrived,
+   so a reordered or moved card kept its old place on the page; it now
+   re-tidies on any change of order or parent
 2. ~~Refresh the Bridge mapping note (stale "not built" lines)~~ (done,
    2026-10-08)
 3. Linking moves the map's own trash into Boardkit's trash instead of
@@ -1140,7 +1143,10 @@ PROJECT.md updated, pushed, and say what couldn't be tested.
      board makes now, over the stored copy, is "theirs" (`linkedTree` in
      `domain/bridge.ts`). Opening tidies in boxes made in Boardkit (no undo
      step); while open, Boardkit's saves and board renames arrive live,
-     new boxes tidied in. Linked trees save at once. Renaming the map
+     the tree re-tidied whenever its shape changed (a card made, deleted,
+     reordered or moved to another list: `sameShape` in `domain/order.ts`;
+     box places are Linkkit's own, so without it a moved card kept its
+     old spot). Linked trees save at once. Renaming the map
      renames the start box and the board in Boardkit's list. Edits that
      break a board's shape are refused with a toast (a step under a card, a
      second way in). A newer or damaged board opens Linkkit's copy

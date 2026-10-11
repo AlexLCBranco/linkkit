@@ -39,6 +39,7 @@ import {
   type MapFragment,
   setPage,
 } from "../domain/map";
+import { sameShape } from "../domain/order";
 import { parseOutline, pasteOutline } from "../domain/outline";
 import { defaultPageSize } from "../domain/page";
 import {
@@ -1452,11 +1453,13 @@ function adoptMap(map: LinkMap): void {
   useMapStore.setState((s) => {
     const next = shareUnchanged(s.map, map);
     if (next === s.map) return {};
-    // Boxes made in Boardkit come with no place: the tree tidies them in.
-    const arrived = !!next.linkedBoard && Object.keys(next.nodes).some((id) => !s.map.nodes[id as NodeId]);
+    // Box places are Linkkit's own; Boardkit only changes the tree's shape.
+    // When it does (a card made, deleted, reordered or moved to another
+    // list), the tree re-tidies so the boxes are drawn in the new order.
+    const reshaped = !!next.linkedBoard && !sameShape(s.map, next);
     return {
       ...forget(s, next),
-      settleRequest: s.settleRequest + (arrived ? 1 : 0),
+      settleRequest: s.settleRequest + (reshaped ? 1 : 0),
       maps: upsertMap(s.maps, { id: next.id, name: next.name }),
       // Undo keeps working: a step is undone item by item from now on, and
       // one whose item changed here too is refused (`domain/history.ts`).

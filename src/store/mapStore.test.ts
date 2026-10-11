@@ -1204,6 +1204,44 @@ describe("a linked tree in the store", () => {
     expect(useSyncNotice.getState().message?.text).toBe("Can't undo further: “Theirs” was changed in Boardkit or another tab.");
   });
 
+  /** Boardkit stores `edit` of the board, then Linkkit's next save takes
+      it in. The tree's settle requests it made. */
+  async function takeInBoardkit(useMapStore: Awaited<ReturnType<typeof linkedStore>>["useMapStore"], edit: (board: { cardOrder: Record<string, string[]>; cards: Record<string, object> }) => void) {
+    const { saveMap } = await import("./persistMap");
+    const stored = JSON.parse(localStorage.getItem("boardkit:board:move")!);
+    edit(stored.board);
+    localStorage.setItem("boardkit:board:move", JSON.stringify({ ...stored, rev: stored.rev + 1 }));
+    useMapStore.getState().moveBox(asNodeId("buy"), { x: 7, y: 7 });
+    const settle = useMapStore.getState().settleRequest;
+    saveMap(useMapStore.getState().map);
+    await new Promise((r) => queueMicrotask(() => r(null)));
+    return useMapStore.getState().settleRequest - settle;
+  }
+
+  // Box places are Linkkit's own, so a card Boardkit reorders or moves to
+  // another list must re-tidy the tree, or it is drawn in its old spot
+  // (bridge e2e 4.3 and 4.5).
+  it("re-tidies when Boardkit reorders cards or moves one to another list, not on a rename", async () => {
+    const { useMapStore } = await linkedStore();
+    const nextSteps = async (id: string) => (await import("../domain/order")).nextSteps(useMapStore.getState().map, asNodeId(id));
+    expect(await takeInBoardkit(useMapStore, (b) => (b.cards.a = { id: "a", title: "A renamed" }))).toBe(0);
+    expect(
+      await takeInBoardkit(useMapStore, (b) => {
+        b.cards.b = { id: "b", title: "B" };
+        b.cardOrder.rent = ["a", "b"];
+      }),
+    ).toBe(1);
+    expect(await takeInBoardkit(useMapStore, (b) => (b.cardOrder.rent = ["b", "a"]))).toBe(1);
+    expect(await nextSteps("rent")).toEqual(["b", "a"]);
+    expect(
+      await takeInBoardkit(useMapStore, (b) => {
+        b.cardOrder.rent = ["a"];
+        b.cardOrder.buy = ["b"];
+      }),
+    ).toBe(1);
+    expect(await nextSteps("buy")).toEqual(["b"]);
+  });
+
   it("changes nothing while its board can't be written", async () => {
     const { useMapStore, useLinkHold } = await linkedStore();
     useLinkHold.getState().hold(asMapId("m1"), "damaged");

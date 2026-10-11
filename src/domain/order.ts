@@ -103,3 +103,9 @@ export function sameOrder(a: SiblingOrder, b: SiblingOrder): boolean {
     return !!y && x.length === y.length && x.every((c, i) => c === y[i]);
   });
 }
+
+/** True when two maps have the same tree shape: every box leads to the
+    same next steps in the same order. A change of order or of parent (a
+    card dragged in Boardkit) isn't the same shape, though no box came or
+    went: the boxes' places no longer match it. */
+export const sameShape = (a: LinkMap, b: LinkMap): boolean => sameOrder(normalizeOrder(a), normalizeOrder(b));
