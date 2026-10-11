@@ -80,10 +80,17 @@ export function LinkDialog({ preview, onClose }: { preview: LinkPreview | null; 
                   {preview.startStatus && (
                     <p>The start box's keep / maybe / cut will be left behind: a board in Boardkit has none.</p>
                   )}
-                  {preview.trashed > 0 && (
+                  {preview.trashKept > 0 && (
                     <p>
-                      The {count(preview.trashed, "deleted box", "deleted boxes")} in this map's trash will be erased: a
-                      linked map's deleted boxes go to Boardkit's trash.
+                      The {count(preview.trashKept, "deleted box", "deleted boxes")} in this map's trash will move to
+                      Boardkit's trash, where you can restore them.
+                    </p>
+                  )}
+                  {preview.trashLost > 0 && (
+                    <p>
+                      {count(preview.trashLost, "deleted box has", "deleted boxes have")} no place on a board (below a
+                      card, or under a box that's gone for good), so linking will erase{" "}
+                      {preview.trashLost === 1 ? "it" : "them"}.
                     </p>
                   )}
                 </div>

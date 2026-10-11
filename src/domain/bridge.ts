@@ -641,20 +641,11 @@ export type LinkTree =
       /** The new board's content and its name (for Boardkit's list). */
       readonly board: BoardContent;
       readonly name: string;
+      /** The map's own trash, moved into the board's (`trashIntoBoard`). */
+      readonly trash: TrashCarried;
     }
   | { readonly ok: false; readonly problems: readonly BoardProblem[] };
 
-/**
- * "Link to Boardkit": an ordinary tree turned into a new board plus the
- * linked map that shares it. The board's id is the start box's, unless a
- * board already has that id (a duplicate of a linked map keeps its box
- * ids): then the start box gets `freshId`. Lists and cards keep their
- * ids, which only need to be unique within one board.
- *
- * Places, colours, labels, collapse and "hide cut" all stay; the map's own
- * trash doesn't (a linked map's deletes live in the board's trash).
- * Refused, with the reasons, when the tree doesn't fit a board.
- */
 /**
  * What a tree loses on its way to a board, which the link question names
  * (`boardLosses`): names over several lines become one line (card and list
@@ -680,6 +671,107 @@ function fitForBoard(map: LinkMap, start: NodeId): LinkMap {
   return { ...map, nodes };
 }
 
+/** What became of the map's own trash on linking: boxes now waiting in
+    the board's trash, and boxes with no place there (erased). */
+export interface TrashCarried {
+  readonly kept: number;
+  readonly lost: number;
+}
+
+/**
+ * `board` (a just-made board) with the map's own trash carried into its
+ * trash, so linking erases nothing that still fits a board:
+ *
+ *  - a deleted next step of the start becomes a deleted list, holding
+ *    whichever of its own next steps are in the trash too (as Boardkit
+ *    keeps a trashed list whole), in their old order. Its note is
+ *    Linkkit's alone, so it is held for it (`heldNotes`).
+ *  - a deleted next step of a list still on the map becomes a deleted
+ *    card of that list, between the cards it sat between.
+ *
+ * Anything else has no place on a board (a box below a card, or one whose
+ * parent was erased) and counts as `lost`, as does whatever Boardkit's
+ * trash limits push out (the oldest first). `start` is the start box's id
+ * in `map`: the trash's arrows point from it.
+ */
+export function trashIntoBoard(
+  board: BoardContent,
+  map: LinkMap,
+  start: NodeId,
+): { board: BoardContent; heldNotes: Record<NodeId, string>; carried: TrashCarried } {
+  type Box = { node: MapNode; parent: NodeId | undefined; index: number; deletedAt: number };
+  const boxes: Box[] = [];
+  for (const entry of [...map.trash].sort((a, b) => a.deletedAt - b.deletedAt)) {
+    for (const node of entry.nodes) {
+      if (board.lists[node.id] || board.cards[node.id]) continue;
+      const parent = entry.links.find((l) => l.to === node.id)?.from;
+      const index = entry.places.find((p) => p.child === node.id)?.index ?? Infinity;
+      boxes.push({ node, parent, index, deletedAt: entry.deletedAt });
+    }
+  }
+  const item = (node: MapNode, card: boolean) =>
+    newItem(node.name.includes("\n") ? { ...node, name: oneLine(node.name) } : node, card);
+
+  const lists: Record<string, BoardItem> = { ...board.lists };
+  const cards: Record<string, BoardItem> = { ...board.cards };
+  const cardOrder: Record<string, readonly string[]> = { ...board.cardOrder };
+  const heldNotes: Record<NodeId, string> = {};
+  const trashedLists = [...board.trashedLists];
+  const trash = [...board.trash];
+
+  const listBoxes = boxes.filter((b) => b.parent === start);
+  const asList = new Set<string>(listBoxes.map((b) => b.node.id));
+  for (const { node, deletedAt } of listBoxes) {
+    // Stable sort: boxes without a recorded place keep the trash's order.
+    const inside = boxes.filter((b) => b.parent === node.id).sort((a, b) => a.index - b.index);
+    lists[node.id] = item(node, false);
+    for (const b of inside) cards[b.node.id] = item(b.node, true);
+    cardOrder[node.id] = inside.map((b) => b.node.id);
+    trashedLists.push({ listId: node.id, deletedAt });
+    if (node.notes) heldNotes[node.id] = node.notes;
+  }
+  for (const { node, parent, index, deletedAt } of boxes) {
+    if (!parent || asList.has(parent) || !board.listOrder.includes(parent)) continue;
+    const ids = board.cardOrder[parent] ?? [];
+    const at = Math.min(index, ids.length);
+    cards[node.id] = item(node, true);
+    trash.push({ cardId: node.id, listId: parent, deletedAt, prevCardId: ids[at - 1] ?? null, nextCardId: ids[at] ?? null });
+  }
+
+  // Boardkit's limits, oldest out first, as in `treeToBoard`.
+  trash.sort((a, b) => a.deletedAt - b.deletedAt);
+  trashedLists.sort((a, b) => a.deletedAt - b.deletedAt);
+  while (trash.length > BOARD_TRASH_LIMIT) delete cards[trash.shift()!.cardId];
+  while (trashedLists.length > BOARD_LIST_TRASH_LIMIT) {
+    const { listId } = trashedLists.shift()!;
+    for (const id of cardOrder[listId] ?? []) delete cards[id];
+    delete lists[listId];
+    delete cardOrder[listId];
+    delete heldNotes[listId as NodeId];
+  }
+
+  const keptCards = trash.length - board.trash.length;
+  const keptLists = trashedLists
+    .filter((e) => asList.has(e.listId))
+    .reduce((n, e) => n + 1 + (cardOrder[e.listId]?.length ?? 0), 0);
+  return {
+    board: { ...board, lists, cards, cardOrder, trash, trashedLists },
+    heldNotes,
+    carried: { kept: keptCards + keptLists, lost: boxes.length - keptCards - keptLists },
+  };
+}
+
+/**
+ * "Link to Boardkit": an ordinary tree turned into a new board plus the
+ * linked map that shares it. The board's id is the start box's, unless a
+ * board already has that id (a duplicate of a linked map keeps its box
+ * ids): then the start box gets `freshId`. Lists and cards keep their
+ * ids, which only need to be unique within one board.
+ *
+ * Places, colours, labels, collapse and "hide cut" all stay. The map's own
+ * trash moves into the board's (`trashIntoBoard`): a linked map's deletes
+ * live there. Refused, with the reasons, when the tree doesn't fit a board.
+ */
 export function linkTree(map: LinkMap, boardTaken: (id: string) => boolean, freshId: () => NodeId): LinkTree {
   if (map.linkedBoard) return { ok: false, problems: [{ kind: "not-a-tree" }] };
   const problems = boardProblems(map);
@@ -692,6 +784,8 @@ export function linkTree(map: LinkMap, boardTaken: (id: string) => boolean, fres
   const linking: LinkMap = { ...tree, linkedBoard: boardId, trash: [] };
   const result = treeToBoard(EMPTY_BOARD, linking, 0);
   if (!result.ok) return result;
-  const linked = withStartName(linkedTree(linking, result.name, result.board).map);
-  return { ok: true, map: linked, boardId, board: result.board, name: result.name };
+  const { board, heldNotes, carried } = trashIntoBoard(result.board, map, start);
+  const held = Object.keys(heldNotes).length ? { heldNotes } : {};
+  const linked = withStartName(linkedTree({ ...linking, ...held }, result.name, board).map);
+  return { ok: true, map: linked, boardId, board, name: result.name, trash: carried };
 }

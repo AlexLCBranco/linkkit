@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-11, v0.0.67 (bridge e2e now covers the whole checklist, backups included: all 32 checks pass)_
+_Last updated: 2026-10-11, v0.0.68 (linking moves the map's own trash into Boardkit's trash instead of erasing it)_
 
 ## What it is
 
@@ -262,7 +262,12 @@ in"). Loops and arrows into the start are refused in both. Code:
   work' is 4 levels deep", "has two ways in", "more than 50 cards");
   nothing is fixed for you. Otherwise a question says what it makes
   ("It becomes a board in Boardkit with 2 lists and 3 cards") and, when
-  the map's own trash holds boxes, that they will be erased. Link makes
+  the map's own trash holds boxes, that they move to Boardkit's trash
+  (v0.0.68, `trashIntoBoard`): a deleted list goes whole with its deleted
+  cards (its note held for it), a deleted card goes back to its list
+  between its old neighbours. Only a box with no place on a board (below
+  a card, or under a box erased for good) is erased, and the question
+  counts those. Link makes
   the board (Boardkit's record, version 2, `rev` 1), adds it at the end
   of Boardkit's board list (Boardkit's open board stays; an open Boardkit
   tab gets the new board live), and stores the map linked, all or
@@ -870,8 +875,10 @@ can't re-join a map and its board. Work in this order, one chat each:
    row; nothing of the checklist is left by hand
 2. ~~Refresh the Bridge mapping note (stale "not built" lines)~~ (done,
    2026-10-08)
-3. Linking moves the map's own trash into Boardkit's trash instead of
-   erasing it. Propose the rule first; build only after the owner's OK
+3. ~~Linking moves the map's own trash into Boardkit's trash instead of
+   erasing it~~ (done, 2026-10-11, v0.0.68; owner OK'd the rule. e2e
+   3.1b / 3.5: a card deleted before linking is restored from Boardkit's
+   trash)
 4. "Link to an existing board": design only, and only after the owner has
    run the checklist (item 1) and reported back
 5. Boardkit's automatic-backup tests, built in the Boardkit repo

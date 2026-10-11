@@ -459,7 +459,7 @@ export interface MapState {
   /**
    * "Link to Boardkit": the open tree becomes a new board in Boardkit, shared
    * from now on (see `linkPreview` for what the user is asked first). Its
-   * own trash is emptied and its undo history cleared. Returns whether it
+   * own trash moves into the board's and its undo history is cleared. Returns whether it
    * was linked; a tree that doesn't fit, or a failed write, changes nothing
    * (a failed write says so).
    */
@@ -819,8 +819,11 @@ export type LinkPreview =
       readonly name: string;
       readonly lists: number;
       readonly cards: number;
-      /** Boxes in the map's own trash, which linking erases. */
-      readonly trashed: number;
+      /** Boxes in the map's own trash that move into Boardkit's trash. */
+      readonly trashKept: number;
+      /** Boxes in the map's own trash with no place on a board, which
+          linking erases. */
+      readonly trashLost: number;
       /** Names over several lines, which become one line. */
       readonly multiLine: number;
       /** The start has a keep / maybe / cut, which is left behind. */
@@ -837,8 +840,10 @@ export function linkPreview(map: LinkMap): LinkPreview {
     kind: "ok",
     name: result.name,
     lists: result.board.listOrder.length,
-    cards: Object.keys(result.board.cards).length,
-    trashed: map.trash.reduce((n, entry) => n + entry.nodes.length, 0),
+    // Shown cards only: the board's trash holds cards too.
+    cards: result.board.listOrder.reduce((n, id) => n + (result.board.cardOrder[id]?.length ?? 0), 0),
+    trashKept: result.trash.kept,
+    trashLost: result.trash.lost,
     ...boardLosses(map),
   };
 }

@@ -53,8 +53,10 @@ Work only on the throwaway map and board made in step 3, both called
 - [ ] **3.1** Linkkit: **+ New map with tree rules**. Name the start box
   `ZZ bridge test`. Add two next steps, `List A` and `List B`, and give
   each two next steps (`A1`, `A2`, `B1`, `B2`).
+- [ ] **3.1b** Add `A3` under `List A`, then delete it.
 - [ ] **3.2** Map menu → **Link to Boardkit…**.
-  Expect: the question says it becomes a board with 2 lists and 4 cards.
+  Expect: the question says it becomes a board with 2 lists and 4 cards,
+  and that the 1 deleted box in the map's trash moves to Boardkit's trash.
   Click **Link**.
   Expect: a "Linked to Boardkit" chip in the header.
 - [ ] **3.3** Click **Open in Boardkit** on the chip.
@@ -62,6 +64,8 @@ Work only on the throwaway map and board made in step 3, both called
   the same order as in Linkkit.
 - [ ] **3.4** In Linkkit, hover card `A1`.
   Expect: no "+" (cards can't have next steps in Boardkit).
+- [ ] **3.5** In Boardkit's trash, restore `A3`. Expect: Linkkit shows it
+  last under List A. Then delete it in Boardkit again.
 
 ## 4. Edits cross over live
 

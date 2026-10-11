@@ -1137,7 +1137,7 @@ describe("a linked tree in the store", () => {
     const { useMapStore } = await linkedStore();
     const { linkPreview } = await import("./mapStore");
     useMapStore.getState().unlinkFromBoard();
-    expect(linkPreview(useMapStore.getState().map)).toEqual({ kind: "ok", name: "Move?", lists: 2, cards: 1, trashed: 0, multiLine: 0, startStatus: false });
+    expect(linkPreview(useMapStore.getState().map)).toEqual({ kind: "ok", name: "Move?", lists: 2, cards: 1, trashKept: 0, trashLost: 0, multiLine: 0, startStatus: false });
     expect(useMapStore.getState().linkToBoard()).toBe(true);
     const { map } = useMapStore.getState();
     // "move" is still a board in Boardkit: the start box got a fresh id.

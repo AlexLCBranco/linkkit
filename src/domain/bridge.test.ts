@@ -20,6 +20,7 @@ import {
 import { asNodeId } from "./ids";
 import { addNextStep, deleteBranch } from "./tree";
 import { buildTree } from "./testMaps";
+import { trashBoxes } from "./trash";
 import type { LinkMap, NodeId } from "./types";
 
 const id = asNodeId;
@@ -447,6 +448,60 @@ describe("linkTree", () => {
     const cards = Array.from({ length: 51 }, (_, i) => `c${i}`);
     const big = buildTree("q", ["l", ...cards], [["q", "l"], ...cards.map((c): [string, string] => ["l", c])]);
     expect(linkTree(big, () => false, fresh)).toEqual({ ok: false, problems: [{ kind: "list-full", box: "l" }] });
+  });
+
+  it("moves the map's own trash into the board's: lists whole, cards to their list, the rest counted lost", () => {
+    // Plan -> Rent (a, b, x), Buy (c, d), Old (o1, o2); deep under card a.
+    let map = buildTree("plan", ["rent", "buy", "old", "a", "b", "x", "c", "d", "o1", "o2", "deep"], [
+      ["plan", "rent"],
+      ["plan", "buy"],
+      ["plan", "old"],
+      ["rent", "a"],
+      ["rent", "b"],
+      ["rent", "x"],
+      ["buy", "c"],
+      ["buy", "d"],
+      ["old", "o1"],
+      ["old", "o2"],
+      ["a", "deep"],
+    ]);
+    map = { ...map, nodes: { ...map.nodes, [id("buy")]: { ...map.nodes[id("buy")], notes: "Buy's note" } } };
+    map = trashBoxes(map, [id("deep")], 1); // below a card: no place on a board
+    map = trashBoxes(map, [id("b")], 2); // a card of a list that stays
+    map = trashBoxes(map, [id("o1")], 3); // a card, then its list later
+    map = trashBoxes(map, [id("old"), id("o2")], 4);
+    map = trashBoxes(map, [id("buy"), id("c"), id("d")], 5); // a list with its cards
+
+    const result = linkTree(map, () => false, fresh);
+    if (!result.ok) throw new Error("refused");
+    expect(result.trash).toEqual({ kept: 7, lost: 1 });
+    const board = result.board;
+    expect(board.listOrder).toEqual(["rent"]);
+    expect(board.cardOrder.rent).toEqual(["a", "x"]);
+    expect(board.trash).toEqual([{ cardId: "b", listId: "rent", deletedAt: 2, prevCardId: "a", nextCardId: "x" }]);
+    expect(board.trashedLists).toEqual([
+      { listId: "old", deletedAt: 4 },
+      { listId: "buy", deletedAt: 5 },
+    ]);
+    expect(board.cardOrder.old).toEqual(["o1", "o2"]);
+    expect(board.cardOrder.buy).toEqual(["c", "d"]);
+    expect(board.cards.deep).toBeUndefined();
+    expect(readBoardRecord(nextRecord({ version: 2, rev: 0, board }, board)).status).toBe("ok");
+    // The map has no trash of its own now; the list's note waits for it.
+    expect(result.map.trash).toEqual([]);
+    expect(result.map.heldNotes).toEqual({ buy: "Buy's note" });
+    expect(Object.keys(result.map.nodes).sort()).toEqual(["a", "plan", "rent", "x"]);
+  });
+
+  it("carries the trash when the start gets a fresh id", () => {
+    let map = buildTree("plan", ["rent", "a"], [["plan", "rent"], ["rent", "a"]]);
+    map = trashBoxes(map, [id("rent"), id("a")], 1);
+    const result = linkTree(map, (boardId) => boardId === "plan", fresh);
+    if (!result.ok) throw new Error("refused");
+    expect(result.boardId).toBe("new-start");
+    expect(result.board.trashedLists).toEqual([{ listId: "rent", deletedAt: 1 }]);
+    expect(result.board.cardOrder.rent).toEqual(["a"]);
+    expect(result.trash).toEqual({ kept: 2, lost: 0 });
   });
 
   it("links a tree that is only its start as a board with no lists", () => {

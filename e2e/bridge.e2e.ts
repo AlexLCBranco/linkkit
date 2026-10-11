@@ -287,10 +287,20 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
     expect(await childNames(lk, ids["List B"])).toEqual(["B1", "B2"]);
   });
 
-  await check("3.2", "Link to Boardkit: says 2 lists and 4 cards; chip after Link", async () => {
+  let a3 = "";
+  await check("3.1b", "Card A3 made and deleted before linking: in the map's own trash", async () => {
+    await addChild(lk, ids["List A"], "A3");
+    a3 = (await boxIds(lk)).A3;
+    await (await toolbarButton(lk, a3, "Delete box")).click();
+    await expect(box(lk, a3)).toHaveCount(0);
+  });
+
+  await check("3.2", "Link to Boardkit: says 2 lists and 4 cards, A3 moves to Boardkit's trash; chip after Link", async () => {
     await mapMenu(lk, "Link to Boardkit…");
     const dialog = lk.getByRole("alertdialog");
     await expect(dialog).toContainText("It becomes a board in Boardkit with 2 lists and 4 cards");
+    await expect(dialog).toContainText("The 1 deleted box in this map's trash will move to Boardkit's trash");
+    await expect(dialog).not.toContainText("erase");
     await dialog.getByRole("button", { name: "Link", exact: true }).click();
     await expect(lk.getByText("Linked to Boardkit")).toBeVisible();
   });
@@ -313,6 +323,18 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
     await box(lk, ids.A1).hover();
     await expect(box(lk, ids.A1).getByRole("button", { name: "Rename" })).toBeVisible();
     await expect(box(lk, ids.A1).getByRole("button", { name: "Add a child" })).toHaveCount(0);
+  });
+
+  await check("3.5", "A3 is in Boardkit's trash; restored, Linkkit shows it last under List A; deleted again", async () => {
+    const trash = await openBoardkitTrash(bk);
+    await trash.locator("li").filter({ hasText: "A3" }).getByRole("button", { name: "Restore card" }).click();
+    await bk.keyboard.press("Escape");
+    expect((await boardShown(bk))[0].cards, "Boardkit itself").toEqual(["A1", "A2", "A3"]);
+    await expect.poll(() => childNames(lk, ids["List A"]), LIVE).toEqual(["A1", "A2", "A3"]);
+    // Out again, so the rest of the checklist runs on the board it expects.
+    await card(bk, a3).hover();
+    await card(bk, a3).getByRole("button", { name: "Delete card" }).click();
+    await expect(box(lk, a3)).toHaveCount(0, LIVE);
   });
 
   // ---- 4. Edits cross over live
