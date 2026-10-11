@@ -862,7 +862,8 @@ can't re-join a map and its board. Work in this order, one chat each:
    it between them. 4.3 and 4.5 fixed 2026-10-11 (Linkkit v0.0.67):
    Linkkit took the new order in but only re-tidied when a box arrived,
    so a reordered or moved card kept its old place on the page; it now
-   re-tidies on any change of order or parent
+   re-tidies on any change of order or parent. Re-run 2026-10-11 on
+   v0.0.67: all 22 automated checks pass
 2. ~~Refresh the Bridge mapping note (stale "not built" lines)~~ (done,
    2026-10-08)
 3. Linking moves the map's own trash into Boardkit's trash instead of
