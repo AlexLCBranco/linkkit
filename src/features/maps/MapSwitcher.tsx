@@ -22,8 +22,9 @@ import { backupNeedsAttention, backupStopped } from "../../domain/autoBackup";
 import { displayNames } from "../../domain/names";
 import { useBackupStore } from "../../store/backupStore";
 import { hasBoardList } from "../../store/persistBoard";
-import { linkPreview, useMapStore, type LinkPreview } from "../../store/mapStore";
-import { LinkDialog, UnlinkDialog } from "./BoardLink";
+import type { BoardChoice } from "../../domain/bridge";
+import { boardChoices, linkPreview, useMapStore, type LinkPreview } from "../../store/mapStore";
+import { BoardPickerDialog, LinkDialog, UnlinkDialog } from "./BoardLink";
 import { TemplateGallery } from "./TemplateGallery";
 import { useGallery } from "../../store/gallery";
 import { SaveTemplateDialog } from "./SaveTemplateDialog";
@@ -54,7 +55,8 @@ import { useNow } from "./useNow";
  * has its own localStorage).
  *
  * "Link to Boardkit…" (trees, where Boardkit's data is) and "Unlink from
- * Boardkit…" (linked trees) open their questions in `BoardLink.tsx`.
+ * Boardkit…" (linked trees) open their questions in `BoardLink.tsx`, as
+ * does "+ Map from a Boardkit board…" (where Boardkit's data is) its list.
  *
  * "Delete this map" moves it to the trash (see TrashPanel), so it doesn't
  * ask first.
@@ -80,6 +82,7 @@ export function MapSwitcher() {
   const [boardkitHere, setBoardkitHere] = useState(false);
   const [linking, setLinking] = useState<LinkPreview | null>(null);
   const [unlinking, setUnlinking] = useState(false);
+  const [boardChoicesShown, setBoardChoices] = useState<BoardChoice[] | null>(null);
   const templates = useGallery((s) => s.open);
   const setTemplates = useGallery((s) => s.setOpen);
   // Empty: only the untouched starter example. Only then is restoring
@@ -203,6 +206,9 @@ export function MapSwitcher() {
             + New map
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => (newTreeAfterClose.current = true)}>+ New map with tree rules</DropdownMenuItem>
+          {boardkitHere && (
+            <DropdownMenuItem onSelect={() => setBoardChoices(boardChoices())}>+ Map from a Boardkit board…</DropdownMenuItem>
+          )}
           <DropdownMenuItem onSelect={() => (newStepsAfterClose.current = true)}>+ New steps map</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setTemplates(true)}>New from template…</DropdownMenuItem>
           <DropdownMenuItem onSelect={duplicateMap}>Duplicate this map</DropdownMenuItem>
@@ -243,6 +249,7 @@ export function MapSwitcher() {
 
       <LinkDialog preview={linking} onClose={() => setLinking(null)} />
       <UnlinkDialog open={unlinking} onClose={() => setUnlinking(false)} />
+      <BoardPickerDialog boards={boardChoicesShown} onClose={() => setBoardChoices(null)} />
       <TemplateGallery open={templates} onOpenChange={setTemplates} />
       <SaveTemplateDialog open={savingTemplate} onOpenChange={setSavingTemplate} />
 

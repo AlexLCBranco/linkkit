@@ -95,21 +95,25 @@ import {
   boardLosses,
   boardProblems,
   boardRefusal,
+  linkableBoards,
   linkedProblem,
+  mapFromBoard,
   withHeldNotes,
   linkTree,
   problemText,
   treeToBoard,
   unlinked,
   withStartName,
+  type BoardChoice,
   type BoardErased,
 } from "../domain/bridge";
 import { useHint } from "./hint";
 import { useLinkHold } from "./linkHold";
-import { boardExists, boardIdOfKey, hasBoardList, isBoardListKey, loadBoard } from "./persistBoard";
+import { boardExists, boardIdOfKey, hasBoardList, isBoardListKey, listBoards, loadBoard } from "./persistBoard";
 import { useMissingMaps } from "./missingMaps";
 import { useSyncNotice } from "./syncNotice";
 import {
+  boardLinks,
   deleteStoredMap,
   loadActiveMapId,
   loadMap,
@@ -509,6 +513,13 @@ export interface MapState {
       with its own copy; the board stays in Boardkit as an ordinary board.
       Its undo history is cleared. */
   unlinkFromBoard(): void;
+  /**
+   * "Map from a Boardkit board…": a new map, linked from the start to
+   * board `boardId`, opened and tidied. Nothing is written in Boardkit.
+   * Refused (with a note saying why) when the board can't be picked any
+   * more (`boardChoices`). Returns whether the map was made.
+   */
+  openBoardAsMap(boardId: string): boolean;
 
   startEditing(editing: Editing): void;
   /** Ends typing. A box may stay blank (it shows a faint "Untitled").
@@ -908,6 +919,10 @@ export function linkPreview(map: LinkMap): LinkPreview {
     ...boardLosses(map),
   };
 }
+
+/** Boardkit's boards as "Map from a Boardkit board…" lists them, read
+    fresh (Boardkit may have changed them since the menu last opened). */
+export const boardChoices = (): BoardChoice[] => linkableBoards(listBoards(), boardLinks());
 
 /** The undo step a new box and its first name share. */
 const newBoxKey = (id: NodeId) => `new:${id}`;
@@ -1562,6 +1577,23 @@ export const useMapStore = create<MapState>()((set, get) => ({
     // Stored at once, so a Boardkit tab's change from now on no longer
     // reaches this map.
     saveMap(map);
+  },
+
+  openBoardAsMap: (boardId) => {
+    get().stopEditing();
+    flushSave();
+    const choice = boardChoices().find((c) => c.id === boardId);
+    const read = loadBoard(boardId);
+    if (!choice || choice.reason || read.status !== "ok") {
+      useSyncNotice.getState().say(choice?.reason ?? "That board is no longer in Boardkit.");
+      return false;
+    }
+    const { map: blank } = createTree(createMapId(), choice.name, newPageSize());
+    const { map } = mapFromBoard(blank, boardId, choice.name, read.record.board);
+    // Saved at once (the board is only read: it gives the same board back)
+    // and tidied before it shows, like a new map with tree rules.
+    set((s) => open(s, map, createStored(map, s.maps), true));
+    return true;
   },
 
   startEditing: (editing) => set({ editing }),

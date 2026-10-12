@@ -1,5 +1,5 @@
 import { BOARD_RECORD_VERSION, nextRecord, type BoardContent, type BoardRecord } from "../domain/boardRecord";
-import { linkedTree, problemText, treeToBoard, unlinked, withStartName } from "../domain/bridge";
+import { linkedTree, problemText, treeToBoard, unlinked, withStartName, type LinkedTo } from "../domain/bridge";
 import { mergeMaps, sameMap } from "../domain/merge";
 import { readMap, revOf, serializeMap, serializeStored, type MapRead } from "../domain/persistence";
 import { readRegistry, removeMap, serializeRegistry, upsertMap, type Registry } from "../domain/registry";
@@ -534,6 +534,37 @@ export function loadMapTrash(): MapTrash {
 
 export function saveMapTrash(trash: MapTrash): void {
   tryWrite(MAP_TRASH_KEY, JSON.stringify(serializeMapTrash(trash)));
+}
+
+/**
+ * Which board each stored map is linked to, by board id: the map's name,
+ * and whether it is in the trash (restoring it brings its link back, so
+ * that board is taken too). Read from Linkkit's own records only.
+ */
+export function boardLinks(): Record<string, LinkedTo> {
+  // No prototype: a board id is any string Boardkit made.
+  const links: Record<string, LinkedTo> = Object.create(null);
+  try {
+    const trashed = new Set<string>(loadMapTrash().map((m) => m.id));
+    for (const id of storedMapIds()) {
+      let data: unknown;
+      try {
+        data = JSON.parse(localStorage.getItem(MAP_KEY_PREFIX + id) ?? "null");
+      } catch {
+        continue;
+      }
+      const map = typeof data === "object" && data !== null ? (data as { map?: unknown }).map : undefined;
+      if (typeof map !== "object" || map === null) continue;
+      const { linkedBoard, name } = map as { linkedBoard?: unknown; name?: unknown };
+      if (typeof linkedBoard !== "string") continue;
+      const entry = { name: typeof name === "string" ? name : "", trashed: trashed.has(id) };
+      // A live map wins over one in the trash, for the reason shown.
+      if (!links[linkedBoard] || links[linkedBoard].trashed) links[linkedBoard] = entry;
+    }
+  } catch {
+    // Storage unreadable: nothing found linked.
+  }
+  return links;
 }
 
 export function loadActiveMapId(): MapId | null {

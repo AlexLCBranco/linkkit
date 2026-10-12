@@ -8,8 +8,10 @@ import {
   boardProblems,
   boardToTree,
   linkedProblem,
+  linkableBoards,
   linkedTree,
   linkTree,
+  mapFromBoard,
   problemText,
   treeToBoard,
   unlinked,
@@ -17,8 +19,8 @@ import {
   withStartName,
   type LinkedView,
 } from "./bridge";
-import { asNodeId } from "./ids";
-import { addNextStep, deleteBranch } from "./tree";
+import { asMapId, asNodeId } from "./ids";
+import { addNextStep, createTree, deleteBranch } from "./tree";
 import { buildTree } from "./testMaps";
 import { trashBoxes } from "./trash";
 import type { LinkMap, NodeId } from "./types";
@@ -507,5 +509,82 @@ describe("linkTree", () => {
   it("links a tree that is only its start as a board with no lists", () => {
     const result = linkTree(buildTree("solo", []), () => false, fresh);
     expect(result.ok && result.board.listOrder).toEqual([]);
+  });
+});
+
+describe("linkableBoards", () => {
+  const ok = (b: BoardContent) => ({ status: "ok" as const, record: { version: 2, rev: 3, board: b } });
+
+  it("lists every board in order, counting lists and shown cards", () => {
+    const empty = { lists: {}, cards: {}, listOrder: [], cardOrder: {}, trash: [], trashedLists: [] };
+    const rows = linkableBoards(
+      [
+        { id: "move", name: "Move?", read: ok(board()) },
+        { id: "empty", name: "Empty", read: ok(empty) },
+      ],
+      {},
+    );
+    expect(rows).toEqual([
+      { id: "move", name: "Move?", lists: 2, cards: 3, reason: null },
+      { id: "empty", name: "Empty", lists: 0, cards: 0, reason: null },
+    ]);
+  });
+
+  it("refuses a board already linked, a map in the trash too, and one it can't read", () => {
+    const rows = linkableBoards(
+      [
+        { id: "a", name: "A", read: ok(board()) },
+        { id: "b", name: "B", read: ok(board()) },
+        { id: "c", name: "C", read: { status: "newer" } },
+        { id: "d", name: "D", read: { status: "damaged" } },
+        { id: "e", name: "E", read: { status: "missing" } },
+        { id: "toString", name: "Odd id", read: ok(board()) },
+      ],
+      { a: { name: "Rent or buy", trashed: false }, b: { name: "Old", trashed: true } },
+    );
+    expect(rows.map((r) => r.reason)).toEqual([
+      "Linked to “Rent or buy”.",
+      "Linked to “Old”, in the trash: restore it, or delete it for good first.",
+      "Linkkit can't read it: open it in Boardkit first.",
+      "Linkkit can't read it: open it in Boardkit first.",
+      "Linkkit can't read it: open it in Boardkit first.",
+      null,
+    ]);
+  });
+});
+
+describe("mapFromBoard", () => {
+  const blank = () => createTree(asMapId("new"), "Untitled map", { width: 800, height: 600 }).map;
+
+  it("makes a new linked map from the board, every box to tidy in", () => {
+    const { map, unplaced } = mapFromBoard(blank(), "move", "Move?", board());
+    expect(map.id).toBe("new");
+    expect(map.linkedBoard).toBe("move");
+    expect(map.name).toBe("Move?");
+    expect(map.order[id("move")]).toEqual(ids("rent", "buy"));
+    expect(map.order[id("rent")]).toEqual(ids("a", "b"));
+    expect(map.nodes[id("a")].notes).toBe("pregame");
+    expect(map.nodes[id("b")].status).toBe("cut");
+    expect(map.trash).toEqual([]);
+    expect([...unplaced].sort()).toEqual(["a", "b", "buy", "c", "move", "rent"]);
+  });
+
+  it("keeps a new map with tree rules' look", () => {
+    const { map } = mapFromBoard(blank(), "move", "Move?", board());
+    expect(map).toMatchObject({ kind: "tree", direction: blank().direction, arrowStyle: "elbow", labelStyle: "treekit" });
+  });
+
+  it("changes nothing on the board when written back", () => {
+    const { map } = mapFromBoard(blank(), "move", "Move?", board());
+    const result = treeToBoard(board(), map, 1000);
+    expect(result.ok && result.changed).toBe(false);
+    expect(result.ok && result.name).toBe("Move?");
+  });
+
+  it("makes just the start box from an empty board", () => {
+    const empty = { lists: {}, cards: {}, listOrder: [], cardOrder: {}, trash: [], trashedLists: [] };
+    const { map } = mapFromBoard(blank(), "e", "Empty", empty);
+    expect(Object.keys(map.nodes)).toEqual(["e"]);
+    expect(linkedProblem(map)).toBeNull();
   });
 });

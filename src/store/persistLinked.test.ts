@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { boardToTree, linkTree, unlinked, type LinkedView } from "../domain/bridge";
+import { boardToTree, linkTree, mapFromBoard, unlinked, type LinkedView } from "../domain/bridge";
 import { asMapId, asNodeId } from "../domain/ids";
 import { moveNode, renameMap, renameNode } from "../domain/map";
 import { serializeStored } from "../domain/persistence";
-import { moveToParent } from "../domain/tree";
+import { createTree, moveToParent } from "../domain/tree";
 import type { LinkMap } from "../domain/types";
 import { useLinkHold } from "./linkHold";
 import { memoryStorage } from "./memoryStorage";
-import { catchUpMap, linkStoredMap, loadMap, onMapMerged, saveMap, takeUnplaced } from "./persistMap";
+import { boardLinks, catchUpMap, linkStoredMap, loadMap, loadMapTrash, onMapMerged, saveMap, takeUnplaced } from "./persistMap";
+import { listBoards } from "./persistBoard";
 import { useSaveHealth } from "./saveHealth";
 import { useSyncNotice } from "./syncNotice";
 
@@ -315,5 +316,42 @@ describe("linking a tree (Link to Boardkit)", () => {
     // A save from this tab now keeps it ordinary.
     saveMap(caught.kind === "merged" ? moveNode(caught.map, id("a"), { x: 1, y: 2 }) : mine);
     expect(JSON.parse(localStorage.getItem(PLAIN_KEY)!).version).toBe(1);
+  });
+});
+
+describe("opening a board as a map (Map from a Boardkit board)", () => {
+  const NEW_ID = asMapId("m2");
+  const fresh = () => mapFromBoard(createTree(NEW_ID, "", PAGE).map, "move", "Move?", boardData());
+
+  it("stores the new linked map and writes nothing in Boardkit", () => {
+    localStorage.removeItem(MAP_KEY);
+    const boardBefore = localStorage.getItem(BOARD_KEY);
+    const listBefore = localStorage.getItem(LIST_KEY);
+    const { map, unplaced } = fresh();
+    saveMap(map);
+    expect(localStorage.getItem(BOARD_KEY)).toBe(boardBefore);
+    expect(localStorage.getItem(LIST_KEY)).toBe(listBefore);
+    const stored = JSON.parse(localStorage.getItem("linkkit:map:m2")!) as { version: number; map: LinkMap };
+    expect(stored.version).toBe(2);
+    expect(stored.map.linkedBoard).toBe("move");
+    expect(useSaveHealth.getState().failing).toEqual([]);
+    // Opened again, its boxes still wait to be tidied in.
+    expect(loadMap(NEW_ID, PAGE)!.order[id("rent")]).toEqual([id("a"), id("b")]);
+    expect(unplaced.length).toBe(6);
+  });
+
+  it("lists Boardkit's boards with their records", () => {
+    expect(listBoards()).toEqual([{ id: "move", name: "Move?", read: { status: "ok", record: { version: 2, rev: 1, board: boardData() } } }]);
+    localStorage.setItem(LIST_KEY, "not json");
+    expect(listBoards()).toEqual([]);
+  });
+
+  it("finds which board each map links to, a map in the trash too", () => {
+    expect(boardLinks()).toEqual({ move: { name: "Move?", trashed: false } });
+    localStorage.setItem("linkkit:trash:maps", JSON.stringify({ version: 1, maps: [{ id: "m1", name: "Move?", deletedAt: 5 }] }));
+    expect(loadMapTrash().map((m) => m.id)).toEqual(["m1"]);
+    expect(boardLinks()).toEqual({ move: { name: "Move?", trashed: true } });
+    localStorage.removeItem(MAP_KEY);
+    expect(boardLinks()).toEqual({});
   });
 });

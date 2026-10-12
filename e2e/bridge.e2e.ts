@@ -543,6 +543,61 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
     await expect(bk.getByRole("button", { name: "Board name" })).toHaveText(NAME);
   });
 
+  // ---- 8.2a-d Map from a Boardkit board: the board, now unlinked, opened
+  // again as a new linked map (ids from step 3 still name its lists and
+  // cards; the start box is the board).
+  const boardKey = `boardkit:board:${ids[NAME]}`;
+  await check("8.2a", "Map from a Boardkit board…: ZZ board says 2 lists · 3 cards; Open as map links it, board untouched", async () => {
+    await lk.bringToFront();
+    const boardBefore = await lk.evaluate((key) => localStorage.getItem(key), boardKey);
+    await mapMenu(lk, "+ Map from a Boardkit board…");
+    const dialog = lk.getByRole("alertdialog");
+    const row = dialog.getByRole("radio", { name: new RegExp(`^${NAME}`) });
+    await expect(row).toContainText("2 lists · 3 cards");
+    await row.click();
+    await dialog.getByRole("button", { name: "Open as map" }).click();
+    await expect(lk.getByText("Linked to Boardkit")).toBeVisible();
+    expect(await childNames(lk, ids[NAME])).toEqual(["List A 4", "List B"]);
+    await lk.waitForTimeout(1_000);
+    expect(await lk.evaluate((key) => localStorage.getItem(key), boardKey), "the board record").toBe(boardBefore);
+  });
+
+  await check("8.2b", "Rename A1 in Boardkit and B2 in Linkkit: each shows in the other", async () => {
+    await retitle(bk, cardTitle(bk, ids.A1), "A1 again");
+    await expect.poll(() => boxName(lk, ids.A1), LIVE).toBe("A1 again");
+    await renameBox(lk, ids.B2, "B2 again");
+    await expect(cardTitle(bk, ids.B2)).toHaveText("B2 again", LIVE);
+  });
+
+  await check("8.2c", "Map from a Boardkit board… again: the ZZ board is greyed, linked to the new map", async () => {
+    await mapMenu(lk, "+ Map from a Boardkit board…");
+    const dialog = lk.getByRole("alertdialog");
+    const row = dialog.getByRole("radio", { name: new RegExp(`^${NAME}`) });
+    await expect(row).toBeDisabled();
+    await expect(row).toContainText(`Linked to “${NAME}”.`);
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toHaveCount(0);
+  });
+
+  await check("8.2d", "Delete the new map, Delete for good; the step-3 map open again", async () => {
+    await mapMenu(lk, "Delete this map");
+    await lk.getByRole("button", { name: "Recently deleted" }).click();
+    const lkTrash = lk.getByRole("dialog");
+    const row = lkTrash.locator("li").filter({ hasText: NAME });
+    await expect(row).toHaveCount(1);
+    await row.getByRole("button", { name: /for good$/ }).click();
+    const sure = lk.getByRole("alertdialog");
+    if (await sure.isVisible({ timeout: 1_000 }).catch(() => false)) {
+      await sure.getByRole("button", { name: /Delete/ }).click();
+    }
+    await expect(lkTrash.locator("li").filter({ hasText: NAME })).toHaveCount(0);
+    await lk.keyboard.press("Escape");
+    await lk.getByRole("button", { name: /^Switch map/ }).click();
+    await lk.getByRole("menuitem", { name: new RegExp(`${NAME}$`) }).click();
+    await expect(lk.getByText("Linked to Boardkit")).toHaveCount(0);
+    await expect(box(lk, ids[NAME])).toBeVisible();
+  });
+
   await check("8.3", "Delete the ZZ bridge test board in Boardkit", async () => {
     await bk.getByRole("button", { name: "Switch board" }).click();
     await bk.getByRole("menuitem", { name: "Delete this board…" }).click();

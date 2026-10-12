@@ -1,4 +1,5 @@
 import { ExternalLink, Link2 } from "lucide-react";
+import { useState } from "react";
 
 import {
   AlertDialog,
@@ -10,6 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "../../components/ui/alert-dialog";
+import type { BoardChoice } from "../../domain/bridge";
 import { useMapStore, type LinkPreview } from "../../store/mapStore";
 import { openBoardNext } from "../../store/persistBoard";
 import styles from "./BoardLink.module.css";
@@ -29,6 +31,8 @@ const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : 
  *    boxes are in the way (nothing is fixed automatically).
  *  - `UnlinkDialog`, from the map menu: the map becomes an ordinary tree,
  *    the board stays in Boardkit.
+ *  - `BoardPickerDialog`, from the map menu: a new map made from a board
+ *    already in Boardkit, linked from the start.
  *  - `LinkedChip`, next to the map's name while it is linked, with "Open in
  *    Boardkit" (which also makes it the board Boardkit opens).
  */
@@ -129,6 +133,82 @@ export function UnlinkDialog({ open, onClose }: { open: boolean; onClose: () => 
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction onClick={unlinkFromBoard}>Unlink</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+/**
+ * "Map from a Boardkit board…": Boardkit's boards, one row each, picked
+ * like radio buttons; "Open as map" makes the linked map. A board that
+ * can't be picked is greyed, with the reason on its row. `boards` is read
+ * as the dialog opens (`null`: closed).
+ */
+export function BoardPickerDialog({ boards, onClose }: { boards: readonly BoardChoice[] | null; onClose: () => void }) {
+  const openBoardAsMap = useMapStore((s) => s.openBoardAsMap);
+  const [picked, setPicked] = useState<string | null>(null);
+  const choosable = boards?.filter((b) => b.reason === null) ?? [];
+  // The only board that can be picked is picked already.
+  const chosen = picked ?? (choosable.length === 1 ? choosable[0].id : null);
+
+  return (
+    <AlertDialog
+      open={boards !== null}
+      onOpenChange={(next) => {
+        if (next) return;
+        setPicked(null);
+        onClose();
+      }}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Open a Boardkit board as a map</AlertDialogTitle>
+          <AlertDialogDescription>
+            A new map with tree rules on, shared with the board: its lists become the next steps of the start, their cards
+            the steps below. A change in either app shows in both. The board itself isn't changed.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        {boards?.length === 0 ? (
+          <p className={styles.boardInfo}>Boardkit has no boards yet.</p>
+        ) : (
+          <div className={styles.boards} role="radiogroup" aria-label="Boardkit boards">
+            {boards?.map((b) => (
+              <button
+                key={b.id}
+                type="button"
+                role="radio"
+                aria-checked={b.id === chosen}
+                disabled={b.reason !== null}
+                className={styles.board}
+                onClick={() => setPicked(b.id)}
+                onDoubleClick={() => {
+                  if (b.reason !== null) return;
+                  setPicked(null);
+                  onClose();
+                  openBoardAsMap(b.id);
+                }}
+              >
+                <span className={styles.boardName}>{b.name || "Untitled board"}</span>
+                <span className={styles.boardInfo}>
+                  {b.reason ?? `${count(b.lists, "list", "lists")} · ${count(b.cards, "card", "cards")}`}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            disabled={chosen === null}
+            onClick={() => {
+              if (chosen === null) return;
+              setPicked(null);
+              openBoardAsMap(chosen);
+            }}
+          >
+            Open as map
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

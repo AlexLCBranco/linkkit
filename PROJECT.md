@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-12, v0.0.72 (Bridge follow-up 4: design for "Map from a Boardkit board" written, waiting for the owner's OK)_
+_Last updated: 2026-10-12, v0.0.73 (Bridge follow-up 4b: "+ Map from a Boardkit board…" opens an existing Boardkit board as a new linked map)_
 
 ## What it is
 
@@ -281,6 +281,21 @@ in"). Loops and arrows into the start are refused in both. Code:
   from Boardkit…" (asks first) makes it an ordinary tree with its own
   copy; the board stays in Boardkit as an ordinary board. Another
   Linkkit tab with the map open follows a link or an unlink
+- "+ Map from a Boardkit board…" (v0.0.73, Bridge follow-up 4), in the
+  map menu under "+ New map with tree rules", shown only where Boardkit's
+  data is: a dialog lists Boardkit's boards in Boardkit's order, each
+  with "3 lists · 12 cards"; pick one (the only pickable one is picked
+  already; double-click also opens) and "Open as map" makes a NEW map
+  linked to that board from the start, named after it, laid out by Tidy
+  up with a new tree's look (top to bottom, Elbow, Treekit text). Nothing
+  is written in Boardkit until the map is first edited (the map gives
+  the same board back). Greyed rows say why: "Linked to 'X'" (a map in
+  Linkkit's trash counts: "in the trash: restore it, or delete it for
+  good first", since one board never has two maps), or "Linkkit can't
+  read it: open it in Boardkit first" (damaged, newer, or no record).
+  From then on it is an ordinary linked map. Code: `linkableBoards`
+  and `mapFromBoard` in `domain/bridge.ts`, `listBoards` and
+  `boardLinks` in the store, `openBoardAsMap`; e2e checks 8.2a-8.2d
 - Click a box: what it needs lights up teal, what breaks without it
   lights up orange (boxes fill, arrows on those paths turn colour and
   thicken), everything else fades, and the status line shows the box's
@@ -1048,11 +1063,11 @@ can't re-join a map and its board. Work in this order, one chat each:
    trash)
 4. ~~"Link to an existing board": design only, and only after the owner
    has run the checklist (item 1) and reported back~~ (design written
-   2026-10-12, below; NOT yet OK'd by the owner. The gate was met: the
+   2026-10-12, below; OK'd by the owner "as described", built in 4b. The gate was met: the
    owner ran steps 0-2 by hand and reported a pass, and the rest of the
    checklist runs as `npm run e2e`, all 32 checks passing on 2026-10-11)
 
-   Design (proposed 2026-10-12, waiting for the owner's OK):
+   Design (2026-10-12, OK'd by the owner "as described"):
    - What it does: makes a NEW map from a board that already exists in
      Boardkit, linked to it from the start. Board = start box, its lists
      = the next steps, its cards = the steps under them (the same
@@ -1101,8 +1116,13 @@ can't re-join a map and its board. Work in this order, one chat each:
      here, a card renamed on each side, unlinked, both cleaned up)
    - Not in it: setting a status from Boardkit (still Linkkit-only),
      picking which lists come in (the whole board always does)
-4b. Build "Map from a Boardkit board", as designed in item 4, only once
-   the owner has OK'd that design (if no OK is recorded here, ask first)
+4b. ~~Build "Map from a Boardkit board", as designed in item 4, only once
+   the owner has OK'd that design (if no OK is recorded here, ask first)~~
+   (done, 2026-10-12, v0.0.73; the owner OK'd the design "as described".
+   Decided while building: the only board that can be picked is picked
+   already, and double-clicking a row opens it; the new map's name is
+   Boardkit's, so a map list with the old unlinked copy shows "ZZ 2" as
+   usual. e2e 8.2a-d added to `npm run e2e`, run against the live site)
 5. Boardkit's automatic-backup tests, built in the Boardkit repo
    (`../Projects/boardkit`), last
 

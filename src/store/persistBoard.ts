@@ -93,6 +93,14 @@ export function writeBoardName(boardId: string, name: string): void {
     tree be linked ("Link to Boardkit" is offered). */
 export const hasBoardList = (): boolean => storedList() !== null;
 
+/** Boardkit's boards, in its list's order, each with its record as read
+    ("Map from a Boardkit board…"). Empty when the list doesn't read. */
+export function listBoards(): { readonly id: string; readonly name: string; readonly read: StoredBoard }[] {
+  const list = storedList();
+  if (!list) return [];
+  return list.boards.map((b) => ({ id: b.id as string, name: b.name as string, read: loadBoard(b.id as string) }));
+}
+
 /** Whether a board with this id exists: stored, or named in the list. */
 export function boardExists(boardId: string): boolean {
   return localStorage.getItem(boardKey(boardId)) !== null || loadBoardName(boardId) !== null;

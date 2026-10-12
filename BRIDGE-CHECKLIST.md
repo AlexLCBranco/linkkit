@@ -126,6 +126,16 @@ within a second or two, without reloading.
 - [ ] **8.2** In Linkkit, map menu → **Unlink from Boardkit…** → confirm.
   Expect: the chip is gone and the map is still there as an ordinary tree.
   Boardkit still has the board.
+- [ ] **8.2a** In Linkkit, map menu → **+ Map from a Boardkit board…**.
+  Expect: the ZZ bridge test row says "2 lists · 3 cards". Pick it →
+  **Open as map**: a new map with the "Linked to Boardkit" chip, List A 4
+  and List B under the start; the board in Boardkit is unchanged.
+- [ ] **8.2b** Rename A1 in Boardkit, B2 in Linkkit. Expect: each shows in
+  the other app.
+- [ ] **8.2c** Open **+ Map from a Boardkit board…** again. Expect: the ZZ
+  row is greyed, "Linked to “ZZ bridge test”". Cancel.
+- [ ] **8.2d** Delete this new map, then **Delete for good** in Recently
+  deleted; switch back to the step-3 ZZ bridge test map.
 - [ ] **8.3** In Boardkit, delete the ZZ bridge test board.
 - [ ] **8.4** In Linkkit, delete the ZZ bridge test map, then in
   **Recently deleted** → Deleted maps → **Delete for good** on it.

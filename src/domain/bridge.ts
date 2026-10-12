@@ -1,4 +1,4 @@
-import { isShownCard, MAX_CARDS_PER_LIST, type BoardContent, type BoardItem } from "./boardRecord";
+import { isShownCard, MAX_CARDS_PER_LIST, type BoardContent, type BoardItem, type BoardRecordRead } from "./boardRecord";
 import { hasUnknownFields, LINK_FIELDS, MAP_FIELDS, NODE_FIELDS, unknownFields, type Extras } from "./extras";
 import { nextSteps } from "./order";
 import { oneLine } from "./map";
@@ -788,4 +788,73 @@ export function linkTree(map: LinkMap, boardTaken: (id: string) => boolean, fres
   const held = Object.keys(heldNotes).length ? { heldNotes } : {};
   const linked = withStartName(linkedTree({ ...linking, ...held }, result.name, board).map);
   return { ok: true, map: linked, boardId, board, name: result.name, trash: carried };
+}
+
+/** A board as "Map from a Boardkit board…" lists it: its name, how much is
+    on it, and why it can't be picked (`null` when it can). */
+export interface BoardChoice {
+  readonly id: string;
+  readonly name: string;
+  readonly lists: number;
+  readonly cards: number;
+  readonly reason: string | null;
+}
+
+/** A map already linked to a board, found in Linkkit's own records. */
+export interface LinkedTo {
+  readonly name: string;
+  /** In Linkkit's trash: restoring it would bring its link back. */
+  readonly trashed: boolean;
+}
+
+/**
+ * Boardkit's boards, in Boardkit's order, as "Map from a Boardkit board…"
+ * offers them. A board can't be picked when a map already links to it (one
+ * board never has two maps, so a map in the trash counts too), or when
+ * Linkkit can't read it: damaged, made by a newer Boardkit, or with no
+ * record yet. Counts are what the map would show: lists, and their cards
+ * without dividers and notes.
+ */
+export function linkableBoards(
+  boards: readonly { readonly id: string; readonly name: string; readonly read: BoardRead }[],
+  linkedTo: Readonly<Record<string, LinkedTo>>,
+): BoardChoice[] {
+  return boards.map(({ id, name, read }) => {
+    const board = read.status === "ok" ? read.record.board : null;
+    const lists = board?.listOrder.length ?? 0;
+    const cards = board ? board.listOrder.reduce((n, l) => n + (board.cardOrder[l] ?? []).filter((c) => isShownCard(board.cards[c])).length, 0) : 0;
+    const link = Object.hasOwn(linkedTo, id) ? linkedTo[id] : undefined;
+    const reason = link
+      ? link.trashed
+        ? `Linked to “${link.name}”, in the trash: restore it, or delete it for good first.`
+        : `Linked to “${link.name}”.`
+      : read.status !== "ok"
+        ? "Linkkit can't read it: open it in Boardkit first."
+        : null;
+    return { id, name, lists, cards, reason };
+  });
+}
+
+/** A board record as read, or `missing` when the list names a board with
+    no record (`StoredBoard` in `store/persistBoard.ts`). */
+export type BoardRead = BoardRecordRead | { readonly status: "missing" };
+
+/**
+ * "Map from a Boardkit board…": a new map `mapId`, linked to board
+ * `boardId` from the start, holding what the board makes (the board is
+ * the start box, its lists the next steps, their cards below). Laid out
+ * like a new map with tree rules (`blank`, from `createTree`): every box
+ * is `unplaced`, for the caller to tidy. The board itself is not changed:
+ * written back, the map gives the same board (`treeToBoard` finds nothing
+ * to change).
+ */
+export function mapFromBoard(
+  blank: LinkMap,
+  boardId: string,
+  boardName: string,
+  board: BoardContent,
+): { map: LinkMap; unplaced: NodeId[] } {
+  const copy: LinkMap = { ...blank, nodes: {}, links: {}, order: {}, collapsed: [], trash: [], linkedBoard: boardId };
+  const built = linkedTree(copy, boardName, board);
+  return { map: withStartName(built.map), unplaced: built.unplaced };
 }
