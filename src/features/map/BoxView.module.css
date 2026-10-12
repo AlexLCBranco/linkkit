@@ -484,3 +484,58 @@
 .box[data-step-type="end"] {
   border-radius: var(--radius-full);
 }
+
+/* A Parallel: a thick bar on the edge its branches leave from, and one on
+   the edge of the step they meet at (a flowchart's fork and join bars), so
+   "do all" never looks like a Choice's "pick one". Drawn over the box's
+   own border, following its corners, so the box keeps its size. */
+.box[data-step-type="parallel"]::after,
+.box[data-parallel-join]::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 0 solid var(--text-secondary);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.box[data-step-type="parallel"]::after {
+  border-bottom-width: var(--parallel-bar-width);
+}
+
+.box[data-parallel-join]::after {
+  border-top-width: var(--parallel-bar-width);
+}
+
+/* "Join here" under an open end of a Parallel's branch: always shown (not
+   only on hover), since a Parallel's branches must meet. */
+.joinHere {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  cursor: pointer;
+}
+
+.joinHere:hover {
+  border-style: solid;
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.box[data-dragging] .joinHere {
+  opacity: 0;
+  pointer-events: none;
+}

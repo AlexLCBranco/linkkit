@@ -68,7 +68,18 @@ import {
   type MapTrash,
   type TrashSummary,
 } from "../domain/trash";
-import { addBranch, addNext, addNextRefusal, createSteps, deleteSteps, stepTypeOf, trashSteps, type StepPreset } from "../domain/steps";
+import {
+  addBranch,
+  addNext,
+  addNextRefusal,
+  createSteps,
+  deleteSteps,
+  joinBranches,
+  parallelJoins,
+  stepTypeOf,
+  trashSteps,
+  type StepPreset,
+} from "../domain/steps";
 import { addNextStep, branchesOf, createTree, moveToParent as moveUnder, startOf } from "../domain/tree";
 import { arrowToMove, EMPTY_MEMORY, moveFrom, remember, type ArrowKey, type NavMemory } from "../domain/navigation";
 import { followBoxName, numberedName } from "../domain/names";
@@ -405,6 +416,10 @@ export interface MapState {
   addStep(from: NodeId, type: StepType): NodeId | null;
   /** Steps: one more branch on a Choice or Parallel, opened for typing. */
   addStepBranch(at: NodeId): NodeId | null;
+  /** Steps, "Join here" on an open end of a Parallel's branch: every open
+      end of that Parallel leads on to where its branches meet (a new step,
+      opened for typing, or the join they already have). Returns the join. */
+  joinHere(at: NodeId): NodeId | null;
   /** Steps: hides the step numbers, or shows them. Undoable; moves no box. */
   setHideNumbers(hide: boolean): void;
 
@@ -1294,6 +1309,20 @@ export const useMapStore = create<MapState>()((set, get) => ({
       settleRequest: s.settleRequest + 1,
     }));
     return added.nodeId;
+  },
+  joinHere: (at) => {
+    get().stopEditing();
+    const split = parallelJoins(get().map).offers.get(at);
+    const joined = split ? joinBranches(get().map, split) : null;
+    if (!joined) return null;
+    set((s) => ({
+      ...commit(s, joined.map, joined.added ? newBoxKey(joined.nodeId) : null),
+      ...selecting([joined.nodeId]),
+      // A new join opens for typing; an existing one keeps its name.
+      editing: joined.added ? { kind: "box", id: joined.nodeId } : null,
+      settleRequest: s.settleRequest + 1,
+    }));
+    return joined.nodeId;
   },
   setHideNumbers: (hide) => set((s) => commit(s, setHideNumbers(s.map, hide))),
 

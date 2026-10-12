@@ -1,5 +1,5 @@
 import { useReactFlow } from "@xyflow/react";
-import { ChevronsDownUp, ChevronsUpDown, ClipboardPaste, Copy, CopyPlus, GitFork, NotebookPen, Pencil, Plus, Scissors, Tag, Trash2 } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, ClipboardPaste, Copy, CopyPlus, GitFork, Merge, NotebookPen, Pencil, Plus, Scissors, Tag, Trash2 } from "lucide-react";
 import { useRef, useState, type MouseEvent, type ReactElement } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -16,7 +16,7 @@ import { canAddNextStep, canCollapse, canDeleteBox, canPaste, canSetStatus } fro
 import { addNextOffer } from "../../domain/steps";
 import { hasTreeShape, type LinkId, type NodeId, type Point } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
-import { selectGroupColor, selectGroupStatus } from "../../store/selectors";
+import { selectGroupColor, selectGroupStatus, selectOffersJoin } from "../../store/selectors";
 import { StatusRow } from "./StatusRow";
 import { SwatchRow } from "./SwatchRow";
 import { BOX_ID_ATTRIBUTE, LINK_ID_ATTRIBUTE } from "./pageMarkers";
@@ -189,9 +189,16 @@ function BoxMenuItems({
   const isSteps = useMapStore((s) => s.map.kind === "steps");
   // Steps: the "Add next" menu, or one more branch (`addNextOffer`).
   const offer = useMapStore((s) => addNextOffer(s.map, nodeId));
+  const offersJoin = useMapStore((s) => selectOffersJoin(s, nodeId));
 
   return (
     <>
+      {offersJoin && (
+        <ContextMenuItem onSelect={() => runAfterClose(() => useMapStore.getState().joinHere(nodeId))}>
+          <Merge aria-hidden />
+          Join here
+        </ContextMenuItem>
+      )}
       {offer === "menu" && (
         <>
           <ContextMenuLabel>Add next</ContextMenuLabel>

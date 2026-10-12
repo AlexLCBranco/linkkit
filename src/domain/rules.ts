@@ -386,7 +386,9 @@ export function linkRefusalText(map: LinkMap, from: NodeId, to: NodeId, reason: 
     case "end":
       return `${name(from)} is an End step: nothing comes after it.`;
     case "goes-on":
-      return `${name(from)} already goes on: only the last step of a branch can join a later step.`;
+      return isBranching(map, from)
+        ? `${name(from)} splits into branches: join from the last step of one of them.`
+        : `${name(from)} already goes on: only the last step of a branch can join a later step.`;
   }
 }
 

@@ -1,5 +1,5 @@
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
-import { ChevronsDownUp, ChevronsUpDown, NotebookPen, Palette, Pencil, Plus, StickyNote, Tag, Trash2 } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, Merge, NotebookPen, Palette, Pencil, Plus, StickyNote, Tag, Trash2 } from "lucide-react";
 import { memo, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
 
 import { InlineEditable } from "../../components/InlineEditable";
@@ -7,9 +7,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { arrowsInto, canAddNextStep, canCollapse, canDeleteBox, canSetStatus } from "../../domain/rules";
 import { hiddenAfter } from "../../domain/shown";
 import { looksCut } from "../../domain/status";
+import { addNextOffer } from "../../domain/steps";
 import { hasTreeShape, type NodeId, type NodeStatus } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
-import { selectNodeHighlight, selectStepNumber } from "../../store/selectors";
+import { selectIsParallelJoin, selectNodeHighlight, selectOffersJoin, selectStepNumber } from "../../store/selectors";
 import { AddNextButton } from "./AddNextButton";
 import styles from "./BoxView.module.css";
 import { StatusRow } from "./StatusRow";
@@ -58,7 +59,11 @@ const keepToButton = (e: PointerEvent | MouseEvent) => e.stopPropagation();
  * In a Steps map each step shows its number on its top-left corner
  * ("3a.1", worked out from the arrows; hidden with the header's toggle),
  * its "+" opens the "Add next" menu (AddNextButton), and an End step is
- * drawn round-ended, a flowchart's terminator.
+ * drawn round-ended, a flowchart's terminator. A Parallel has a thick bar
+ * on its bottom edge and the step its branches meet at one on its top
+ * edge, a flowchart's fork and join bars, so "do all" never looks like
+ * "pick one". While a Parallel's branches haven't all met, each open end
+ * shows "Join here" under it.
  *
  * One of several boxes picked together (the marquee) shows the selection
  * ring, without the toolbar: dragging any of them moves them all.
@@ -101,10 +106,15 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   const isTreeShaped = useMapStore((s) => hasTreeShape(s.map.kind));
   const isSteps = useMapStore((s) => s.map.kind === "steps");
   const number = useMapStore((s) => selectStepNumber(s, nodeId));
+  const offersJoin = useMapStore((s) => selectOffersJoin(s, nodeId));
+  const isParallelJoin = useMapStore((s) => selectIsParallelJoin(s, nodeId));
+  const joinHere = useMapStore((s) => s.joinHere);
   const isLinked = useMapStore((s) => !!s.map.linkedBoard);
   // A tree's start box: Treekit's label style shows it as the heading.
   const isStart = useMapStore((s) => s.map.kind === "tree" && arrowsInto(s.map, nodeId) === 0);
   const addable = useMapStore((s) => canAddNextStep(s.map, nodeId));
+  // Steps: a Yes / No's dot could neither join (it splits) nor add a step.
+  const stepGoesOn = useMapStore((s) => s.map.kind !== "steps" || addNextOffer(s.map, nodeId) !== null);
   const deletable = useMapStore((s) => canDeleteBox(s.map, nodeId));
   const statusable = useMapStore((s) => canSetStatus(s.map, nodeId));
   const isCut = useMapStore((s) => looksCut(s.map).has(nodeId));
@@ -141,6 +151,7 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
       data-start={isStart || undefined}
       data-direction={direction}
       data-step-type={node.stepType}
+      data-parallel-join={isParallelJoin || undefined}
       style={style}
       onPointerDown={onBoxPointerDown}
       onDoubleClick={rename}
@@ -214,10 +225,26 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
         </button>
       )}
 
+      {offersJoin && (
+        <button
+          type="button"
+          className={styles.joinHere}
+          onPointerDown={keepToButton}
+          onDoubleClick={keepToButton}
+          onClick={() => joinHere(nodeId)}
+          title="Lead every open branch of this Parallel into one step"
+        >
+          <Merge size={12} aria-hidden />
+          Join here
+        </button>
+      )}
+
       {/* Drag from here to another box to draw an arrow. A card in a
           linked tree has none: no arrow may start there (no next steps,
-          and every other box already has its one way in). */}
-      {(!isTreeShaped || addable) && (
+          and every other box already has its one way in). In a Steps map
+          it joins a later step (from a branch's last step) or, let go on
+          the paper, adds a step; not on an End or a Yes / No. */}
+      {(!isTreeShaped || addable) && stepGoesOn && (
         <span
           className={styles.dot}
           onPointerDown={onDotPointerDown}

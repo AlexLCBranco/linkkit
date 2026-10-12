@@ -1375,6 +1375,23 @@ describe("map store (Steps)", () => {
     expect(Object.keys(useMapStore.getState().map.nodes)).toHaveLength(6);
   });
 
+  it("Join here leads a Parallel's open branches into a new step, open for typing; undo takes it back", async () => {
+    const { useMapStore, start } = await stepsMap();
+    const branch = useMapStore.getState().addStep(start, "parallel")!;
+    useMapStore.getState().renameBox(branch, "A");
+    useMapStore.getState().stopEditing();
+    const before = useMapStore.getState().map;
+    const join = useMapStore.getState().joinHere(branch)!;
+    const s = useMapStore.getState();
+    expect(Object.values(s.map.links).filter((l) => l.to === join)).toHaveLength(2);
+    expect(s.editing).toEqual({ kind: "box", id: join });
+    // Nothing left to join.
+    expect(useMapStore.getState().joinHere(branch)).toBeNull();
+    useMapStore.getState().stopEditing();
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.links).toEqual(before.links);
+  });
+
   it("deleting a step closes the gap, into the trash; undo puts it back", async () => {
     const { useMapStore, start } = await stepsMap();
     const b = useMapStore.getState().addStep(start, "step")!;

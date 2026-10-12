@@ -3,8 +3,22 @@ import { describe, expect, it } from "vitest";
 import { asLinkId, asMapId, asNodeId } from "./ids";
 import { nextSteps } from "./order";
 import { readMap, serializeMap } from "./persistence";
-import { canLink, parentsOf } from "./rules";
-import { addBranch, addNext, branchLetter, createSteps, deleteStep, deleteSteps, stepNumbers, stepTypeOf, trashSteps } from "./steps";
+import { canLink, linkRefusalText, parentsOf } from "./rules";
+import {
+  addBranch,
+  addNext,
+  branchLetter,
+  createSteps,
+  deleteStep,
+  deleteSteps,
+  joinBranches,
+  joinOf,
+  openEnds,
+  parallelJoins,
+  stepNumbers,
+  stepTypeOf,
+  trashSteps,
+} from "./steps";
 import { restoreFromTrash, trashEntryId } from "./trash";
 import { buildSteps, buildTree } from "./testMaps";
 import type { LinkMap, NodeId } from "./types";
@@ -367,5 +381,108 @@ describe("saving and loading", () => {
     const tree = serializeMap(buildTree("a", ["b"], [["a", "b"]]));
     const treeRead = readMap({ ...tree, map: { ...tree.map, hideNumbers: true } }, page);
     expect(treeRead.status !== "unreadable" && treeRead.map.hideNumbers).toBeUndefined();
+  });
+});
+
+describe("joining a Parallel's branches (Join here)", () => {
+  /** Step 1 splits into two parallel branches, nothing after them yet. */
+  const parallel = () => {
+    const c = counters();
+    const { map, startId } = createSteps(asMapId("m"), "Process", page, "blank", c.node, c.link);
+    const split = addNext(map, startId, "parallel", c.node, c.link)!;
+    return { map: split.map, startId, branches: split.nodeIds, c };
+  };
+
+  it("adds one new step every open branch leads into, numbered after the split", () => {
+    const { map, startId, branches, c } = parallel();
+    expect(openEnds(map, startId)).toEqual(branches);
+    const joined = joinBranches(map, startId, c.node, c.link)!;
+    expect(joined.added).toBe(true);
+    expect(parentsOf(joined.map, joined.nodeId).sort()).toEqual([...branches].sort());
+    expect(joinOf(joined.map, startId)).toBe(joined.nodeId);
+    expect(numbers(joined.map)).toMatchObject({ [branches[0]]: "1a.1", [branches[1]]: "1b.1", [joined.nodeId]: "2" });
+    expect(openEnds(joined.map, startId)).toEqual([]);
+    expectWhole(joined.map);
+  });
+
+  it("leads a branch added later into the existing join, adding no step", () => {
+    const { map, startId, c } = parallel();
+    const joined = joinBranches(map, startId, c.node, c.link)!;
+    const more = addBranch(joined.map, startId, c.node, c.link)!;
+    expect(openEnds(more.map, startId)).toEqual([more.nodeId]);
+    const again = joinBranches(more.map, startId, c.node, c.link)!;
+    expect(again.added).toBe(false);
+    expect(again.nodeId).toBe(joined.nodeId);
+    expect(parentsOf(again.map, joined.nodeId)).toContain(more.nodeId);
+    expect(Object.keys(again.map.nodes)).toHaveLength(Object.keys(more.map.nodes).length);
+  });
+
+  it("joins the open ends deep in a branch, and leaves End steps alone", () => {
+    const map = buildSteps(
+      "a",
+      ["p", "x1", "x2", "y1", "z1"],
+      [["a", "p"], ["p", "x1"], ["p", "y1"], ["p", "z1"], ["x1", "x2"]],
+      { p: "parallel", z1: "end" },
+    );
+    const c = counters();
+    expect(openEnds(map, id("p"))).toEqual(["x2", "y1"]);
+    const joined = joinBranches(map, id("p"), c.node, c.link)!;
+    expect(parentsOf(joined.map, joined.nodeId).sort()).toEqual(["x2", "y1"]);
+    expect(numbers(joined.map)[joined.nodeId]).toBe("3");
+  });
+
+  it("joins nothing that isn't a Parallel, or with one open end and no join yet", () => {
+    const yesno = buildSteps("a", ["y", "n"], [["a", "y"], ["a", "n"]], { a: "yesno" });
+    expect(joinBranches(yesno, id("a"))).toBeNull();
+    const oneOpen = buildSteps("a", ["x", "e"], [["a", "x"], ["a", "e"]], { a: "parallel", e: "end" });
+    expect(joinBranches(oneOpen, id("a"))).toBeNull();
+    const { map, startId, c } = parallel();
+    const done = joinBranches(map, startId, c.node, c.link)!.map;
+    expect(joinBranches(done, startId)).toBeNull();
+  });
+
+  it("offers Join here on each open end, for the innermost Parallel, and marks its join", () => {
+    const map = buildSteps(
+      "a",
+      ["p", "q", "q1", "q2", "y1"],
+      [["a", "p"], ["p", "q"], ["p", "y1"], ["q", "q1"], ["q", "q2"]],
+      { p: "parallel", q: "parallel" },
+    );
+    const { offers, joins } = parallelJoins(map);
+    expect(Object.fromEntries(offers)).toEqual({ q1: "q", q2: "q", y1: "p" });
+    expect(joins.size).toBe(0);
+    const c = counters();
+    const inner = joinBranches(map, id("q"), c.node, c.link)!;
+    const after = parallelJoins(inner.map);
+    expect(after.joins).toEqual(new Set([inner.nodeId]));
+    expect(Object.fromEntries(after.offers)).toEqual({ [inner.nodeId]: "p", y1: "p" });
+  });
+
+  it("a joined Parallel's branches number back on the main path, and deleting the join keeps them", () => {
+    const { map, startId, branches, c } = parallel();
+    const joined = joinBranches(map, startId, c.node, c.link)!;
+    const after = deleteStep(joined.map, joined.nodeId);
+    expect(openEnds(after, startId).sort()).toEqual([...branches].sort());
+    expectWhole(after);
+  });
+});
+
+describe("drawing a join", () => {
+  it("may only join from a branch's open end onto a later step", () => {
+    const map = buildSteps(
+      "a",
+      ["s", "y1", "n1", "k"],
+      [["a", "s"], ["s", "y1", "Yes"], ["s", "n1", "No"], ["y1", "k"]],
+      { s: "yesno" },
+    );
+    expect(canLink(map, id("n1"), id("k")).ok).toBe(true);
+    // Never back up the process: that would be a loop.
+    expect(canLink(map, id("n1"), id("s"))).toEqual({ ok: false, reason: "loop" });
+    // A step that already goes on, or a split, would become an unlabelled split.
+    expect(canLink(map, id("y1"), id("n1"))).toEqual({ ok: false, reason: "goes-on" });
+    expect(canLink(map, id("s"), id("k"))).toEqual({ ok: false, reason: "goes-on" });
+    // Each refusal says which way to go instead.
+    expect(linkRefusalText(map, id("y1"), id("n1"), "goes-on")).toMatch(/already goes on/);
+    expect(linkRefusalText(map, id("s"), id("k"), "goes-on")).toMatch(/splits into branches/);
   });
 });

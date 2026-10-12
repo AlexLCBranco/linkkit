@@ -16,6 +16,7 @@ import type { Link, LinkId, LinkMap, MapId, NodeId, Size, StepType } from "./typ
  *  - `addNext` / `addBranch`: the "Add next" menu's edits;
  *  - `deleteStep`: deleting a step closes the gap instead of cutting the
  *    process in two;
+ *  - `joinBranches`: "Join here", a Parallel's open branches meeting again;
  *  - `createSteps`: a new Steps map from a preset.
  *
  * A step's type (`MapNode.stepType`) says how it goes on: a plain step has
@@ -302,19 +303,8 @@ export function deleteStep(map: LinkMap, id: NodeId): LinkMap {
   let goesTo: NodeId | null;
   if (splits(map, id)) {
     const places = stepPlaces(map);
-    const own = places.get(id);
-    goesTo = null;
-    for (const [box, place] of places) {
-      if (place.frames.some((f) => f.split === id)) gone.add(box);
-      else if (
-        own &&
-        place.prefix === own.prefix &&
-        place.index === own.index + 1 &&
-        place.frames.length === own.frames.length
-      ) {
-        goesTo = box;
-      }
-    }
+    for (const [box, place] of places) if (place.frames.some((f) => f.split === id)) gone.add(box);
+    goesTo = joinOf(map, id, places);
   } else {
     goesTo = nextSteps(map, id)[0] ?? null;
   }
@@ -345,6 +335,97 @@ export function deleteStep(map: LinkMap, id: NodeId): LinkMap {
     if (loose.length) next = deleteNodes(next, loose);
   }
   return next;
+}
+
+/* ---- Joining ---- */
+
+/** Where a split's branches meet again: the next step on the split's own
+    path (its branches split at 3, it is 4); `null` while none has. */
+export function joinOf(map: LinkMap, split: NodeId, places: Map<NodeId, Place> = stepPlaces(map)): NodeId | null {
+  const own = places.get(split);
+  if (!own || !splits(map, split)) return null;
+  for (const [box, place] of places) {
+    if (place.prefix === own.prefix && place.index === own.index + 1 && place.frames.length === own.frames.length) return box;
+  }
+  return null;
+}
+
+/** The open ends inside a split's branches: steps with nothing after them
+    yet that aren't an End (the ones "Join here" leads on), in order. */
+export function openEnds(map: LinkMap, split: NodeId, places: Map<NodeId, Place> = stepPlaces(map)): NodeId[] {
+  const out: NodeId[] = [];
+  for (const [box, place] of places) {
+    if (!place.frames.some((f) => f.split === split)) continue;
+    if (stepTypeOf(map, box) === "end" || splits(map, box) || nextSteps(map, box).length > 0) continue;
+    out.push(box);
+  }
+  // Branch a's before branch b's: by number ("1a.2" before "1b.1").
+  const num = (box: NodeId) => numberOf(places.get(box)!);
+  return out.sort((a, b) => num(a).localeCompare(num(b), "en", { numeric: true }));
+}
+
+/**
+ * "Join here" on a Parallel (its branches all happen, then must meet):
+ * every open end inside its branches leads on to where they meet. That is
+ * the step its other branches already join into (a branch added with +
+ * later), or else a new, empty step under them, which is returned to be
+ * named. `null` when there is nothing to join: not a Parallel, no open
+ * end, or a single open end and no join yet (that is just a next step).
+ */
+export function joinBranches(
+  map: LinkMap,
+  split: NodeId,
+  newNodeId: () => NodeId = createNodeId,
+  newLinkId: () => LinkId = createLinkId,
+): { map: LinkMap; nodeId: NodeId; added: boolean } | null {
+  if (map.kind !== "steps" || stepTypeOf(map, split) !== "parallel") return null;
+  const places = stepPlaces(map);
+  const ends = openEnds(map, split, places);
+  const existing = joinOf(map, split, places);
+  if (ends.length === 0 || (!existing && ends.length < 2)) return null;
+  let next = map;
+  let join = existing;
+  if (!join) {
+    join = newNodeId();
+    const lowest = Math.max(...ends.map((e) => map.nodes[e].y));
+    next = addNode(next, { x: map.nodes[split].x, y: lowest + NEW_STEP_DROP }, "", join).map;
+  }
+  const links: Record<LinkId, Link> = { ...next.links };
+  const order: Record<NodeId, readonly NodeId[]> = { ...next.order };
+  for (const end of ends) {
+    const linkId = newLinkId();
+    links[linkId] = { id: linkId, from: end, to: join, label: "" };
+    order[end] = [join];
+  }
+  return { map: { ...next, links, order }, nodeId: join, added: !existing };
+}
+
+/**
+ * What a Steps map's Parallels look like, worked out in one pass:
+ * `offers`, each open end inside a Parallel's branches mapped to the
+ * Parallel its "Join here" joins (the innermost one around it), and
+ * `joins`, the steps a Parallel's branches meet at (drawn with a bar, as
+ * the Parallel itself is, so "do all" never looks like "pick one").
+ */
+export function parallelJoins(map: LinkMap): { offers: Map<NodeId, NodeId>; joins: Set<NodeId> } {
+  const offers = new Map<NodeId, NodeId>();
+  const joins = new Set<NodeId>();
+  if (map.kind !== "steps") return { offers, joins };
+  const places = stepPlaces(map);
+  for (const [box] of places) {
+    if (stepTypeOf(map, box) !== "parallel") continue;
+    const join = joinOf(map, box, places);
+    if (join) joins.add(join);
+    const ends = openEnds(map, box, places);
+    if (ends.length === 0 || (!join && ends.length < 2)) continue;
+    for (const end of ends) {
+      // The innermost Parallel wins: its frames come later in the list.
+      const owner = offers.get(end);
+      const depth = (p: NodeId) => places.get(end)!.frames.findIndex((f) => f.split === p);
+      if (!owner || depth(box) > depth(owner)) offers.set(end, box);
+    }
+  }
+  return { offers, joins };
 }
 
 /**

@@ -1,7 +1,7 @@
 import { linkHighlight, nodeHighlight, reachOf, type LinkHighlight, type NodeHighlight, type Reach } from "../domain/reach";
 import { shownMap } from "../domain/shown";
 import { canSetStatus } from "../domain/rules";
-import { stepNumbers } from "../domain/steps";
+import { parallelJoins, stepNumbers } from "../domain/steps";
 import type { LinkId, NodeId, NodeStatus, PaletteColor } from "../domain/types";
 import type { MapState } from "./mapStore";
 
@@ -53,6 +53,24 @@ export function selectGroupStatus(s: Pick<MapState, "map" | "group">): NodeStatu
   const statuses = new Set(s.group.filter((id) => canSetStatus(s.map, id)).map((id) => s.map.nodes[id].status));
   return statuses.size === 1 ? [...statuses][0] : undefined;
 }
+
+// Every box asks whether it offers "Join here" or is a Parallel's join:
+// worked out once per map.
+let paralleled: { map: MapState["map"]; marks: ReturnType<typeof parallelJoins> } | null = null;
+const parallelMarks = (map: MapState["map"]) => {
+  if (paralleled?.map !== map) paralleled = { map, marks: parallelJoins(map) };
+  return paralleled.marks;
+};
+
+/** Steps: whether this step is an open end of a Parallel's branch, so it
+    offers "Join here". */
+export const selectOffersJoin = (s: Pick<MapState, "map">, id: NodeId): boolean =>
+  s.map.kind === "steps" && parallelMarks(s.map).offers.has(id);
+
+/** Steps: whether a Parallel's branches meet at this step (drawn with a bar
+    on its top edge, as the Parallel has one on its bottom edge). */
+export const selectIsParallelJoin = (s: Pick<MapState, "map">, id: NodeId): boolean =>
+  s.map.kind === "steps" && parallelMarks(s.map).joins.has(id);
 
 // Every box asks for its number after each edit: worked out once per map.
 let numbered: { map: MapState["map"]; numbers: ReadonlyMap<NodeId, string> } | null = null;

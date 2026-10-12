@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-12, v0.0.70 (Steps step s3a: Steps maps on the page: new map, presets, numbers, the Add next menu, delete that closes the gap)_
+_Last updated: 2026-10-12, v0.0.71 (Steps step s3b: joins: "Join here" on a Parallel's open branches, Parallel drawn with fork and join bars, clearer refusals when dragging a join)_
 
 ## What it is
 
@@ -892,6 +892,25 @@ in"). Loops and arrows into the start are refused in both. Code:
   `domain/steps.test.ts` (trash, restore, hidden numbers),
   `store/mapStore.test.ts` ("map store (Steps)"), browser check of the
   menu, Enter, re-tidy, delete dialog, toggle and gallery
+- **Joins and Parallel** (v0.0.71, step s3b of Steps): while a
+  Parallel's branches haven't all met, each open end (the last step of a
+  branch, not an End) shows a "Join here" pill under it (also in its
+  right-click menu). Clicking it leads every open end of that Parallel
+  (the innermost one around it) into one new step under the branches,
+  numbered on the main path (split at 3, join is 4) and open for typing;
+  a branch added later with + is led into the join that is already there
+  instead (no new step). One undo takes it back. A Parallel has a thick
+  bar on its bottom edge and the step its branches meet at one on its top
+  edge (a flowchart's fork and join bars), so "do all" never looks like
+  Choice's "pick one". Joining by dragging: the box's dot shows on every
+  step that can go on (not an End, not a Yes / No); dragged onto a step
+  it can't join, the box gets the "no" ring and a hint says why ("already
+  goes on: only the last step of a branch can join", or for a split
+  "splits into branches: join from the last step of one of them").
+  Check: `domain/steps.test.ts` ("joining a Parallel's branches",
+  "drawing a join"), `store/mapStore.test.ts` ("Join here …"), browser
+  check of the pills, the join's place and number, the bars, a later
+  branch joining the existing join, and the refused drag
 
 ## What's next
 
@@ -947,11 +966,20 @@ place in `domain/steps.ts`):
    paste is off in Steps; dragging a step's only way in is refused until
    s4. Stayed tree-only: keep / maybe / cut, fold, Boardkit linking,
    Mermaid, the start-box heading style, image export of numbers)
-4. s3b. Join by dragging (check and polish: the dot shows on any step
+4. ~~s3b. Join by dragging (check and polish: the dot shows on any step
    that may go on; a join from a step that already goes on is refused
    with a reason); "Join here" on the open ends of a Parallel's branches
    (a pure `joinBranches` in `domain/steps.ts`, with tests); Parallel
-   drawn as a bar, so "do all" never looks like "pick one"
+   drawn as a bar, so "do all" never looks like "pick one"~~ (done,
+   2026-10-12, v0.0.71. Decided while building: "Join here" is a pill
+   always shown under each open end, not only on hover, since a
+   Parallel's branches must meet; it joins every open end of the
+   innermost Parallel at once, into a new step, or into the join that
+   is already there for a branch added later; the bars are drawn on the
+   Parallel's bottom edge and its join's top edge, the boxes keep their
+   shape; a Yes / No has no connect dot, since it can neither join nor
+   add a step. Choice and Yes / No branches get no "Join here": they
+   join by dragging, as the spec says)
 5. s4. Dragging a step reorders it in the sequence (`moveStep` in
    `domain/steps.ts`, with tests); browser check of the whole flow,
    polish, keyboard shortcuts dialog entries
