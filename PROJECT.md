@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-12, v0.0.72 (Steps step s4: drag a step before or after another to reorder it; the Steps work in the owner's spec is done)_
+_Last updated: 2026-10-12, v0.0.72 (Bridge follow-up 4: design for "Map from a Boardkit board" written, waiting for the owner's OK)_
 
 ## What it is
 
@@ -1046,8 +1046,63 @@ can't re-join a map and its board. Work in this order, one chat each:
    erasing it~~ (done, 2026-10-11, v0.0.68; owner OK'd the rule. e2e
    3.1b / 3.5: a card deleted before linking is restored from Boardkit's
    trash)
-4. "Link to an existing board": design only, and only after the owner has
-   run the checklist (item 1) and reported back
+4. ~~"Link to an existing board": design only, and only after the owner
+   has run the checklist (item 1) and reported back~~ (design written
+   2026-10-12, below; NOT yet OK'd by the owner. The gate was met: the
+   owner ran steps 0-2 by hand and reported a pass, and the rest of the
+   checklist runs as `npm run e2e`, all 32 checks passing on 2026-10-11)
+
+   Design (proposed 2026-10-12, waiting for the owner's OK):
+   - What it does: makes a NEW map from a board that already exists in
+     Boardkit, linked to it from the start. Board = start box, its lists
+     = the next steps, its cards = the steps under them (the same
+     `boardToTree` every linked map already opens with). Rejected: linking
+     the open map to an existing board, which would mean two sets of
+     names and order to merge, with no good answer to "whose wins?";
+     replacing the board with the map, which would wipe what Boardkit
+     users wrote. So step 23's "Link to Boardkit" stays the way from a
+     map to a new board, and this is the way from a board to a new map
+   - Where: the map menu, under "+ New map with tree rules": "+ Map from
+     a Boardkit board…", shown only where Boardkit's data is present
+     (`boardkit:registry`), like "Link to Boardkit". It opens a dialog
+     listing Boardkit's boards in Boardkit's order, each row its name and
+     "3 lists · 12 cards"; pick one, then "Open as map". A board that
+     can't be picked is greyed with the reason on the row: already linked
+     to a map ("linked to 'Rent or buy'"), linked to a map in Linkkit's
+     trash ("linked to 'Rent or buy', in the trash: restore it, or delete
+     it for good first", since restoring it brings its link back and one
+     board must never have two maps), damaged or made by a newer Boardkit
+     ("open it in Boardkit first"). An empty board (no lists) is fine: it
+     makes a map with just the start box
+   - Linking writes nothing in Boardkit: only the new `linkkit:map:<id>`
+     (version 2, `linkedBoard` = the board, with the backup copy of the
+     shared parts as in 3b3) and Linkkit's map list. The board, its `rev`
+     and Boardkit's list stay untouched until the map is first edited,
+     so linking is safe even with a Boardkit tab open, and undoing it is
+     just "Unlink" (the board stays as it was) or deleting the map
+   - The new map: named after the board (as every linked map is), opens
+     at once as the open map, laid out by Tidy up with the defaults of a
+     new map with tree rules (top to bottom, Elbow, Treekit text), no
+     undo step (making a map never is). From then on it is an ordinary
+     linked map: chip, "Open in Boardkit", "Unlink from Boardkit…",
+     deletes to Boardkit's trash, live sync, cross-app undo
+   - What doesn't show, unchanged on the board: dividers, notes, pregame
+     / postgame text, colours, background, the board's trash (already the
+     rule for linked maps). A card's pregame thots show as its box's note,
+     as today. Statuses set in an earlier link come across
+   - Code: a pure `linkableBoards(boards, reads, linkedTo)` in
+     `domain/bridge.ts` (rows with counts and reasons) and a pure
+     `mapFromBoard(boardId, name, board, mapId)` built on `linkedTree`
+     with an empty view, both with tests; reading Boardkit's list and
+     records stays in `store/persistBoard.ts`; finding which board each
+     map (and trashed map) links to reads Linkkit's own records. One
+     store action, `openBoardAsMap(boardId)`. e2e: new checks in
+     `bridge.e2e.ts` (a throwaway board made in Boardkit, opened as a map
+     here, a card renamed on each side, unlinked, both cleaned up)
+   - Not in it: setting a status from Boardkit (still Linkkit-only),
+     picking which lists come in (the whole board always does)
+4b. Build "Map from a Boardkit board", as designed in item 4, only once
+   the owner has OK'd that design (if no OK is recorded here, ask first)
 5. Boardkit's automatic-backup tests, built in the Boardkit repo
    (`../Projects/boardkit`), last
 
