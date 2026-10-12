@@ -28,6 +28,7 @@ export function DeleteBranchDialog() {
     s.confirmingDelete?.ids.length === 1 ? s.map.nodes[s.confirmingDelete.ids[0]]?.name : undefined,
   );
   const picked = useMapStore((s) => s.confirmingDelete?.ids.length ?? 0);
+  const isSteps = useMapStore((s) => s.map.kind === "steps");
   const confirmDelete = useMapStore((s) => s.confirmDelete);
   const cancelDelete = useMapStore((s) => s.cancelDelete);
   // What the dialog asks about, kept while it fades out (by then the store
@@ -46,14 +47,23 @@ export function DeleteBranchDialog() {
           <AlertDialogTitle>
             {several
               ? `Delete ${boxes(shown.picked)} and the ${boxes(others)} under them?`
-              : `Delete “${shown.name || "Untitled"}” and the ${boxes(others)} under it?`}
+              : isSteps
+                ? `Delete “${shown.name || "Untitled"}” and the ${boxes(others)} in its branches?`
+                : `Delete “${shown.name || "Untitled"}” and the ${boxes(others)} under it?`}
           </AlertDialogTitle>
-          <AlertDialogDescription>
-            The {others === 1 ? "box" : "boxes"} in {several ? "their branches" : "its branch"} can only be reached through{" "}
-            {several ? "them" : "it"}, so{" "}
-            {others === 1 ? "it goes" : "they go"} too. A box that also has another parent stays. They wait in the
-            trash, and undo brings them all back.
-          </AlertDialogDescription>
+          {isSteps ? (
+            <AlertDialogDescription>
+              A Yes / No, Choice or Parallel step takes the steps in its branches with it. What came before it leads
+              on to where the branches met. They wait in the trash, and undo brings them all back.
+            </AlertDialogDescription>
+          ) : (
+            <AlertDialogDescription>
+              The {others === 1 ? "box" : "boxes"} in {several ? "their branches" : "its branch"} can only be reached through{" "}
+              {several ? "them" : "it"}, so{" "}
+              {others === 1 ? "it goes" : "they go"} too. A box that also has another parent stays. They wait in the
+              trash, and undo brings them all back.
+            </AlertDialogDescription>
+          )}
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>

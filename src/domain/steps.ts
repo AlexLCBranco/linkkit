@@ -3,6 +3,7 @@ import { addNode, createMap, deleteNodes, renameNode } from "./map";
 import { nextSteps, withNextStep } from "./order";
 import { walk } from "./reach";
 import { canAddNextStep, canDeleteBox, isBranching, parentsOf } from "./rules";
+import { trashEntryOf, withTrashEntry } from "./trash";
 import { startOf } from "./tree";
 import type { Link, LinkId, LinkMap, MapId, NodeId, Size, StepType } from "./types";
 
@@ -232,6 +233,34 @@ export function addNext(
   return { map: { ...next, links, order }, nodeIds };
 }
 
+/** What a step's "+" offers: the "Add next" menu (a step that may go on
+    and doesn't split yet), "branch" (one more branch on a Choice or
+    Parallel), or nothing (an End, a Yes / No: its two branches are its
+    way on). */
+export function addNextOffer(map: LinkMap, id: NodeId): "menu" | "branch" | null {
+  if (map.kind !== "steps" || !map.nodes[id] || !canAddNextStep(map, id)) return null;
+  const type = stepTypeOf(map, id);
+  if (type === "choice" || type === "parallel") return "branch";
+  return splits(map, id) ? null : "menu";
+}
+
+/** Why "Add next" can't add a `type` step after `at`, in words; `null`
+    when it can (or `at` is gone). For the hint when it is tried anyway. */
+export function addNextRefusal(map: LinkMap, at: NodeId, type: StepType): string | null {
+  const node = map.nodes[at];
+  if (!node || map.kind !== "steps") return null;
+  const name = `“${node.name || "Untitled"}”`;
+  if (!canAddNextStep(map, at)) return `${name} is an End step: nothing comes after it.`;
+  if (splits(map, at)) {
+    const kind = stepTypeOf(map, at);
+    return kind === "choice" || kind === "parallel"
+      ? `${name} already splits: use + to add a branch, or add steps inside its branches.`
+      : `${name} is a Yes / No question: add steps inside its two branches.`;
+  }
+  if (type === "end" && nextSteps(map, at).length > 0) return `${name} already goes on: an End only goes after the last step.`;
+  return null;
+}
+
 /** One more branch on a Choice ("Option D" …) or a Parallel split, last
     in order and not yet joined. `null` for Yes / No (two branches only) or
     anything that isn't such a split. */
@@ -316,6 +345,31 @@ export function deleteStep(map: LinkMap, id: NodeId): LinkMap {
     if (loose.length) next = deleteNodes(next, loose);
   }
   return next;
+}
+
+/**
+ * Deletes several steps the Steps way (`deleteStep`, one after another),
+ * returning the map and every step that went: the ones asked for, plus
+ * those that went with them (a split's branches). Steps that can't go
+ * (the start) are skipped.
+ */
+export function deleteSteps(map: LinkMap, ids: Iterable<NodeId>): { map: LinkMap; gone: Set<NodeId> } {
+  let next = map;
+  for (const id of ids) next = deleteStep(next, id);
+  const gone = new Set((Object.keys(map.nodes) as NodeId[]).filter((id) => !next.nodes[id]));
+  return { map: next, gone };
+}
+
+/**
+ * `deleteSteps`, with what went kept in the trash as one entry, read from
+ * the map as it was: the steps, every arrow that touched them, and their
+ * places. The arrows that were led on keep their ids, so a restore puts
+ * them back as they were (`restoreFromTrash`). The same map when nothing
+ * can go.
+ */
+export function trashSteps(map: LinkMap, ids: Iterable<NodeId>, deletedAt: number): LinkMap {
+  const { map: next, gone } = deleteSteps(map, ids);
+  return gone.size === 0 ? map : withTrashEntry(next, trashEntryOf(map, gone, deletedAt));
 }
 
 /* ---- New maps ---- */

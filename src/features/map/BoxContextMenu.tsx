@@ -13,12 +13,14 @@ import {
   ContextMenuTrigger,
 } from "../../components/ui/context-menu";
 import { canAddNextStep, canCollapse, canDeleteBox, canPaste, canSetStatus } from "../../domain/rules";
-import type { LinkId, NodeId, Point } from "../../domain/types";
+import { addNextOffer } from "../../domain/steps";
+import { hasTreeShape, type LinkId, type NodeId, type Point } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { selectGroupColor, selectGroupStatus } from "../../store/selectors";
 import { StatusRow } from "./StatusRow";
 import { SwatchRow } from "./SwatchRow";
 import { BOX_ID_ATTRIBUTE, LINK_ID_ATTRIBUTE } from "./pageMarkers";
+import { ADD_NEXT_ITEMS } from "./stepMenu";
 
 /** What the menu is about: one box, the picked group, or empty paper (where
     it only offers to paste, at the spot clicked). */
@@ -182,12 +184,35 @@ function BoxMenuItems({
   const status = useMapStore((s) => s.map.nodes[nodeId]?.status ?? null);
   const statusable = useMapStore((s) => canSetStatus(s.map, nodeId));
   const setBoxesStatus = useMapStore((s) => s.setBoxesStatus);
-  const isTree = useMapStore((s) => s.map.kind === "tree");
+  const isTree = useMapStore((s) => hasTreeShape(s.map.kind));
   const openNotes = useMapStore((s) => s.openNotes);
+  const isSteps = useMapStore((s) => s.map.kind === "steps");
+  // Steps: the "Add next" menu, or one more branch (`addNextOffer`).
+  const offer = useMapStore((s) => addNextOffer(s.map, nodeId));
 
   return (
     <>
-      {addable && (
+      {offer === "menu" && (
+        <>
+          <ContextMenuLabel>Add next</ContextMenuLabel>
+          {ADD_NEXT_ITEMS.map(({ type, label, Icon }) => (
+            <ContextMenuItem key={type} onSelect={() => runAfterClose(() => useMapStore.getState().addStep(nodeId, type))}>
+              <Icon aria-hidden />
+              {label}
+              {type === "step" && <ContextMenuShortcut>Tab</ContextMenuShortcut>}
+            </ContextMenuItem>
+          ))}
+          <ContextMenuSeparator />
+        </>
+      )}
+      {offer === "branch" && (
+        <ContextMenuItem onSelect={() => runAfterClose(() => useMapStore.getState().addStepBranch(nodeId))}>
+          <Plus aria-hidden />
+          Add a branch
+          <ContextMenuShortcut>Tab</ContextMenuShortcut>
+        </ContextMenuItem>
+      )}
+      {addable && !isSteps && (
         // Waits for the menu to close, like Rename: the new box's name
         // field needs the focus.
         <ContextMenuItem onSelect={() => runAfterClose(() => addNextStep(nodeId))}>

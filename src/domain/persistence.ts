@@ -133,6 +133,7 @@ export function serializeMap(map: LinkMap, rev?: number): PersistedMap {
       collapsed,
       trash,
       ...(map.noteClashes && Object.keys(map.noteClashes).length ? { noteClashes: map.noteClashes } : {}),
+      ...(map.hideNumbers ? { hideNumbers: true as const } : {}),
     },
   };
 }
@@ -284,6 +285,8 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
     trash: readTrash(raw.trash, nodes, kind, fix),
     ...link,
     ...readNotesAside(raw, linked, fix),
+    // Only a Steps map has numbers to hide.
+    ...(kind === "steps" && raw.hideNumbers === true ? { hideNumbers: true as const } : {}),
   };
   for (const [key, link] of Object.entries(rawLinks)) {
     if (!isObject(link) || typeof link.from !== "string" || typeof link.to !== "string") {

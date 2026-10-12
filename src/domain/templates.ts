@@ -4,6 +4,7 @@ import { createMap } from "./map";
 import { parseOutline, pasteOutline } from "./outline";
 import { isUntitled, namingBox, numberedName } from "./names";
 import { readMap, serializeMap, type PersistedMap } from "./persistence";
+import { createSteps, type StepPreset } from "./steps";
 import { createTree } from "./tree";
 import type { Link, LinkId, LinkMap, MapId, MapKind, MapNode, NodeId, SiblingOrder, Size } from "./types";
 
@@ -38,6 +39,9 @@ export interface SavedTemplate {
 }
 
 const lines = (...rows: string[]) => rows.join("\n");
+
+/** A Steps preset (`createSteps`) as a template's `make`. */
+const steps = (preset: StepPreset, name: string) => (page: Size, id: MapId) => createSteps(id, name, page, preset).map;
 
 export const BUILT_IN_TEMPLATES: readonly BuiltInTemplate[] = [
   // The examples, first: what the map menu's "Add example map" and "Add
@@ -90,6 +94,28 @@ export const BUILT_IN_TEMPLATES: readonly BuiltInTemplate[] = [
     blurb: "One topic, ideas and questions around it",
     kind: "tree",
     outline: lines("Topic", "  Idea", "  Idea", "  Idea", "  Question"),
+  },
+  // The Steps presets (owner's spec): a process, numbered for you.
+  {
+    id: "steps-blank",
+    name: "Steps",
+    blurb: "A process, one step at a time: start with one step",
+    kind: "steps",
+    make: steps("blank", "Steps"),
+  },
+  {
+    id: "steps-decision",
+    name: "Simple decision",
+    blurb: "A Yes / No question, an End on each side",
+    kind: "steps",
+    make: steps("decision", "Simple decision"),
+  },
+  {
+    id: "steps-check",
+    name: "Process with check",
+    blurb: "Two steps, then a check: done, or fix it",
+    kind: "steps",
+    make: steps("check", "Process with check"),
   },
   {
     id: "dependencies",

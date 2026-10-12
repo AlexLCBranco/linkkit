@@ -451,3 +451,36 @@
   color: var(--note-clash-ink);
   pointer-events: auto;
 }
+
+/* ---- Steps ---- */
+
+/* A step's number ("3a.1"): a small pill straddling the top edge near the
+   left corner, so it takes no room inside the box and never moves it. */
+.number {
+  position: absolute;
+  top: calc(-1 * var(--step-number-height) / 2);
+  left: var(--space-2);
+  display: grid;
+  place-items: center;
+  min-width: var(--step-number-height);
+  height: var(--step-number-height);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.box[data-cut] .number {
+  opacity: calc(1 - var(--cut-veil));
+}
+
+/* An End step: round-ended, a flowchart's terminator. */
+.box[data-step-type="end"] {
+  border-radius: var(--radius-full);
+}

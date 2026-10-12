@@ -43,7 +43,10 @@ import { useNow } from "./useNow";
  *
  * "+ New map with tree rules" makes a decision tree (kind "tree"). The UI calls every kind a map; a tree is a
  * map with tree rules on (the owner's wording, usability pass U3).
- * A new tree opens its start box's name for typing.
+ * A new tree opens its start box's name for typing. "+ New steps map"
+ * makes a Steps map (kind "steps": an ordered process that branches and
+ * joins, numbered for you), its first step's name open for typing; the
+ * gallery has the Steps presets.
  *
  * "Export all maps" downloads every map as one file; on an empty Linkkit
  * (only the untouched starter example) "Restore all maps from a file"
@@ -69,6 +72,7 @@ export function MapSwitcher() {
   const newMap = useMapStore((s) => s.newMap);
   const duplicateMap = useMapStore((s) => s.duplicateMap);
   const newTree = useMapStore((s) => s.newTree);
+  const newSteps = useMapStore((s) => s.newSteps);
   const deleteMap = useMapStore((s) => s.deleteMap);
   const isTree = useMapStore((s) => s.map.kind === "tree");
   const linked = useMapStore((s) => !!s.map.linkedBoard);
@@ -106,6 +110,8 @@ export function MapSwitcher() {
   // Set by "New tree": the tree is made once the menu has closed, so the
   // start box's name field can take the focus.
   const newTreeAfterClose = useRef(false);
+  // The same for "New steps map".
+  const newStepsAfterClose = useRef(false);
   // Set by "Save this map as a template": its name field opens once the
   // menu has closed, for the same reason as "New map".
   const saveAfterClose = useRef(false);
@@ -162,6 +168,12 @@ export function MapSwitcher() {
               setSavingTemplate(true);
               return;
             }
+            if (newStepsAfterClose.current) {
+              newStepsAfterClose.current = false;
+              event.preventDefault();
+              newSteps();
+              return;
+            }
             if (newTreeAfterClose.current) {
               newTreeAfterClose.current = false;
               event.preventDefault();
@@ -191,6 +203,7 @@ export function MapSwitcher() {
             + New map
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => (newTreeAfterClose.current = true)}>+ New map with tree rules</DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => (newStepsAfterClose.current = true)}>+ New steps map</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setTemplates(true)}>New from template…</DropdownMenuItem>
           <DropdownMenuItem onSelect={duplicateMap}>Duplicate this map</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => (saveAfterClose.current = true)}>

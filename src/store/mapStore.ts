@@ -35,6 +35,7 @@ import {
   setNodesColor,
   setNodesStatus,
   setHideCut,
+  setHideNumbers,
   setCollapsed,
   type MapFragment,
   setPage,
@@ -67,13 +68,14 @@ import {
   type MapTrash,
   type TrashSummary,
 } from "../domain/trash";
+import { addBranch, addNext, addNextRefusal, createSteps, deleteSteps, stepTypeOf, trashSteps, type StepPreset } from "../domain/steps";
 import { addNextStep, branchesOf, createTree, moveToParent as moveUnder, startOf } from "../domain/tree";
 import { arrowToMove, EMPTY_MEMORY, moveFrom, remember, type ArrowKey, type NavMemory } from "../domain/navigation";
 import { followBoxName, numberedName } from "../domain/names";
 import { forkBranch } from "../domain/fork";
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
-import { ARROW_LENGTH_PRESETS, type ArrowStyle, type LabelStyle, type LinkId, type LinkMap, type MapId, type NodeId, type NodeStatus, type PaletteColor, type Point, type Size } from "../domain/types";
+import { ARROW_LENGTH_PRESETS, hasTreeShape, type StepType, type ArrowStyle, type LabelStyle, type LinkId, type LinkMap, type MapId, type NodeId, type NodeStatus, type PaletteColor, type Point, type Size } from "../domain/types";
 import { mergeMaps, shareUnchanged, type MergeConflict } from "../domain/merge";
 import {
   boardLosses,
@@ -393,8 +395,18 @@ export interface MapState {
   /** Erases a deleted map for good. */
   eraseMap(id: MapId): void;
   /** Tree: adds a next step after `from` (at `at`, or just after it),
-      opens its name for typing and re-tidies the tree. */
+      opens its name for typing and re-tidies the tree. Steps: a plain step
+      after `from` (`addStep`), or a new branch on a Choice or Parallel. */
   addNextStep(from: NodeId, at?: Point): NodeId | null;
+  /** Steps, the "Add next" menu: a `type` step after `from` (a split
+      makes `from` the question, with its branches; `domain/steps.ts`).
+      The first new step opens for typing; the map re-tidies. Refused with
+      a hint when it can't go on that way. */
+  addStep(from: NodeId, type: StepType): NodeId | null;
+  /** Steps: one more branch on a Choice or Parallel, opened for typing. */
+  addStepBranch(at: NodeId): NodeId | null;
+  /** Steps: hides the step numbers, or shows them. Undoable; moves no box. */
+  setHideNumbers(hide: boolean): void;
 
   /** Draws an arrow (`from` needs, or in a tree leads to, `to`) if the
       map's rules allow it. */
@@ -439,6 +451,9 @@ export interface MapState {
   importMaps(maps: readonly LinkMap[]): void;
   /** Starts a blank tree (only its start box, its name open for typing). */
   newTree(): void;
+  /** Starts a new Steps map from a preset; a blank one opens its first
+      step's name for typing. */
+  newSteps(preset?: StepPreset): void;
   /** Opens `map` (made from a template: fresh ids, boxes not yet placed)
       as a new map, tidied once measured. */
   newFromTemplate(map: LinkMap): void;
@@ -700,6 +715,26 @@ function trashing(s: MapState, ids: Iterable<NodeId>): Partial<MapState> {
 }
 
 /**
+ * Deletes steps the Steps way (`trashSteps`: each gap closes, a split goes
+ * with its branches) into the trash as one undo step, asking first when
+ * that would push the oldest deleted boxes out of a full trash. The map
+ * re-tidies to close the gaps.
+ */
+function trashingSteps(s: MapState, ids: readonly NodeId[]): Partial<MapState> {
+  const count = deleteSteps(s.map, ids).gone.size;
+  if (count === 0) return {};
+  const mapId = s.map.id;
+  const done = (st: MapState): Partial<MapState> => ({
+    ...commit(st, trashSteps(st.map, ids, Date.now())),
+    settleRequest: st.settleRequest + 1,
+  });
+  const erased = summarize(trashOverflow(s.map, count));
+  if (!erased) return done(s);
+  const run = () => useMapStore.setState((st) => (st.map.id === mapId ? done(st) : {}));
+  return { trashWarning: { kind: "boxes", erased, run } };
+}
+
+/**
  * What `next`, an edit of the linked map `map`, would erase for good from
  * its board's trash, oldest first: empty when the board's trash has room,
  * or the edit takes no box away (only then can it put one in the trash).
@@ -920,7 +955,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
   select: (id) => set({ selected: id, group: [], selectedLink: null }),
   moveSelection: (key) =>
     set((s) => {
-      if (s.map.kind !== "tree" || s.editing) return {};
+      if (!hasTreeShape(s.map.kind) || s.editing) return {};
       // Moving on by key calls off a rename's re-tidy still waiting.
       const off = s.renameSettle ? { renameSettle: null } : {};
       const shown = shownMap(s.map);
@@ -986,7 +1021,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
       const done = commit(s, renameNode(s.map, id, name), naming ? s.stepKey : null);
       // A new step makes room as it is typed; any other tree box waits for
       // its new size (the canvas measures it, then `takeRenameSettle`).
-      if (naming || s.map.kind !== "tree" || !done.map) return done;
+      if (naming || !hasTreeShape(s.map.kind) || !done.map) return done;
       return { ...done, renameSettle: { id, map: done.map } };
     });
   },
@@ -1048,6 +1083,17 @@ export const useMapStore = create<MapState>()((set, get) => ({
   deleteBox: (id) => get().deleteBoxes([id]),
   deleteBoxes: (ids) =>
     set((s) => {
+      if (s.map.kind === "steps") {
+        // A split takes its branches: asked first, as a tree's branch is.
+        const { gone } = deleteSteps(s.map, ids);
+        const picked = ids.filter((id) => gone.has(id));
+        if (picked.length === 0) {
+          const start = ids.find((id) => boxDeleteRefusal(s.map, id));
+          if (start) useHint.getState().show(boxDeleteRefusal(s.map, start)!, boxSpot(s.map, start));
+          return {};
+        }
+        return gone.size > picked.length ? { confirmingDelete: { ids: picked, count: gone.size } } : trashingSteps(s, picked);
+      }
       if (s.map.kind !== "tree") return trashing(s, ids);
       // A tree asks first when the delete takes boxes after these along.
       const branch = branchesOf(s.map, ids);
@@ -1123,7 +1169,11 @@ export const useMapStore = create<MapState>()((set, get) => ({
   duplicateBoxes: (ids) => set((s) => pasteInto(s, copyFragment(s.map, ids), { x: PASTE_STEP, y: PASTE_STEP })),
   confirmDelete: () =>
     set((s) =>
-      s.confirmingDelete ? { ...trashing(s, branchesOf(s.map, s.confirmingDelete.ids)), confirmingDelete: null } : {},
+      !s.confirmingDelete
+        ? {}
+        : s.map.kind === "steps"
+          ? { ...trashingSteps(s, s.confirmingDelete.ids), confirmingDelete: null }
+          : { ...trashing(s, branchesOf(s.map, s.confirmingDelete.ids)), confirmingDelete: null },
     ),
   cancelDelete: () => set({ confirmingDelete: null }),
   confirmTrashWarning: () => {
@@ -1141,7 +1191,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
       return {
         ...commit(s, next),
         ...selecting(back.filter((id) => shown.nodes[id])),
-        settleRequest: s.settleRequest + (next.kind === "tree" ? 1 : 0),
+        settleRequest: s.settleRequest + (hasTreeShape(next.kind) ? 1 : 0),
       };
     }),
   forgetBoxes: (entryId) => set((s) => commit(s, forgetTrashEntry(s.map, entryId))),
@@ -1177,6 +1227,11 @@ export const useMapStore = create<MapState>()((set, get) => ({
     get().stopEditing();
     const { map } = get();
     const parent = map.nodes[from];
+    if (map.kind === "steps" && parent) {
+      // Tab on a Choice or Parallel adds a branch; on anything else a step.
+      const type = stepTypeOf(map, from);
+      return type === "choice" || type === "parallel" ? get().addStepBranch(from) : get().addStep(from, "step");
+    }
     if (map.kind !== "tree" || !parent) return null;
     // The UI doesn't offer it then; this is the last word.
     const refusal = nextStepRefusal(map, from);
@@ -1206,10 +1261,46 @@ export const useMapStore = create<MapState>()((set, get) => ({
     return added.nodeId;
   },
 
+  addStep: (from, type) => {
+    get().stopEditing();
+    const { map } = get();
+    if (map.kind !== "steps" || !map.nodes[from]) return null;
+    const refusal = addNextRefusal(map, from, type);
+    const added = refusal ? null : addNext(map, from, type);
+    if (!added) {
+      if (refusal) useHint.getState().show(refusal, boxSpot(map, from));
+      return null;
+    }
+    // The first new step opens for typing (a split's first branch). Its add
+    // step stays open while it is named, so Esc on it blank takes the
+    // whole add back.
+    const first = added.nodeIds[0];
+    set((s) => ({
+      ...commit(s, added.map, newBoxKey(first)),
+      ...selecting([first]),
+      editing: { kind: "box", id: first },
+      settleRequest: s.settleRequest + 1,
+    }));
+    return first;
+  },
+  addStepBranch: (at) => {
+    get().stopEditing();
+    const added = addBranch(get().map, at);
+    if (!added) return null;
+    set((s) => ({
+      ...commit(s, added.map, newBoxKey(added.nodeId)),
+      ...selecting([added.nodeId]),
+      editing: { kind: "box", id: added.nodeId },
+      settleRequest: s.settleRequest + 1,
+    }));
+    return added.nodeId;
+  },
+  setHideNumbers: (hide) => set((s) => commit(s, setHideNumbers(s.map, hide))),
+
   connect: (from, to) => {
     const added = addLink(get().map, from, to);
     if (added.linkId === null) return false;
-    set((s) => ({ ...commit(s, added.map), settleRequest: s.settleRequest + (s.map.kind === "tree" ? 1 : 0) }));
+    set((s) => ({ ...commit(s, added.map), settleRequest: s.settleRequest + (hasTreeShape(s.map.kind) ? 1 : 0) }));
     return true;
   },
   setConnecting: (connecting) => set({ connecting }),
@@ -1235,7 +1326,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
   setLinkLabel: (id, label) =>
     set((s) => {
       const next = setLinkLabel(s.map, id, label);
-      const settle = next !== s.map && next.kind === "tree" ? 1 : 0;
+      const settle = next !== s.map && hasTreeShape(next.kind) ? 1 : 0;
       return { ...commit(s, next), settleRequest: s.settleRequest + settle };
     }),
   deleteLink: (id, at) =>
@@ -1259,8 +1350,8 @@ export const useMapStore = create<MapState>()((set, get) => ({
         useHint.getState().show(check.text, at);
         return {};
       }
-      if (s.map.kind !== "tree") return { ...commit(s, reconnectLink(s.map, id, end, box).map), selectedLink: id };
-      // A tree: the box the arrow leads to goes under `box`. One of several
+      if (!hasTreeShape(s.map.kind)) return { ...commit(s, reconnectLink(s.map, id, end, box).map), selectedLink: id };
+      // A tree (or Steps, where only a join's arrow gets here): the box the arrow leads to goes under `box`. One of several
       // ways in only changes this arrow; an only way in moves the branch.
       const child = link.to;
       const several = Object.values(s.map.links).filter((l) => l.to === child).length > 1;
@@ -1314,6 +1405,14 @@ export const useMapStore = create<MapState>()((set, get) => ({
     // then its name opens for typing (select-all, so typing replaces
     // "Start", and leaving it empty keeps "Start").
     set((s) => ({ ...open(s, map, createStored(map, s.maps), true), editAfterTidy: startId }));
+  },
+  newSteps: (preset = "blank") => {
+    get().stopEditing();
+    flushSave();
+    const { map, startId } = createSteps(createMapId(), untitledName(get().maps), newPageSize(), preset);
+    // As a new tree: saved at once, its first step's name open for typing
+    // once the first tidy has shown it (a blank one only).
+    set((s) => ({ ...open(s, map, createStored(map, s.maps), true), editAfterTidy: preset === "blank" ? startId : null }));
   },
   newFromTemplate: (map) => {
     get().stopEditing();
@@ -1428,7 +1527,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
       }
       // A new tree step just named: its final size is known now, so the
       // tree makes room for it (joined to the same step, see settleRequest).
-      const named = e?.kind === "box" && s.map.kind === "tree" && s.stepKey === newBoxKey(e.id);
+      const named = e?.kind === "box" && hasTreeShape(s.map.kind) && s.stepKey === newBoxKey(e.id);
       // Typing is over: a later rename of this box is its own step.
       return { editing: null, stepKey: null, settleRequest: s.settleRequest + (named ? 1 : 0) };
     }),
@@ -1573,7 +1672,7 @@ useMapStore.subscribe((s, prev) => {
 // (or ↓ then ↑ into a box with two parents) comes back the same way.
 useMapStore.subscribe((s, prev) => {
   if (s.map.id !== prev.map.id) nav = EMPTY_MEMORY;
-  if (s.map.kind === "tree" && s.selected && s.selected !== prev.selected) {
+  if (hasTreeShape(s.map.kind) && s.selected && s.selected !== prev.selected) {
     nav = remember(nav, s.map, prev.selected, s.selected);
   }
 });

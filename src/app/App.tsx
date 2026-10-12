@@ -6,6 +6,7 @@ import { ArrowLengthPanel } from "../features/map/ArrowLengthPanel";
 import { DirectionToggle } from "../features/map/DirectionToggle";
 import { HistoryButtons } from "../features/map/HistoryButtons";
 import { HideCutToggle } from "../features/map/HideCutToggle";
+import { NumbersToggle } from "../features/map/NumbersToggle";
 import { MapCanvas } from "../features/map/MapCanvas";
 import { ReachStatus } from "../features/map/ReachStatus";
 import { SelectionBar } from "../features/map/SelectionBar";
@@ -44,6 +45,7 @@ export function App() {
         <ArrowLengthPanel />
         <AlignPanel />
         <HideCutToggle />
+        <NumbersToggle />
         <div className={styles.spacer} />
         <ShortcutsDialog />
         <ExportMenu />

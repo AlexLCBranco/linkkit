@@ -198,6 +198,10 @@ export interface LinkMap {
       card notes were Linkkit's own, and meet the pregame thots as a
       possible clash when it next opens. */
   readonly cardNotesShared?: true;
+  /** Steps maps only: the step numbers are hidden. Saved and undoable; it
+      moves no box (the numbers float on the boxes' corners). Absent:
+      shown. */
+  readonly hideNumbers?: true;
 }
 
 /** Where a deleted box sat among a box's next steps (trees only), so a

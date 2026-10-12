@@ -73,14 +73,25 @@ function placesOf(map: LinkMap, gone: ReadonlySet<NodeId>): TrashPlace[] {
 export function trashBoxes(map: LinkMap, ids: Iterable<NodeId>, deletedAt: number): LinkMap {
   const gone = new Set([...ids].filter((id) => map.nodes[id]));
   if (gone.size === 0) return map;
-  const entry: TrashEntry = {
+  return withTrashEntry(deleteNodes(map, gone), trashEntryOf(map, gone, deletedAt));
+}
+
+/** The trash entry for deleting the `gone` boxes from `map` (as it was
+    before the delete): the boxes, every arrow touching them, their places. */
+export function trashEntryOf(map: LinkMap, gone: ReadonlySet<NodeId>, deletedAt: number): TrashEntry {
+  return {
     deletedAt,
     nodes: [...gone].map((id) => map.nodes[id]),
     links: Object.values(map.links).filter((l) => gone.has(l.from) || gone.has(l.to)),
     places: placesOf(map, gone),
   };
-  const out = new Set(evicted(map.trash, gone.size));
-  return { ...deleteNodes(map, gone), trash: [...map.trash.filter((e) => !out.has(e)), entry] };
+}
+
+/** `map` (the boxes already deleted) with `entry` added to its trash,
+    pushing out the oldest entries when it overfills. */
+export function withTrashEntry(map: LinkMap, entry: TrashEntry): LinkMap {
+  const out = new Set(evicted(map.trash, entry.nodes.length));
+  return { ...map, trash: [...map.trash.filter((e) => !out.has(e)), entry] };
 }
 
 /** `order` with `child` among `parent`'s next steps at `index` (or last,
@@ -112,9 +123,15 @@ export function restoreFromTrash(
   // Each arrow checked against the arrows put back so far, so a repeat of
   // one drawn since is left out. A tree's own shape is checked as a whole
   // afterwards: one arrow at a time, every box put back looks like a start.
+  // A Steps delete led the arrows into a step on to what came after it,
+  // keeping their ids (`deleteStep`): such an arrow is put back as it was.
+  const rerouted = (link: Link) => {
+    const now = next.links[link.id];
+    return map.kind === "steps" && !!now && now.from === link.from && now.to !== link.to;
+  };
   for (const link of entry.links) {
-    if (!basicLinkCheck(next, link.from, link.to).ok) continue;
-    const linkId = next.links[link.id] ? newLinkId() : link.id;
+    if (!rerouted(link) && !basicLinkCheck(next, link.from, link.to).ok) continue;
+    const linkId = next.links[link.id] && !rerouted(link) ? newLinkId() : link.id;
     const restored: Link = { ...link, id: linkId };
     next = { ...next, links: { ...next.links, [linkId]: restored } };
   }

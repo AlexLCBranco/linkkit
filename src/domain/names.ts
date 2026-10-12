@@ -1,6 +1,6 @@
 import { startOf } from "./tree";
 import { oneLine } from "./map";
-import type { LinkMap, NodeId } from "./types";
+import { hasTreeShape, type LinkMap, type NodeId } from "./types";
 
 /**
  * Names you can tell apart (usability pass U11): no two maps (or saved
@@ -50,7 +50,7 @@ export function displayNames(entries: readonly { readonly id: string; readonly n
 /** The box a map is named after: a tree's start, otherwise its first box
     (the oldest; boxes are stored in the order they were made). */
 export function namingBox(map: LinkMap): NodeId | null {
-  if (map.kind === "tree") return startOf(map);
+  if (hasTreeShape(map.kind)) return startOf(map);
   for (const id in map.nodes) return id as NodeId;
   return null;
 }

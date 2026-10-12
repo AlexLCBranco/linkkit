@@ -17,6 +17,9 @@ const OPTIONS: { value: LayoutDirection; label: string; Icon: LucideIcon }[] = [
 export function DirectionToggle() {
   const direction = useMapStore((s) => s.map.direction);
   const requestTidy = useMapStore((s) => s.requestTidy);
+  // A Steps map always reads top to bottom (owner's spec).
+  const isSteps = useMapStore((s) => s.map.kind === "steps");
+  if (isSteps) return null;
 
   return (
     <div className={styles.group} role="radiogroup" aria-label="Layout direction">

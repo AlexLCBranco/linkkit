@@ -2,6 +2,7 @@ import { Plus } from "lucide-react";
 
 import { clampToPage, freeSpot, pageSize, visibleCenter } from "../../domain/page";
 import { canAddNextStep, nextStepRefusal } from "../../domain/rules";
+import { hasTreeShape } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import styles from "./HeaderButton.module.css";
 import { ADD_SPOT, MAP_LAYOUT, PAGE_INSETS } from "./layoutConfig";
@@ -27,7 +28,8 @@ import { boxSizes, drawnZoom, MAP_PAGE_ATTRIBUTE, MAP_SHEET_ATTRIBUTE, MAP_VIEW_
 export function AddBoxButton() {
   const addBox = useMapStore((s) => s.addBox);
   const addNextStep = useMapStore((s) => s.addNextStep);
-  const isTree = useMapStore((s) => s.map.kind === "tree");
+  // Tree rules or Steps: the new box is a next step of the selected one.
+  const isTree = useMapStore((s) => hasTreeShape(s.map.kind));
   const selected = useMapStore((s) => s.selected);
   // A card in a tree linked to Boardkit takes no next steps: why, in words.
   const refusal = useMapStore((s) => (s.selected && isTree ? nextStepRefusal(s.map, s.selected) : null));

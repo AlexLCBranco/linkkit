@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 import { isArrowKey } from "../../domain/navigation";
 import { pressed, type ShortcutId } from "../../domain/shortcuts";
-import { PALETTE_COLORS } from "../../domain/types";
+import { hasTreeShape, PALETTE_COLORS } from "../../domain/types";
 import type { NodeId } from "../../domain/types";
 import { selectionOf, useMapStore } from "../../store/mapStore";
 import { useShortcutsDialog } from "../../store/shortcutsDialog";
@@ -63,6 +63,8 @@ export function onMapKey(e: KeyPress): void {
   const store = useMapStore.getState();
   const is = (id: ShortcutId) => pressed(e, id);
   const isTree = store.map.kind === "tree";
+  // Tab and the arrow keys work the same in a Steps map.
+  const treeShaped = hasTreeShape(store.map.kind);
 
   if (e.ctrlKey || e.metaKey) {
     if (is("undo")) {
@@ -109,12 +111,12 @@ export function onMapKey(e: KeyPress): void {
     }
     return;
   }
-  if (isTree && is("addNextStep") && one && !store.editing && onCanvas(e.target)) {
+  if (treeShaped && is("addNextStep") && one && !store.editing && onCanvas(e.target)) {
     e.preventDefault();
     store.addNextStep(one);
     return;
   }
-  if (isTree && is("move") && isArrowKey(e.key) && !store.editing && onCanvas(e.target)) {
+  if (treeShaped && is("move") && isArrowKey(e.key) && !store.editing && onCanvas(e.target)) {
     // Also stops the page scrolling.
     e.preventDefault();
     store.moveSelection(e.key);

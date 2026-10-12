@@ -1306,3 +1306,137 @@ describe("map store (fork)", () => {
     expect(loadMap(original.id, PAGE)?.nodes).toEqual(original.nodes);
   });
 });
+
+describe("map store (Steps)", () => {
+  /** A new blank Steps map, its first step named "Start" and done typing. */
+  async function stepsMap() {
+    const useMapStore = await freshStore();
+    useMapStore.getState().newSteps();
+    // The canvas's first tidy opens the start's name for typing.
+    useMapStore.getState().placeAll(new Map());
+    const start = useMapStore.getState().editing!.id as NodeId;
+    useMapStore.getState().renameBox(start, "Start");
+    useMapStore.getState().stopEditing();
+    return { useMapStore, start };
+  }
+  const names = (map: { nodes: Record<string, { name: string }> }) =>
+    Object.values(map.nodes)
+      .map((n) => n.name)
+      .sort();
+
+  it("starts a Steps map with one step, its name open for typing", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().newSteps();
+    useMapStore.getState().placeAll(new Map());
+    const { map, editing } = useMapStore.getState();
+    expect(map.kind).toBe("steps");
+    expect(Object.keys(map.nodes)).toHaveLength(1);
+    expect(editing?.kind).toBe("box");
+  });
+
+  it("starts from a preset", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().newSteps("decision");
+    expect(Object.keys(useMapStore.getState().map.nodes)).toHaveLength(3);
+  });
+
+  it("Add next: a Yes / No makes the step the question, its first branch open for typing, re-tidied", async () => {
+    const { useMapStore, start } = await stepsMap();
+    const settle = useMapStore.getState().settleRequest;
+    const first = useMapStore.getState().addStep(start, "yesno")!;
+    const s = useMapStore.getState();
+    expect(s.map.nodes[start].stepType).toBe("yesno");
+    expect(Object.keys(s.map.nodes)).toHaveLength(3);
+    expect(s.editing).toEqual({ kind: "box", id: first });
+    expect(s.settleRequest).toBe(settle + 1);
+    expect(Object.values(s.map.links).map((l) => l.label).sort()).toEqual(["No", "Yes"]);
+  });
+
+  it("Esc on the blank first branch takes the whole split back", async () => {
+    const { useMapStore, start } = await stepsMap();
+    useMapStore.getState().addStep(start, "choice");
+    useMapStore.getState().stopEditing(true);
+    const { map } = useMapStore.getState();
+    expect(Object.keys(map.nodes)).toEqual([start]);
+    expect(map.nodes[start].stepType).toBeUndefined();
+  });
+
+  it("Tab adds a step after a plain step, a branch on a Choice, nothing on a Yes / No", async () => {
+    const { useMapStore, start } = await stepsMap();
+    const second = useMapStore.getState().addNextStep(start)!;
+    useMapStore.getState().stopEditing();
+    expect(Object.keys(useMapStore.getState().map.nodes)).toHaveLength(2);
+    useMapStore.getState().addStep(second, "choice");
+    useMapStore.getState().stopEditing();
+    expect(useMapStore.getState().addNextStep(second)).not.toBeNull();
+    expect(Object.values(useMapStore.getState().map.links).map((l) => l.label)).toContain("Option D");
+    useMapStore.getState().addStep(start, "end");
+    // Refused (the start already goes on): nothing added.
+    expect(Object.keys(useMapStore.getState().map.nodes)).toHaveLength(6);
+  });
+
+  it("deleting a step closes the gap, into the trash; undo puts it back", async () => {
+    const { useMapStore, start } = await stepsMap();
+    const b = useMapStore.getState().addStep(start, "step")!;
+    useMapStore.getState().renameBox(b, "B");
+    useMapStore.getState().stopEditing();
+    const c = useMapStore.getState().addStep(b, "step")!;
+    useMapStore.getState().renameBox(c, "C");
+    useMapStore.getState().stopEditing();
+    const before = useMapStore.getState().map;
+    useMapStore.getState().deleteBox(b);
+    const { map, confirmingDelete } = useMapStore.getState();
+    expect(confirmingDelete).toBeNull();
+    expect(names(map)).toEqual(["C", "Start"]);
+    expect(Object.values(map.links)).toMatchObject([{ from: start, to: c }]);
+    expect(map.trash[0].nodes.map((n) => n.name)).toEqual(["B"]);
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map).toEqual(before);
+  });
+
+  it("asks before deleting a split with its branches, then restores it whole from the trash", async () => {
+    const { useMapStore, start } = await stepsMap();
+    const q = useMapStore.getState().addStep(start, "step")!;
+    useMapStore.getState().stopEditing();
+    useMapStore.getState().addStep(q, "yesno");
+    useMapStore.getState().stopEditing();
+    const before = useMapStore.getState().map;
+    useMapStore.getState().deleteBox(q);
+    expect(useMapStore.getState().confirmingDelete).toEqual({ ids: [q], count: 3 });
+    useMapStore.getState().confirmDelete();
+    expect(Object.keys(useMapStore.getState().map.nodes)).toEqual([start]);
+    useMapStore.getState().restoreBoxes(q);
+    const back = useMapStore.getState().map;
+    expect(Object.keys(back.nodes).sort()).toEqual(Object.keys(before.nodes).sort());
+    expect(Object.values(back.links).map((l) => `${l.from}>${l.to}:${l.label}`).sort()).toEqual(
+      Object.values(before.links).map((l) => `${l.from}>${l.to}:${l.label}`).sort(),
+    );
+  });
+
+  it("never deletes the first step", async () => {
+    const { useMapStore, start } = await stepsMap();
+    useMapStore.getState().deleteBox(start);
+    expect(useMapStore.getState().map.nodes[start]).toBeDefined();
+  });
+
+  it("hides the numbers as an undo step, saved with the map", async () => {
+    const { useMapStore } = await stepsMap();
+    useMapStore.getState().setHideNumbers(true);
+    const { map } = useMapStore.getState();
+    expect(map.hideNumbers).toBe(true);
+    saveMap(map);
+    expect(loadMap(map.id, PAGE)?.hideNumbers).toBe(true);
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.hideNumbers).toBeUndefined();
+  });
+
+  it("leaves a join's arrow movable, but not a step's only way in", async () => {
+    const { useMapStore, start } = await stepsMap();
+    const [yes] = [useMapStore.getState().addStep(start, "yesno")!];
+    useMapStore.getState().stopEditing();
+    const link = Object.values(useMapStore.getState().map.links).find((l) => l.to === yes)!;
+    const before = useMapStore.getState().map;
+    useMapStore.getState().reconnect(link.id, "to", start, { x: 0, y: 0 });
+    expect(useMapStore.getState().map).toBe(before);
+  });
+});

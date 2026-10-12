@@ -4,7 +4,8 @@ import { asLinkId, asMapId, asNodeId } from "./ids";
 import { nextSteps } from "./order";
 import { readMap, serializeMap } from "./persistence";
 import { canLink, parentsOf } from "./rules";
-import { addBranch, addNext, branchLetter, createSteps, deleteStep, stepNumbers, stepTypeOf } from "./steps";
+import { addBranch, addNext, branchLetter, createSteps, deleteStep, deleteSteps, stepNumbers, stepTypeOf, trashSteps } from "./steps";
+import { restoreFromTrash, trashEntryId } from "./trash";
 import { buildSteps, buildTree } from "./testMaps";
 import type { LinkMap, NodeId } from "./types";
 
@@ -255,6 +256,57 @@ describe("deleting a step", () => {
   });
 });
 
+describe("deleting steps into the trash", () => {
+  const split = () =>
+    buildSteps(
+      "a",
+      ["s", "y1", "y2", "n1", "j", "k"],
+      [["a", "s"], ["s", "y1", "Yes"], ["s", "n1", "No"], ["y1", "y2"], ["y2", "j"], ["n1", "j"], ["j", "k"]],
+      { s: "yesno" },
+    );
+  /** Arrows as "from>to:label", sorted, and each box's next steps. */
+  const shape = (map: LinkMap) => ({
+    links: Object.values(map.links).map((l) => `${l.from}>${l.to}:${l.label}`).sort(),
+    next: Object.fromEntries((Object.keys(map.nodes) as NodeId[]).sort().map((n) => [n, nextSteps(map, n)])),
+  });
+  const restored = (map: LinkMap) => restoreFromTrash(map, trashEntryId(map.trash.at(-1)!));
+
+  it("closes the gap like deleteStep, keeping what went as one entry", () => {
+    const map = trashSteps(split(), [id("y1")], 1);
+    expect(shape(map)).toEqual(shape(deleteStep(split(), id("y1"))));
+    expect(map.trash).toHaveLength(1);
+    expect(map.trash[0].nodes.map((n) => n.id)).toEqual(["y1"]);
+  });
+
+  it("a restore puts a middle step back exactly, its led-on arrow too", () => {
+    expect(shape(restored(trashSteps(split(), [id("y1")], 1)))).toEqual(shape(split()));
+  });
+
+  it("a restore puts a deleted join back between its branches and the step after", () => {
+    expect(shape(restored(trashSteps(split(), [id("j")], 1)))).toEqual(shape(split()));
+  });
+
+  it("a split goes with its branches, and comes back with them", () => {
+    const map = trashSteps(split(), [id("s")], 1);
+    expect(map.trash[0].nodes.map((n) => n.id).sort()).toEqual(["n1", "s", "y1", "y2"]);
+    const back = restored(map);
+    expect(shape(back)).toEqual(shape(split()));
+    expect(stepTypeOf(back, id("s"))).toBe("yesno");
+  });
+
+  it("several steps at once: each closes its gap, one entry for all", () => {
+    const { map, gone } = deleteSteps(split(), [id("y1"), id("n1")]);
+    expect([...gone].sort()).toEqual(["n1", "y1"]);
+    expect(nextSteps(map, id("s"))).toEqual([id("y2"), id("j")]);
+    expect(trashSteps(split(), [id("y1"), id("n1")], 1).trash).toHaveLength(1);
+  });
+
+  it("leaves the map alone when nothing can go (the start)", () => {
+    const map = split();
+    expect(trashSteps(map, [id("a")], 1)).toBe(map);
+  });
+});
+
 describe("presets", () => {
   it("blank is one empty step", () => {
     const { map, startId } = createSteps(asMapId("s"), "Steps", page);
@@ -306,5 +358,14 @@ describe("saving and loading", () => {
     const ok = withType("steps", "end");
     expect(ok.status).toBe("ok");
     if (ok.status !== "unreadable") expect(ok.map.nodes[id("b")].stepType).toBe("end");
+  });
+
+  it("keeps hidden numbers on a Steps map only", () => {
+    const steps = { ...buildSteps("a", ["b"], [["a", "b"]]), hideNumbers: true as const };
+    const read = readMap(JSON.parse(JSON.stringify(serializeMap(steps))), page);
+    expect(read.status !== "unreadable" && read.map.hideNumbers).toBe(true);
+    const tree = serializeMap(buildTree("a", ["b"], [["a", "b"]]));
+    const treeRead = readMap({ ...tree, map: { ...tree.map, hideNumbers: true } }, page);
+    expect(treeRead.status !== "unreadable" && treeRead.map.hideNumbers).toBeUndefined();
   });
 });

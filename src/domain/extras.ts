@@ -33,6 +33,7 @@ export const MAP_FIELDS: ReadonlySet<string> = new Set([
   "noteClashes",
   "heldNotes",
   "cardNotesShared",
+  "hideNumbers",
 ]);
 
 export const NODE_FIELDS: ReadonlySet<string> = new Set(["id", "name", "x", "y", "color", "status", "notes", "stepType"]);

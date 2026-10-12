@@ -18,7 +18,7 @@ import type {
   Point,
   Size,
 } from "./types";
-import { ARROW_LENGTH_PRESETS, ARROW_LENGTH_RANGE, DEFAULT_LINK_LABELS } from "./types";
+import { ARROW_LENGTH_PRESETS, ARROW_LENGTH_RANGE, DEFAULT_LINK_LABELS, hasTreeShape } from "./types";
 
 /**
  * Edits to a map. Every function is pure: it takes a map and returns a new
@@ -295,6 +295,15 @@ export function setNodesStatus(map: LinkMap, ids: Iterable<NodeId>, status: Node
 export const setHideCut = (map: LinkMap, hideCut: boolean): LinkMap =>
   hideCut === map.hideCut ? map : { ...map, hideCut };
 
+/** Hides a Steps map's step numbers, or shows them. Only a Steps map has
+    any; the same map when nothing changes. */
+export function setHideNumbers(map: LinkMap, hide: boolean): LinkMap {
+  if (map.kind !== "steps" || hide === !!map.hideNumbers) return map;
+  if (hide) return { ...map, hideNumbers: true };
+  const { hideNumbers: _, ...shown } = map;
+  return shown;
+}
+
 /* ---- Collapse (trees) ---- */
 
 /** Collapses (`on`) or expands boxes. Only boxes that may be collapsed
@@ -350,10 +359,13 @@ export type RelinkCheck =
  * (`canMove`), or, for one of several ways in, just this arrow starts
  * from `box` (`canLink`).
  */
+/** Why a Steps arrow that is a step's only way in can't be dragged elsewhere. */
+export const STEP_RELINK_REFUSAL = "This arrow is the step's only way in. To change the order, delete the step and add it again with “Add next”.";
+
 export function relinkCheck(map: LinkMap, id: LinkId, end: "from" | "to", box: NodeId): RelinkCheck {
   const link = map.links[id];
   if (!link || !map.nodes[box]) return { kind: "refused", text: "That box is gone." };
-  if (map.kind !== "tree") {
+  if (!hasTreeShape(map.kind)) {
     if (link[end] === box) return { kind: "same" };
     const done = reconnectLink(map, id, end, box);
     if (done.verdict.ok) return { kind: "ok" };
@@ -370,6 +382,9 @@ export function relinkCheck(map: LinkMap, id: LinkId, end: "from" | "to", box: N
       ? { kind: "ok" }
       : { kind: "refused", text: linkRefusalText(map, box, child, done.verdict.reason) };
   }
+  // A Steps map keeps its sequence: only a join's arrow may be moved (onto
+  // the end of another branch); a step's only way in stays.
+  if (map.kind === "steps") return { kind: "refused", text: STEP_RELINK_REFUSAL };
   const verdict = canMove(map, child, box);
   return verdict.ok ? { kind: "ok" } : { kind: "refused", text: moveRefusalText(map, child, box, verdict.reason) };
 }

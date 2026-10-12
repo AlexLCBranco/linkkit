@@ -7,9 +7,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { arrowsInto, canAddNextStep, canCollapse, canDeleteBox, canSetStatus } from "../../domain/rules";
 import { hiddenAfter } from "../../domain/shown";
 import { looksCut } from "../../domain/status";
-import type { NodeId, NodeStatus } from "../../domain/types";
+import { hasTreeShape, type NodeId, type NodeStatus } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
-import { selectNodeHighlight } from "../../store/selectors";
+import { selectNodeHighlight, selectStepNumber } from "../../store/selectors";
+import { AddNextButton } from "./AddNextButton";
 import styles from "./BoxView.module.css";
 import { StatusRow } from "./StatusRow";
 import { STATUS_META } from "./statusMeta";
@@ -54,6 +55,11 @@ const keepToButton = (e: PointerEvent | MouseEvent) => e.stopPropagation();
  * next steps leave from says how many boxes are folded away; clicking it
  * opens the branch again.
  *
+ * In a Steps map each step shows its number on its top-left corner
+ * ("3a.1", worked out from the arrows; hidden with the header's toggle),
+ * its "+" opens the "Add next" menu (AddNextButton), and an End step is
+ * drawn round-ended, a flowchart's terminator.
+ *
  * One of several boxes picked together (the marquee) shows the selection
  * ring, without the toolbar: dragging any of them moves them all.
  *
@@ -91,7 +97,10 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   const deleteBox = useMapStore((s) => s.deleteBox);
   const setBoxColor = useMapStore((s) => s.setBoxColor);
   const addNextStep = useMapStore((s) => s.addNextStep);
-  const isTree = useMapStore((s) => s.map.kind === "tree");
+  // Tree rules or Steps: a box only grows from another box.
+  const isTreeShaped = useMapStore((s) => hasTreeShape(s.map.kind));
+  const isSteps = useMapStore((s) => s.map.kind === "steps");
+  const number = useMapStore((s) => selectStepNumber(s, nodeId));
   const isLinked = useMapStore((s) => !!s.map.linkedBoard);
   // A tree's start box: Treekit's label style shows it as the heading.
   const isStart = useMapStore((s) => s.map.kind === "tree" && arrowsInto(s.map, nodeId) === 0);
@@ -131,6 +140,7 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
       data-cut={isCut || undefined}
       data-start={isStart || undefined}
       data-direction={direction}
+      data-step-type={node.stepType}
       style={style}
       onPointerDown={onBoxPointerDown}
       onDoubleClick={rename}
@@ -143,7 +153,9 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
         editing={isEditing}
         onCommit={(name) => renameBox(nodeId, name)}
         // Several lines pasted: an outline, one box per line.
-        onPasteLines={(text, before, after) => pasteOutline(nodeId, text, before, after)}
+        // Not in a Steps map: an outline's indents would make splits with
+        // no type. Lines pasted there stay lines of the name.
+        onPasteLines={isSteps ? undefined : (text, before, after) => pasteOutline(nodeId, text, before, after)}
         // Esc on a box just added takes it back; left blank otherwise, it stays.
         onDone={(committed) => stopEditing(!committed)}
         // Shift+Enter: a name over several lines (a linked map's are
@@ -156,6 +168,11 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
       <Handle type="source" position={Position.Bottom} className={styles.handle} isConnectable={false} />
 
       {node.status && <StatusBadge status={node.status} />}
+      {number && (
+        <span className={styles.number} aria-label={`Step ${number}`}>
+          {number}
+        </span>
+      )}
 
       {/* Notes: a small icon on the top-right corner says there are some;
           hovering shows their first lines. Both float, so notes never
@@ -200,7 +217,7 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
       {/* Drag from here to another box to draw an arrow. A card in a
           linked tree has none: no arrow may start there (no next steps,
           and every other box already has its one way in). */}
-      {(!isTree || addable) && (
+      {(!isTreeShaped || addable) && (
         <span
           className={styles.dot}
           onPointerDown={onDotPointerDown}
@@ -211,7 +228,8 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
       )}
 
       <div className={styles.toolbar} onPointerDown={keepToButton} onDoubleClick={keepToButton}>
-        {addable && (
+        {isSteps && <AddNextButton nodeId={nodeId} className={styles.toolbarButton} />}
+        {addable && !isSteps && (
           <button
             type="button"
             className={styles.toolbarButton}

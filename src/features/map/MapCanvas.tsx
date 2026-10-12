@@ -20,7 +20,7 @@ import { shownMap } from "../../domain/shown";
 import { boxesIn, marqueeSelection, rectBetween, type Rect } from "../../domain/marquee";
 import { boxBounds, clampToPage, keepOnPage, pageSize, placeBlockBeside, placeOnPage } from "../../domain/page";
 import { scrollAfterZoom, ZOOM_MAX, ZOOM_MIN, zoomPage, type ZoomedPage } from "../../domain/zoom";
-import type { ArrowLength, LayoutDirection, LinkId, LinkMap, NodeId, Point, Size } from "../../domain/types";
+import { hasTreeShape, type ArrowLength, type LayoutDirection, type LinkId, type LinkMap, type NodeId, type Point, type Size } from "../../domain/types";
 import { namingNewBox, selectionOf, useMapStore } from "../../store/mapStore";
 import { useViewStore, zoomOf } from "../../store/viewStore";
 import { BoxContextMenu } from "./BoxContextMenu";
@@ -267,7 +267,7 @@ function MapCanvasInner() {
       const at = screenToFlowPosition({ x: e.clientX, y: e.clientY });
       // A tree grows only from its boxes ("+", or a box's dot): a box
       // added on its own would be loose. Said where it was tried.
-      if (useMapStore.getState().map.kind === "tree") {
+      if (hasTreeShape(useMapStore.getState().map.kind)) {
         useHint.getState().show(PAPER_REFUSAL, at);
         return;
       }
@@ -382,7 +382,7 @@ function MapCanvasInner() {
   // A new step's name, as it is typed, makes room for itself (Treekit's
   // tree lays itself out from the measured sizes all the time). Only a box
   // just added: its room joins its own "add" step.
-  const naming = useMapStore((s) => (s.map.kind === "tree" ? namingNewBox(s) : null));
+  const naming = useMapStore((s) => (hasTreeShape(s.map.kind) ? namingNewBox(s) : null));
   const namingSize = naming ? sizes.get(naming) : undefined;
   const roomFor = useRef<Size | undefined>(undefined);
   useLayoutEffect(() => {
@@ -435,7 +435,7 @@ function MapCanvasInner() {
     const before = styled.current;
     styled.current = { id: map.id, style: map.labelStyle };
     if (before.style !== map.labelStyle) {
-      atSwitch.current = before.id === map.id && map.kind === "tree" ? { sizes, nodes: map.nodes } : null;
+      atSwitch.current = before.id === map.id && hasTreeShape(map.kind) ? { sizes, nodes: map.nodes } : null;
       return;
     }
     if (!atSwitch.current) return;

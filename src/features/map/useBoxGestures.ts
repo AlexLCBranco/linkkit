@@ -4,7 +4,7 @@ import { useCallback, useState, type PointerEvent as ReactPointerEvent } from "r
 import { clampGroupMove, pageSize } from "../../domain/page";
 import { canLink, linkRefusalText } from "../../domain/rules";
 import { useHint } from "../../store/hint";
-import type { NodeId, Point } from "../../domain/types";
+import { hasTreeShape, type NodeId, type Point } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { dropTargetAt } from "./dropTarget";
 import { DRAG_THRESHOLD, MAP_LAYOUT, PAGE_INSETS } from "./layoutConfig";
@@ -113,7 +113,7 @@ export function useBoxGestures(id: NodeId) {
         }
         // A tree keeps every box in its layout (Treekit's): let go on bare
         // paper, the box (or picked boxes) glides home, leaving no step.
-        if (moved && useMapStore.getState().map.kind === "tree") {
+        if (moved && hasTreeShape(useMapStore.getState().map.kind)) {
           useMapStore.getState().cancelDrag(gesture);
           return;
         }
@@ -157,7 +157,7 @@ export function useBoxGestures(id: NodeId) {
       };
       /** Over the bare paper of a tree (not a box, arrow or label). */
       const onPaper = (x: number, y: number) =>
-        useMapStore.getState().map.kind === "tree" &&
+        hasTreeShape(useMapStore.getState().map.kind) &&
         !!document.elementFromPoint(x, y)?.classList.contains("react-flow__pane");
       const update = (ev: PointerEvent | ReactPointerEvent) =>
         useMapStore.getState().setConnecting({

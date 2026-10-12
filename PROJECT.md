@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-12, v0.0.69 (Steps step s2: the Steps layout, and tree lines into a join keep clear of the boxes in between)_
+_Last updated: 2026-10-12, v0.0.70 (Steps step s3a: Steps maps on the page: new map, presets, numbers, the Add next menu, delete that closes the gap)_
 
 ## What it is
 
@@ -840,7 +840,7 @@ in"). Loops and arrows into the start are refused in both. Code:
   `LinkEdgeView.module.css` (the `[data-label-style="treekit"]` rules),
   `ArrowLengthPanel.tsx`, `MapCanvas.tsx`
 
-- **Steps model** (2026-10-12, step s1 of Steps; not on the page yet):
+- **Steps model** (2026-10-12, step s1 of Steps; on the page since s3a):
   a third map kind, `steps`, for an ordered process that branches and
   joins. Each box may have a step type (`stepType`: Yes / No, Choice,
   Parallel, End; none = a plain step), saved and read back (an unknown
@@ -852,7 +852,7 @@ in"). Loops and arrows into the start are refused in both. Code:
   (closes the gap), `createSteps` with the three presets. Check:
   `domain/steps.test.ts`
 - **Steps layout** (2026-10-12, step s2 of Steps; Tidy up uses it for
-  Steps maps, which can't be made on the page until s3):
+  Steps maps):
   `domain/stepsLayout.ts`. Top to bottom (or left to right), rows as a
   tree's (a join one row below the longest branch it joins). Each path
   (the main path, or one branch, as the numbers count them) is one
@@ -870,6 +870,28 @@ in"). Loops and arrows into the start are refused in both. Code:
   branch) now runs down its own column and turns where the join's
   nearest way in turns, instead of halfway, across the boxes in between.
   Check: `domain/arrows.test.ts`
+- **Steps maps on the page** (v0.0.70, step s3a of Steps): "+ New steps
+  map" in the map menu (its first step's name opens for typing), and the
+  three presets in the template gallery ("Steps", "Simple decision",
+  "Process with check", marked "· steps"). Each step shows its number on
+  its top edge ("3a.1"), worked out as you edit; the header's "Numbers"
+  toggle hides them (saved, undoable). A step's "+" opens the Add next
+  menu (Step, Yes / No, Choice, Parallel, End; Step is highlighted, so
+  Enter picks it); on a Choice or Parallel the "+" adds a branch; an End
+  and a Yes / No have none. The same choices are in the right-click menu.
+  Tab adds a step (a branch on a Choice or Parallel). The new step's name
+  opens for typing and the map re-tidies; Esc on it blank takes the whole
+  add back (a split too). Deleting a step closes the gap and puts it in
+  the trash; a split asks first, then goes with its branches. Restoring
+  puts it back exactly, arrows that were led on included. An End step is
+  round-ended. A Steps map has no Top-down / Left-right switch (always top
+  to bottom), no outline paste (lines pasted stay lines of the name), and
+  only a join's arrow can be dragged to another box (onto the end of a
+  branch); a step's only way in says why it can't. Joins can be drawn from
+  a branch's end with the box's dot (the rules were in s1). Check:
+  `domain/steps.test.ts` (trash, restore, hidden numbers),
+  `store/mapStore.test.ts` ("map store (Steps)"), browser check of the
+  menu, Enter, re-tidy, delete dialog, toggle and gallery
 
 ## What's next
 
@@ -913,15 +935,24 @@ place in `domain/steps.ts`):
    building: a "go straight on" arrow keeps its own lane with the split
    and join on it; a shorter branch's line into a join drops down its
    own column, in trees too)
-3. s3. The page: "+ New steps map" and the three presets in the
+3. ~~s3a. The page: "+ New steps map" and the three presets in the
    gallery; numbers on the boxes (and the toggle to hide them); the
-   "Add next" menu (Enter = Step); + on Choice / Parallel; Join by
-   dragging, and "Join here" on parallel branches; Parallel drawn as a
-   bar; the store's delete calls `deleteStep` (and puts it in the trash).
-   Sweep the UI's `kind === "tree"` checks: most should be
-   `hasTreeShape(kind)` (Tab flow, order, re-tidy), some stay tree-only
-   (status, fold, Boardkit linking, Mermaid)
-4. s4. Dragging a step reorders it in the sequence (`moveStep` in
+   "Add next" menu (Enter = Step); + on Choice / Parallel; the store's
+   delete calls `deleteStep` (and puts it in the trash). Sweep the UI's
+   `kind === "tree"` checks~~ (done, 2026-10-12, v0.0.70; s3 split in
+   two, too big for one chat. Decided while building: the number is a
+   small pill on the box's top edge, so hiding it moves nothing; End may
+   be picked on a step that already goes on and says why it can't; the
+   Direction switch is hidden (Steps is top to bottom only); outline
+   paste is off in Steps; dragging a step's only way in is refused until
+   s4. Stayed tree-only: keep / maybe / cut, fold, Boardkit linking,
+   Mermaid, the start-box heading style, image export of numbers)
+4. s3b. Join by dragging (check and polish: the dot shows on any step
+   that may go on; a join from a step that already goes on is refused
+   with a reason); "Join here" on the open ends of a Parallel's branches
+   (a pure `joinBranches` in `domain/steps.ts`, with tests); Parallel
+   drawn as a bar, so "do all" never looks like "pick one"
+5. s4. Dragging a step reorders it in the sequence (`moveStep` in
    `domain/steps.ts`, with tests); browser check of the whole flow,
    polish, keyboard shortcuts dialog entries
 

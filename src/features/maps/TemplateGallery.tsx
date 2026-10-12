@@ -10,6 +10,9 @@ import { useTemplates } from "../../store/templates";
 import styles from "./TemplateGallery.module.css";
 import { TemplateThumb } from "./TemplateThumb";
 
+/** What the gallery adds after a template's blurb about its rules. */
+const KIND_NOTE: Readonly<Record<LinkMap["kind"], string>> = { connections: "", tree: " · tree rules on", steps: " · steps" };
+
 /** The page a template's preview is laid out for (only its shape shows). */
 const PREVIEW_PAGE = { width: 800, height: 600 };
 
@@ -67,7 +70,7 @@ export function TemplateGallery({ open, onOpenChange }: { open: boolean; onOpenC
                 <span className={styles.name}>{template.name}</span>
                 <span className={styles.blurb}>
                   {template.blurb}
-                  {template.kind === "tree" ? " · tree rules on" : ""}
+                  {KIND_NOTE[template.kind]}
                 </span>
               </button>
             ))}
@@ -142,7 +145,7 @@ function SavedCard({
         <span className={styles.name}>{shown || "Untitled"}</span>
       )}
       <span className={styles.blurb}>
-        {Object.keys(preview.nodes).length} boxes{preview.kind === "tree" ? " · tree rules on" : ""}
+        {Object.keys(preview.nodes).length} boxes{KIND_NOTE[preview.kind]}
       </span>
       <span className={styles.actions} data-hidden={renaming || undefined}>
         <button

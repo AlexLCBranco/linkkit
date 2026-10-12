@@ -1,5 +1,5 @@
 import { linkGeometry, type Box } from "../../domain/geometry";
-import type { NodeId } from "../../domain/types";
+import { hasTreeShape, type NodeId } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import connect from "./ConnectPreview.module.css";
 import drop from "./DropPreview.module.css";
@@ -17,7 +17,7 @@ const pointAt = (center: Box["center"]): Box => ({ center, size: { width: 0, hei
 export function RelinkPreview({ boxes }: { readonly boxes: ReadonlyMap<NodeId, Box> }) {
   const relinking = useMapStore((s) => s.relinking);
   const link = useMapStore((s) => (s.relinking ? s.map.links[s.relinking.link] : undefined));
-  const isTree = useMapStore((s) => s.map.kind === "tree");
+  const isTree = useMapStore((s) => hasTreeShape(s.map.kind));
   if (!relinking || !link) return null;
   const moving = (relinking.target && boxes.get(relinking.target)) || pointAt(relinking.at);
   const fixedFrom = isTree || relinking.end === "from" ? null : boxes.get(link.from);

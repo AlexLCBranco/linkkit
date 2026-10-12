@@ -1,6 +1,7 @@
 import { linkHighlight, nodeHighlight, reachOf, type LinkHighlight, type NodeHighlight, type Reach } from "../domain/reach";
 import { shownMap } from "../domain/shown";
 import { canSetStatus } from "../domain/rules";
+import { stepNumbers } from "../domain/steps";
 import type { LinkId, NodeId, NodeStatus, PaletteColor } from "../domain/types";
 import type { MapState } from "./mapStore";
 
@@ -51,4 +52,15 @@ export function selectGroupColor(s: Pick<MapState, "map" | "group">): PaletteCol
 export function selectGroupStatus(s: Pick<MapState, "map" | "group">): NodeStatus | null | undefined {
   const statuses = new Set(s.group.filter((id) => canSetStatus(s.map, id)).map((id) => s.map.nodes[id].status));
   return statuses.size === 1 ? [...statuses][0] : undefined;
+}
+
+// Every box asks for its number after each edit: worked out once per map.
+let numbered: { map: MapState["map"]; numbers: ReadonlyMap<NodeId, string> } | null = null;
+
+/** A step's number in a Steps map ("3a.1"), or `null`: not a Steps map,
+    numbers hidden, or a step not reached from the start. */
+export function selectStepNumber(s: Pick<MapState, "map">, id: NodeId): string | null {
+  if (s.map.kind !== "steps" || s.map.hideNumbers) return null;
+  if (numbered?.map !== s.map) numbered = { map: s.map, numbers: stepNumbers(s.map) };
+  return numbered.numbers.get(id) ?? null;
 }
