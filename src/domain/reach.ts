@@ -10,7 +10,8 @@ import type { Link, LinkMap, MapKind, NodeId } from "./types";
  *    (followed backward);
  *  - tree (an arrow reads "from leads to to"): teal = every path back to
  *    the start (followed backward, through every parent), orange =
- *    everything that comes after it (followed forward).
+ *    everything that comes after it (followed forward);
+ *  - steps: as a tree, in a process's words.
  *
  * Both walks visit each box once, so loops are safe, and the selected box
  * itself is never in either group, even when a loop leads back to it.
@@ -38,6 +39,12 @@ export const REACH_MEANINGS: Readonly<Record<MapKind, ReachMeaning>> = {
     teal: "backward",
     tealWords: (n) => `Comes from ${n}`,
     orangeWords: (n) => `Leads to ${n}`,
+  },
+  // Steps read like a tree: what came before, and what comes after.
+  steps: {
+    teal: "backward",
+    tealWords: (n) => `Comes after ${plural(n, "step", "steps")}`,
+    orangeWords: (n) => `${plural(n, "step follows", "steps follow")}`,
   },
 };
 

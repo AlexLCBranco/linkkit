@@ -18,8 +18,10 @@ export type LinkId = Brand<string, "LinkId">;
 
 /** Which rule set a map follows: "connections" (anything may need
     anything, loops allowed) or "tree" (a decision tree: one start, each
-    step leads on to the next, no loops). See rules.ts. */
-export const MAP_KINDS = ["connections", "tree"] as const;
+    step leads on to the next, no loops) or "steps" (an ordered process
+    that can branch and join: a tree's shape, plus step types and
+    automatic numbers, steps.ts). See rules.ts. */
+export const MAP_KINDS = ["connections", "tree", "steps"] as const;
 export type MapKind = (typeof MAP_KINDS)[number];
 
 /** Fixed swatches, mirrored as `--palette-*` in styles/tokens.css. */
@@ -34,6 +36,18 @@ export const PALETTE_COLORS = [
   "purple",
 ] as const;
 export type PaletteColor = (typeof PALETTE_COLORS)[number];
+
+/** Kinds with a tree's shape: one start, every other box reached by an
+    arrow, no loops, each box's next steps in order. A Steps map is a tree
+    whose boxes are steps of a process (see steps.ts). */
+export const hasTreeShape = (kind: MapKind): boolean => kind === "tree" || kind === "steps";
+
+/** A step's type in a Steps map: how it goes on. "step" (one next step,
+    the default and never stored), "yesno" (two branches, "Yes" / "No"),
+    "choice" (one of several branches), "parallel" (every branch happens,
+    then they join) or "end" (nothing comes after it). See steps.ts. */
+export const STEP_TYPES = ["step", "yesno", "choice", "parallel", "end"] as const;
+export type StepType = (typeof STEP_TYPES)[number];
 
 /** Which way Tidy up lays a map out: "TB" top-down (a box above what it
     needs), "LR" left-right (a box to the left of what it needs). Treekit's
@@ -68,7 +82,7 @@ export type LabelStyle = (typeof LABEL_STYLES)[number];
 /** The label an arrow gets when none is typed (or one is emptied), per
     kind. A connections arrow always says something ("needs"); a tree arrow
     has no label at first, and shows no pill. */
-export const DEFAULT_LINK_LABELS: Readonly<Record<MapKind, string>> = { connections: "needs", tree: "" };
+export const DEFAULT_LINK_LABELS: Readonly<Record<MapKind, string>> = { connections: "needs", tree: "", steps: "" };
 
 /** A tree box's verdict (Treekit's): keep it, maybe, or cut it. Only a
     box's own status is stored; "looks cut" (under a cut box) is worked out
@@ -104,6 +118,9 @@ export interface MapNode {
       before notes existed read the same. Never drawn on the box itself,
       so it never changes the layout. */
   readonly notes?: string;
+  /** Steps maps only: how the step goes on (`StepType`). Absent = a plain
+      "step", so saves from before step types read the same. */
+  readonly stepType?: Exclude<StepType, "step">;
 }
 
 /** An arrow. In a connections map `from` needs `to` (A -> B reads "A

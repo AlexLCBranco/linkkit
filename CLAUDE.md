@@ -12,7 +12,10 @@ where they differ in look, prefer Treekit's and tell the owner.
 
 ## Scope
 
-Not in this build: tree mode, flowchart mode, collapsing groups, import,
+Flowchart mode is now in scope as the "Steps" kind (owner's spec,
+`reference/steps-spec.md`, 2026-10-12; plan in PROJECT.md).
+
+Not in this build: tree mode, collapsing groups, import,
 export (beyond "Export all maps" / "Restore all maps from a file", for
 moving address), notes, trash, shared board, accounts,
 backend, numbers/charts.

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-11, v0.0.68 (linking moves the map's own trash into Boardkit's trash instead of erasing it)_
+_Last updated: 2026-10-12, v0.0.68 (Steps step s1: the model for step lists that branch and join, not on the page yet)_
 
 ## What it is
 
@@ -840,7 +840,68 @@ in"). Loops and arrows into the start are refused in both. Code:
   `LinkEdgeView.module.css` (the `[data-label-style="treekit"]` rules),
   `ArrowLengthPanel.tsx`, `MapCanvas.tsx`
 
+- **Steps model** (2026-10-12, step s1 of Steps; not on the page yet):
+  a third map kind, `steps`, for an ordered process that branches and
+  joins. Each box may have a step type (`stepType`: Yes / No, Choice,
+  Parallel, End; none = a plain step), saved and read back (an unknown
+  type, or one outside a Steps map, is dropped as a repair). Its rules
+  (`rules.ts`, `steps`): a tree's shape, nothing after an End, a drawn
+  arrow only from the end of a branch onto a later step (a Join), no
+  keep / maybe / cut, no folding. `domain/steps.ts`: `stepNumbers` (1, 2,
+  3a.1, back to 4 after a join), `addNext`, `addBranch`, `deleteStep`
+  (closes the gap), `createSteps` with the three presets. Check:
+  `domain/steps.test.ts`
+
 ## What's next
+
+### Steps (flowchart mode) (owner's spec, 2026-10-12; work in this order, one chat each)
+
+The owner's spec: `reference/steps-spec.md`. A third map kind, `steps`:
+an ordered process that branches and joins, numbered automatically.
+Checked before building (2026-10-12): two parents already work in trees
+(Join reuses it); arrow labels (14b) are done; trees lay out with
+Treekit's tidy tree, which puts a box with two parents under its lowest
+parent, so Steps needs its own layout to centre joins (step s2).
+Decisions made in step s1 (the owner can still change any; each is one
+place in `domain/steps.ts`):
+- The Yes / No question is the step itself: "Add next → Yes / No" on step
+  3 makes step 3 the split, with two new branch steps under it
+- Numbers: the steps inside branch a of step 3 are 3a.1, 3a.2 … (no box
+  is called plain "3a"); a split inside a branch: 3a.1 → 3a.1a.1. After a
+  join the count goes on from the path where the branches parted (split
+  at 3, join is 4). An arrow straight from a split into its join (No: go
+  straight on) takes no letter
+- A split added in the middle of a process (step 3 already led to 4):
+  every branch joins back into 4. A step added in the middle goes in
+  between. An End can only go after the last step of a path
+- A drawn arrow is always a Join: only from the end of a branch (a step
+  with nothing after it yet, not an End, not a split) onto a later step
+- Deleting a step closes the gap (what led into it leads on, labels
+  kept); deleting a split takes its branches with it and joins what came
+  before to where the branches met
+- Parallel starts with 2 branches; Choice with 3 (+ adds "Option D" …)
+- "Process with check" preset: the No side is an End ("Fix it") until
+  loops exist (v2)
+- The new words (Step, Join, Add next, End) are for Steps maps only;
+  trees keep their five words
+
+1. ~~s1. The model: the `steps` kind and its rules, step types, numbering,
+   Add next / add branch / delete, presets, save and load, with tests~~
+   (done, 2026-10-12; no UI yet, so no version bump)
+2. s2. Layout: a Steps layout in `domain/` (top to bottom, branches side
+   by side, joins centred under their branches), with tests, wired into
+   Tidy up for Steps maps
+3. s3. The page: "+ New steps map" and the three presets in the
+   gallery; numbers on the boxes (and the toggle to hide them); the
+   "Add next" menu (Enter = Step); + on Choice / Parallel; Join by
+   dragging, and "Join here" on parallel branches; Parallel drawn as a
+   bar; the store's delete calls `deleteStep` (and puts it in the trash).
+   Sweep the UI's `kind === "tree"` checks: most should be
+   `hasTreeShape(kind)` (Tab flow, order, re-tidy), some stay tree-only
+   (status, fold, Boardkit linking, Mermaid)
+4. s4. Dragging a step reorders it in the sequence (`moveStep` in
+   `domain/steps.ts`, with tests); browser check of the whole flow,
+   polish, keyboard shortcuts dialog entries
 
 ### Bridge follow-ups (owner's order, 2026-10-08, after the bridge audit)
 

@@ -1,4 +1,4 @@
-import type { LayoutDirection, LinkMap, NodeId, SiblingOrder } from "./types";
+import { hasTreeShape, type LayoutDirection, type LinkMap, type NodeId, type SiblingOrder } from "./types";
 
 /**
  * Sibling order: each tree box keeps its next steps in an order of its own
@@ -17,7 +17,7 @@ import type { LayoutDirection, LinkMap, NodeId, SiblingOrder } from "./types";
  * stale entry can never put a box somewhere it isn't.
  */
 
-export const isOrdered = (map: LinkMap): boolean => map.kind === "tree";
+export const isOrdered = (map: LinkMap): boolean => hasTreeShape(map.kind);
 
 /** The boxes `id` leads to, in creation order of their arrows. */
 function children(map: LinkMap, id: NodeId): NodeId[] {

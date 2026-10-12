@@ -16,6 +16,7 @@ import type {
   PaletteColor,
   SiblingOrder,
   Size,
+  StepType,
   TrashEntry,
   TrashPlace,
 } from "./types";
@@ -32,6 +33,7 @@ import {
   MAP_KINDS,
   NODE_STATUSES,
   PALETTE_COLORS,
+  STEP_TYPES,
 } from "./types";
 
 /**
@@ -374,8 +376,16 @@ function readNode(id: NodeId, node: Record<string, unknown>, kind: MapKind, fix:
   // Saves from before notes existed have none: not damage. An empty one
   // is the same as none (never stored).
   const notes = node.notes === undefined ? "" : typeof node.notes === "string" ? node.notes : fix("");
+  // Only a Steps map's boxes have a step type; none is a plain step.
+  const stepType =
+    node.stepType === undefined
+      ? undefined
+      : kind === "steps" && STEP_TYPES.includes(node.stepType as StepType) && node.stepType !== "step"
+        ? (node.stepType as Exclude<StepType, "step">)
+        : fix(undefined);
   const extra = unknownFields(node, NODE_FIELDS);
-  return notes.trim() ? { ...extra, id, name, x, y, color, status, notes } : { ...extra, id, name, x, y, color, status };
+  const read: MapNode = notes.trim() ? { ...extra, id, name, x, y, color, status, notes } : { ...extra, id, name, x, y, color, status };
+  return stepType ? { ...read, stepType } : read;
 }
 
 /**

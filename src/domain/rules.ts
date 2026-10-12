@@ -1,6 +1,6 @@
 import { MAX_CARDS_PER_LIST } from "./boardRecord";
 import { nextSteps } from "./order";
-import type { LinkId, LinkMap, MapKind, NodeId } from "./types";
+import { hasTreeShape, type LinkId, type LinkMap, type MapKind, type NodeId } from "./types";
 
 /**
  * The map's rules, per kind -- answered here and only here:
@@ -42,7 +42,13 @@ export type LinkRefusal =
   | "loop"
   /** Linked tree: the target already has its way in (a card is in one
       list only). */
-  | "two-ways-in";
+  | "two-ways-in"
+  /** Steps: nothing comes after an End step. */
+  | "end"
+  /** Steps: only the end of a branch (a step with nothing after it yet)
+      may join a later step; a step that already goes on, or a branching
+      step, would become an unlabelled split. */
+  | "goes-on";
 
 export type MoveRefusal =
   /** One of the boxes does not exist. */
@@ -114,7 +120,7 @@ export function arrowsInto(map: LinkMap, id: NodeId): number {
  * with its arrow in the same edit, see tree.ts).
  */
 export const isStart = (map: LinkMap, id: NodeId): boolean =>
-  map.kind === "tree" && !!map.nodes[id] && arrowsInto(map, id) === 0;
+  hasTreeShape(map.kind) && !!map.nodes[id] && arrowsInto(map, id) === 0;
 
 /** The deepest level a board has room for: start (the board), lists,
     cards. */
@@ -265,7 +271,39 @@ const linkedTree: KindRules = {
   },
 };
 
-const RULES: Record<MapKind, KindRules> = { connections, tree };
+/** Whether a Steps box splits into branches (Yes / No, Choice, Parallel). */
+export const isBranching = (map: LinkMap, id: NodeId): boolean => {
+  const type = map.nodes[id]?.stepType;
+  return type === "yesno" || type === "choice" || type === "parallel";
+};
+
+const isEnd = (map: LinkMap, id: NodeId): boolean => map.nodes[id]?.stepType === "end";
+
+/**
+ * Steps: a process, read top to bottom (see steps.ts). A tree's shape
+ * (one start, no loops, a step may have two parents: a join), and:
+ *  - nothing comes after an End step;
+ *  - a drawn arrow is a join: from the end of a branch (a step with
+ *    nothing after it yet) onto a later step. "Later" is the loop check:
+ *    never onto a step that leads back to it. Branches come from "Add
+ *    next" (steps.ts), never from a drawn arrow;
+ *  - no keep / maybe / cut and no folding (not in this version).
+ */
+const steps: KindRules = {
+  ...tree,
+  canLink: (map, from, to) => {
+    const verdict = tree.canLink(map, from, to);
+    if (!verdict.ok) return verdict;
+    if (isEnd(map, from)) return refuse("end");
+    if (isBranching(map, from) || nextSteps(map, from).length > 0) return refuse("goes-on");
+    return OK;
+  },
+  canSetStatus: () => false,
+  canCollapse: () => false,
+  canAddNextStep: (map, id) => !!map.nodes[id] && !isEnd(map, id),
+};
+
+const RULES: Record<MapKind, KindRules> = { connections, tree, steps };
 
 const rulesOf = (map: LinkMap): KindRules =>
   map.kind === "tree" && map.linkedBoard !== undefined ? linkedTree : RULES[map.kind];
@@ -291,6 +329,7 @@ export const canAddNextStep = (map: LinkMap, id: NodeId): boolean => rulesOf(map
 export function nextStepRefusal(map: LinkMap, id: NodeId): string | null {
   const node = map.nodes[id];
   if (!node || canAddNextStep(map, id)) return null;
+  if (map.kind === "steps") return `“${node.name || "Untitled"}” is an End step: nothing comes after it.`;
   if (map.kind !== "tree") return "Children need tree rules on.";
   return `“${node.name || "Untitled"}” is a card, and cards can't have children in Boardkit.`;
 }
@@ -344,6 +383,10 @@ export function linkRefusalText(map: LinkMap, from: NodeId, to: NodeId, reason: 
       return `${name(to)} already leads to ${name(from)}: that would go round in a circle.`;
     case "two-ways-in":
       return `${name(to)} already has a parent: in Boardkit a card is in one list only.`;
+    case "end":
+      return `${name(from)} is an End step: nothing comes after it.`;
+    case "goes-on":
+      return `${name(from)} already goes on: only the last step of a branch can join a later step.`;
   }
 }
 

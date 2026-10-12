@@ -5,7 +5,7 @@ import { nextSteps, normalizeOrder, withNextStep, withoutNextStep } from "./orde
 import { arrowsInto, canCollapse, canDeleteBox } from "./rules";
 import { walk } from "./reach";
 import type { Link, LinkId, LinkMap, MapId, NodeId, Point, Size } from "./types";
-import { DEFAULT_LINK_LABELS } from "./types";
+import { DEFAULT_LINK_LABELS, hasTreeShape } from "./types";
 
 /**
  * Edits only a tree needs. Pure, like map.ts: each takes a map and returns
@@ -149,14 +149,14 @@ export function moveToParent(map: LinkMap, id: NodeId, parent: NodeId, before: N
  * repair, not a fix of its own: a whole tree can have a folded box whose
  * last next step was later deleted). `fixes` counts each arrow dropped or
  * added; 0 means the map came back unchanged. Connections maps are
- * returned as they are.
+ * returned as they are; Steps maps are repaired like trees.
  */
 export function repairTree(
   map: LinkMap,
   newLinkId: () => LinkId = createLinkId,
 ): { map: LinkMap; fixes: number } {
   const boxes = Object.keys(map.nodes) as NodeId[];
-  if (map.kind !== "tree" || boxes.length === 0) return { map, fixes: 0 };
+  if (!hasTreeShape(map.kind) || boxes.length === 0) return { map, fixes: 0 };
   let fixes = 0;
   const hasWayIn = (m: LinkMap, id: NodeId) => Object.values(m.links).some((l) => l.to === id);
 
@@ -182,7 +182,7 @@ export function repairTree(
   for (const box of boxes) {
     if (box === start || hasWayIn(repaired, box)) continue;
     const id = newLinkId();
-    added[id] = { id, from: start, to: box, label: DEFAULT_LINK_LABELS.tree };
+    added[id] = { id, from: start, to: box, label: DEFAULT_LINK_LABELS[map.kind] };
     order = withNextStep(order, start, box);
     fixes++;
   }
