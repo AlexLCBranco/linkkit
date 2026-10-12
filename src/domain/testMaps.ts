@@ -1,7 +1,7 @@
 import { asLinkId, asMapId, asNodeId } from "./ids";
 import { addLink, addNode, createMap } from "./map";
 import { normalizeOrder } from "./order";
-import type { LinkMap, NodeId } from "./types";
+import type { LinkMap, NodeId, StepType } from "./types";
 
 /**
  * Test helper: builds a map from short names, e.g.
@@ -34,4 +34,18 @@ export function buildTree(start: string, names: string[], arrows: [string, strin
   }
   // The sibling order a tree grown through the real edits would have.
   return { ...map, order: normalizeOrder(map) };
+}
+
+/** Test helper: a Steps map from short names (ids are the names), with
+    step types, built as `buildTree` builds a tree. */
+export function buildSteps(
+  start: string,
+  names: string[],
+  arrows: [string, string, string?][],
+  types: Record<string, Exclude<StepType, "step">> = {},
+): LinkMap {
+  const tree = buildTree(start, names, arrows);
+  const nodes = { ...tree.nodes };
+  for (const [name, type] of Object.entries(types)) nodes[asNodeId(name)] = { ...nodes[asNodeId(name)], stepType: type };
+  return { ...tree, kind: "steps", nodes };
 }

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-12, v0.0.68 (Steps step s1: the model for step lists that branch and join, not on the page yet)_
+_Last updated: 2026-10-12, v0.0.69 (Steps step s2: the Steps layout, and tree lines into a join keep clear of the boxes in between)_
 
 ## What it is
 
@@ -851,6 +851,25 @@ in"). Loops and arrows into the start are refused in both. Code:
   3a.1, back to 4 after a join), `addNext`, `addBranch`, `deleteStep`
   (closes the gap), `createSteps` with the three presets. Check:
   `domain/steps.test.ts`
+- **Steps layout** (2026-10-12, step s2 of Steps; Tidy up uses it for
+  Steps maps, which can't be made on the page until s3):
+  `domain/stepsLayout.ts`. Top to bottom (or left to right), rows as a
+  tree's (a join one row below the longest branch it joins). Each path
+  (the main path, or one branch, as the numbers count them) is one
+  straight column; a split's branches stand side by side under it, each
+  as wide as its widest step or the label into it, and the split and its
+  join are centred over them. An arrow straight from a split into its
+  join ("No: go straight on") gets a lane as wide as the join, and the
+  split and join sit on it, so that line runs straight down beside the
+  branches. A last pass keeps boxes in a row a column gap apart for odd
+  shapes. Check: `domain/stepsLayout.test.ts` (incl. 200 random Add next
+  edits never overlapping). Shared row maths moved to `domain/rows.ts`,
+  the loop and row helpers to `domain/graph.ts`
+- **Lines into a join** (v0.0.69, trees and Steps, elbow lines): a box
+  whose only line drops past a row into a join (the end of a shorter
+  branch) now runs down its own column and turns where the join's
+  nearest way in turns, instead of halfway, across the boxes in between.
+  Check: `domain/arrows.test.ts`
 
 ## What's next
 
@@ -888,9 +907,12 @@ place in `domain/steps.ts`):
 1. ~~s1. The model: the `steps` kind and its rules, step types, numbering,
    Add next / add branch / delete, presets, save and load, with tests~~
    (done, 2026-10-12; no UI yet, so no version bump)
-2. s2. Layout: a Steps layout in `domain/` (top to bottom, branches side
+2. ~~s2. Layout: a Steps layout in `domain/` (top to bottom, branches side
    by side, joins centred under their branches), with tests, wired into
-   Tidy up for Steps maps
+   Tidy up for Steps maps~~ (done, 2026-10-12, v0.0.69; decided while
+   building: a "go straight on" arrow keeps its own lane with the split
+   and join on it; a shorter branch's line into a join drops down its
+   own column, in trees too)
 3. s3. The page: "+ New steps map" and the three presets in the
    gallery; numbers on the boxes (and the toggle to hide them); the
    "Add next" menu (Enter = Step); + on Choice / Parallel; Join by

@@ -1,5 +1,5 @@
 import { createLinkId, createNodeId } from "./ids";
-import { loopBreakingLinks } from "./layout";
+import { loopBreakingLinks } from "./graph";
 import { addNode, createMap, deleteNodes } from "./map";
 import { nextSteps, normalizeOrder, withNextStep, withoutNextStep } from "./order";
 import { arrowsInto, canCollapse, canDeleteBox } from "./rules";

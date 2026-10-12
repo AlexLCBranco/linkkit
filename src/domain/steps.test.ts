@@ -5,24 +5,11 @@ import { nextSteps } from "./order";
 import { readMap, serializeMap } from "./persistence";
 import { canLink, parentsOf } from "./rules";
 import { addBranch, addNext, branchLetter, createSteps, deleteStep, stepNumbers, stepTypeOf } from "./steps";
-import { buildTree } from "./testMaps";
-import type { LinkMap, NodeId, StepType } from "./types";
+import { buildSteps, buildTree } from "./testMaps";
+import type { LinkMap, NodeId } from "./types";
 
 const id = asNodeId;
 const page = { width: 800, height: 600 };
-
-/** A Steps map from short names (ids are the names), with step types. */
-function buildSteps(
-  start: string,
-  names: string[],
-  arrows: [string, string, string?][],
-  types: Record<string, Exclude<StepType, "step">> = {},
-): LinkMap {
-  const tree = buildTree(start, names, arrows);
-  const nodes = { ...tree.nodes };
-  for (const [name, type] of Object.entries(types)) nodes[id(name)] = { ...nodes[id(name)], stepType: type };
-  return { ...tree, kind: "steps", nodes };
-}
 
 /** Numbers by box name, for readable expectations. */
 const numbers = (map: LinkMap): Record<string, string> => Object.fromEntries(stepNumbers(map));

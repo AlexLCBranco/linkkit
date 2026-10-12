@@ -183,6 +183,21 @@ export function arrowRoutes(
     const band = ls.length > 1 ? Math.max(...ls.map(labelDepth)) : 0;
     turnOf.set(from, far + Math.max((g - band) / 2, Math.min(g / 2, corner)));
   }
+  // A box's only line that drops past a row into a join (the end of a
+  // shorter branch) keeps to its own column and turns where the join's
+  // nearest way in turns, instead of halfway down across the boxes in
+  // between.
+  const nearestInto = new Map<NodeId, Link>();
+  for (const l of forward) {
+    const now = nearestInto.get(l.to);
+    if (!now || spanOf(l.from).far > spanOf(now.from).far) nearestInto.set(l.to, l);
+  }
+  for (const [from, ls] of kids) {
+    const nearest = ls.length === 1 ? nearestInto.get(ls[0].to)! : null;
+    if (nearest && nearest.from !== from && spanOf(nearest.from).near > spanOf(from).far) {
+      turnOf.set(from, turnOf.get(nearest.from)!);
+    }
+  }
   // Where each line comes into its box: the middle, or side by side when
   // a box has more than one way in (ordered as their boxes sit, so the
   // lines don't cross on the way in).

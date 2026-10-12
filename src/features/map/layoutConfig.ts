@@ -3,7 +3,7 @@ import type { ArrowOptions } from "../../domain/geometry";
 import type { LabelOptions } from "../../domain/labels";
 import { arrowGap, type LayoutOptions } from "../../domain/layout";
 import type { PageInsets } from "../../domain/page";
-import { ARROW_LENGTH_PRESETS, type ArrowLength, type LayoutDirection, type LinkId, type MapKind, type Size } from "../../domain/types";
+import { ARROW_LENGTH_PRESETS, type ArrowLength, hasTreeShape, type LayoutDirection, type LinkId, type MapKind, type Size } from "../../domain/types";
 
 /**
  * Numbers the pure layout and arrow geometry need as plain JS values (as in
@@ -29,8 +29,9 @@ export function layoutOptions(
   labels: ReadonlyMap<LinkId, Size>,
   kind: MapKind = "connections",
 ): LayoutOptions {
-  if (kind === "tree") {
-    // Treekit's gap at Medium, each row's labels on top (`layoutTree`).
+  if (hasTreeShape(kind)) {
+    // Treekit's gap at Medium, each row's labels on top (`layoutTree`,
+    // and a Steps map's `layoutSteps`).
     const rowGap = Math.max(ROUTES.elbow.minGap, TREE_ROW_GAP + length - ARROW_LENGTH_PRESETS.medium);
     return { ...MAP_LAYOUT, rowGap, labelSizes: labels };
   }

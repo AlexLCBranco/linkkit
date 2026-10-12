@@ -49,7 +49,7 @@ export function branchLetter(index: number): string {
 
 /** One split a step sits inside: which split, which of its branches, and
     where the split itself sits on the path around it. */
-interface Frame {
+export interface Frame {
   readonly split: NodeId;
   /** The branch's letter; "" for an arrow from the split straight into a
       join (no branch of its own). */
@@ -62,21 +62,26 @@ interface Frame {
 
 /** Where a step sits: on the path `prefix` (the main path is ""), at
     `index`, inside the splits `frames` (outermost first). */
-interface Place {
+export interface Place {
   readonly prefix: string;
   readonly index: number;
   readonly frames: readonly Frame[];
 }
 
+/** Which path a place is on, as a key: "" for the main path, and one
+    "split:letter" per split it sits inside ("n3:a/n7:b"). Steps with the
+    same key are one straight run, ordered by `index`. */
+export const pathKey = (frames: readonly Frame[]): string => frames.map((f) => `${f.split}:${f.letter}`).join("/");
+
 const numberOf = (place: Place): string => (place.prefix ? `${place.prefix}.${place.index}` : `${place.index}`);
 
 /** Whether a step splits into branches: by its type, or (damaged data)
     by having more than one next step. */
-const splits = (map: LinkMap, id: NodeId): boolean => isBranching(map, id) || nextSteps(map, id).length > 1;
+export const splits = (map: LinkMap, id: NodeId): boolean => isBranching(map, id) || nextSteps(map, id).length > 1;
 
 /** A split's branches: its next steps that have no other parent (an arrow
     straight into a join is not a branch, and takes no letter). */
-const branchesOf = (map: LinkMap, split: NodeId): NodeId[] =>
+export const branchStarts = (map: LinkMap, split: NodeId): NodeId[] =>
   nextSteps(map, split).filter((c) => parentsOf(map, c).length === 1);
 
 /**
@@ -92,7 +97,7 @@ const branchesOf = (map: LinkMap, split: NodeId): NodeId[] =>
  *
  * Steps not reached from the start (damaged data) have no place.
  */
-function placesOf(map: LinkMap): Map<NodeId, Place> {
+export function stepPlaces(map: LinkMap): Map<NodeId, Place> {
   const places = new Map<NodeId, Place>();
   const start = startOf(map);
   if (!start) return places;
@@ -105,7 +110,7 @@ function placesOf(map: LinkMap): Map<NodeId, Place> {
   const handed = (parent: NodeId, child: NodeId): readonly Frame[] => {
     const at = places.get(parent)!;
     if (!splits(map, parent)) return at.frames;
-    const branch = branchesOf(map, parent).indexOf(child);
+    const branch = branchStarts(map, parent).indexOf(child);
     const letter = branch === -1 ? "" : branchLetter(branch);
     return [...at.frames, { split: parent, letter, splitIndex: at.index, prefix: `${numberOf(at)}${letter}` }];
   };
@@ -144,7 +149,7 @@ function placesOf(map: LinkMap): Map<NodeId, Place> {
     deleted. */
 export function stepNumbers(map: LinkMap): Map<NodeId, string> {
   const out = new Map<NodeId, string>();
-  for (const [id, place] of placesOf(map)) out.set(id, numberOf(place));
+  for (const [id, place] of stepPlaces(map)) out.set(id, numberOf(place));
   return out;
 }
 
@@ -267,7 +272,7 @@ export function deleteStep(map: LinkMap, id: NodeId): LinkMap {
   const gone = new Set<NodeId>([id]);
   let goesTo: NodeId | null;
   if (splits(map, id)) {
-    const places = placesOf(map);
+    const places = stepPlaces(map);
     const own = places.get(id);
     goesTo = null;
     for (const [box, place] of places) {

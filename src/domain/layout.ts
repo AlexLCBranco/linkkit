@@ -1,4 +1,7 @@
+import { layerNodes, loopBreakingLinks } from "./graph";
 import { isOrdered, nextSteps } from "./order";
+import { rowMiddle, rowsDown } from "./rows";
+import { layoutSteps } from "./stepsLayout";
 import type { LayoutDirection, LinkId, LinkMap, NodeId, Point, Size } from "./types";
 
 /**
@@ -30,6 +33,8 @@ import type { LayoutDirection, LinkId, LinkMap, NodeId, Point, Size } from "./ty
  * meaning along the arrows ("rowGap") and across them ("columnGap").
  */
 
+export { layerNodes, loopBreakingLinks };
+
 export interface LayoutOptions {
   /** Gap between neighbouring boxes in a row. */
   readonly columnGap: number;
@@ -58,75 +63,6 @@ export interface MapLayout {
   readonly bounds: Bounds;
   /** The arrows set aside to break loops; they point upward. */
   readonly loopLinks: ReadonlySet<LinkId>;
-}
-
-/**
- * Which arrows to set aside so no loop is left. A depth-first walk that
- * starts from the boxes nothing needs (the natural tops), then from any box
- * still unvisited, in creation order; an arrow back to a box still on the
- * walk's path closes a loop and is set aside.
- */
-export function loopBreakingLinks(map: LinkMap): Set<LinkId> {
-  const ids = Object.keys(map.nodes) as NodeId[];
-  const out = new Map<NodeId, { link: LinkId; to: NodeId }[]>(ids.map((id) => [id, []]));
-  const hasIncoming = new Set<NodeId>();
-  for (const link of Object.values(map.links)) {
-    if (!map.nodes[link.from] || !map.nodes[link.to]) continue;
-    out.get(link.from)!.push({ link: link.id, to: link.to });
-    hasIncoming.add(link.to);
-  }
-
-  const broken = new Set<LinkId>();
-  const state = new Map<NodeId, "onPath" | "done">();
-  const starts = [...ids.filter((id) => !hasIncoming.has(id)), ...ids];
-  for (const start of starts) {
-    if (state.has(start)) continue;
-    // Iterative, so a long chain cannot overflow the call stack.
-    const stack: { id: NodeId; next: number }[] = [{ id: start, next: 0 }];
-    state.set(start, "onPath");
-    while (stack.length > 0) {
-      const top = stack[stack.length - 1];
-      const edges = out.get(top.id)!;
-      if (top.next === edges.length) {
-        state.set(top.id, "done");
-        stack.pop();
-        continue;
-      }
-      const { link, to } = edges[top.next++];
-      const seen = state.get(to);
-      if (seen === "onPath") broken.add(link);
-      else if (seen === undefined) {
-        state.set(to, "onPath");
-        stack.push({ id: to, next: 0 });
-      }
-    }
-  }
-  return broken;
-}
-
-/** Row number of every box, 0 at the top, with loops broken first. */
-export function layerNodes(map: LinkMap, loopLinks: ReadonlySet<LinkId> = loopBreakingLinks(map)): Map<NodeId, number> {
-  const ids = Object.keys(map.nodes) as NodeId[];
-  const out = new Map<NodeId, NodeId[]>(ids.map((id) => [id, []]));
-  const waiting = new Map<NodeId, number>(ids.map((id) => [id, 0]));
-  for (const link of Object.values(map.links)) {
-    if (loopLinks.has(link.id) || !map.nodes[link.from] || !map.nodes[link.to]) continue;
-    out.get(link.from)!.push(link.to);
-    waiting.set(link.to, waiting.get(link.to)! + 1);
-  }
-  // Kahn's topological order: a box is placed once everything that needs it is.
-  const layer = new Map<NodeId, number>(ids.map((id) => [id, 0]));
-  const ready = ids.filter((id) => waiting.get(id) === 0);
-  for (let i = 0; i < ready.length; i++) {
-    const id = ready[i];
-    for (const to of out.get(id)!) {
-      layer.set(to, Math.max(layer.get(to)!, layer.get(id)! + 1));
-      const left = waiting.get(to)! - 1;
-      waiting.set(to, left);
-      if (left === 0) ready.push(to);
-    }
-  }
-  return layer;
 }
 
 /**
@@ -164,6 +100,7 @@ export function layoutMap(
 }
 
 function layoutTopDown(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, options: LayoutOptions): MapLayout {
+  if (map.kind === "steps") return layoutSteps(map, sizes, options);
   return map.kind === "tree" ? layoutTree(map, sizes, options) : layoutLayers(map, sizes, options);
 }
 
@@ -277,25 +214,7 @@ function layoutTree(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, options: Lay
   }
   const childrenOf = (id: NodeId) => nextSteps(map, id).filter((c) => home.get(c)?.parent === id);
 
-  // Row depths, each gap's label band, and where each row starts.
-  const rowDepth: number[] = [];
-  const band: number[] = [];
-  for (const id of ids) {
-    const r = row.get(id)!;
-    rowDepth[r] = Math.max(rowDepth[r] ?? 0, sizeOf(id).height);
-  }
-  for (const l of kept) {
-    const label = l.label ? labelSizes.get(l.id) : undefined;
-    const r = row.get(l.to)!;
-    band[r] = Math.max(band[r] ?? 0, label?.height ?? 0);
-  }
-  const rowStart: number[] = [];
-  let depth = 0;
-  for (let r = 0; r < rowDepth.length; r++) {
-    if (r > 0) depth += rowGap + (band[r] ?? 0);
-    rowStart[r] = depth;
-    depth += rowDepth[r] ?? 0;
-  }
+  const rows = rowsDown(ids, row, kept, sizeOf, rowGap, labelSizes);
 
   // Branch widths, bottom-up; then each box centred over its block.
   const slotOf = (id: NodeId) => {
@@ -317,7 +236,7 @@ function layoutTree(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, options: Lay
   const place = (id: NodeId, start: number) => {
     const center = start + branch.get(id)! / 2;
     const r = row.get(id)!;
-    positions.set(id, { x: center, y: rowStart[r] + rowDepth[r] / 2 });
+    positions.set(id, { x: center, y: rowMiddle(rows, r) });
     let cursor = center - block.get(id)! / 2;
     for (const c of childrenOf(id)) {
       place(c, cursor);
@@ -341,5 +260,5 @@ function layoutTree(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, options: Lay
   }
   const shift = (left + right) / 2;
   const centred = new Map([...positions].map(([id, p]) => [id, { x: p.x - shift, y: p.y }]));
-  return { positions: centred, bounds: { left: left - shift, top: 0, right: right - shift, bottom: depth }, loopLinks };
+  return { positions: centred, bounds: { left: left - shift, top: 0, right: right - shift, bottom: rows.total }, loopLinks };
 }

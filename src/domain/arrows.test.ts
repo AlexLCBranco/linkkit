@@ -100,6 +100,18 @@ describe("elbow lines (Treekit's)", () => {
     expect(route(routes, "p2>c").tip).toEqual({ x: 207, y: 80 });
   });
 
+  it("drop a shorter branch's only line down its own column into a join, clear of the boxes between", () => {
+    // "quick" ends a row above "ben"; both lead into "join", under "ben".
+    const b = boxes({ quick: [150, 100], ben: [0, 200], join: [0, 300] });
+    const routes = elbows(b, links("quick>join", "ben>join"));
+    const quick = route(routes, "quick>join");
+    const turn = route(routes, "ben>join").points[1]?.y ?? quick.points[1].y;
+    // Down its own column, then across where ben's line turns: below ben.
+    expect(quick.points[1]).toEqual({ x: 150, y: turn });
+    expect(quick.points[1].y).toBeGreaterThan(220);
+    expect(quick.points[2].y).toBe(quick.points[1].y);
+  });
+
   it("stagger the turns of combs in one row that would run along one line", () => {
     const routes = elbows(boxes({ p1: [100, 0], p2: [300, 0], a: [100, 100], c: [300, 100] }), links("p1>a", "p1>c", "p2>a", "p2>c"));
     const turn1 = route(routes, "p1>c").points[1].y;
