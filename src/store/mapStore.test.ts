@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EXAMPLE_MAP_NAME, exampleMap, exampleTree } from "../domain/example";
 import { asMapId, asNodeId } from "../domain/ids";
+import { nextSteps } from "../domain/order";
 import { build } from "../domain/testMaps";
 import type { NodeId, Point } from "../domain/types";
 import { memoryStorage } from "./memoryStorage";
@@ -1445,6 +1446,36 @@ describe("map store (Steps)", () => {
     expect(loadMap(map.id, PAGE)?.hideNumbers).toBe(true);
     useMapStore.getState().undo();
     expect(useMapStore.getState().map.hideNumbers).toBeUndefined();
+  });
+
+  it("drags a step to a new place as one undo step, renumbered and picked", async () => {
+    const { useMapStore, start } = await stepsMap();
+    const two = useMapStore.getState().addStep(start, "step")!;
+    useMapStore.getState().renameBox(two, "Two");
+    const three = useMapStore.getState().addStep(two, "step")!;
+    useMapStore.getState().renameBox(three, "Three");
+    useMapStore.getState().stopEditing();
+    const before = useMapStore.getState().map;
+    // The drag's own moves and the reorder share the gesture's undo step.
+    useMapStore.getState().moveBoxes(new Map([[three, { x: 5, y: 5 }]]), "drag:t");
+    useMapStore.getState().moveStep(three, { before: two }, { x: 0, y: 0 }, "drag:t");
+    const { map, selected } = useMapStore.getState();
+    expect(nextSteps(map, start)).toEqual([three]);
+    expect(nextSteps(map, three)).toEqual([two]);
+    expect(selected).toBe(three);
+    useMapStore.getState().undo();
+    expect(useMapStore.getState().map.links).toEqual(before.links);
+  });
+
+  it("refuses a step's move it can't make, saying why", async () => {
+    const { useMapStore, start } = await stepsMap();
+    const { useHint } = await import("./hint");
+    const [yes] = [useMapStore.getState().addStep(start, "yesno")!];
+    useMapStore.getState().stopEditing();
+    const before = useMapStore.getState().map;
+    useMapStore.getState().moveStep(yes, { before: start }, { x: 0, y: 0 });
+    expect(useMapStore.getState().map).toBe(before);
+    expect(useHint.getState().hint?.text).toMatch(/only step on its branch/);
   });
 
   it("leaves a join's arrow movable, but not a step's only way in", async () => {

@@ -75,10 +75,13 @@ import {
   createSteps,
   deleteSteps,
   joinBranches,
+  moveStep,
+  moveStepRefusal,
   parallelJoins,
   stepTypeOf,
   trashSteps,
   type StepPreset,
+  type StepSpot,
 } from "../domain/steps";
 import { addNextStep, branchesOf, createTree, moveToParent as moveUnder, startOf } from "../domain/tree";
 import { arrowToMove, EMPTY_MEMORY, moveFrom, remember, type ArrowKey, type NavMemory } from "../domain/navigation";
@@ -160,6 +163,9 @@ export interface Dropping {
   /** Over the box it is already under: letting go puts it back where it
       was (the chip says so), rather than leaving it on top of its parent. */
   readonly already?: boolean;
+  /** Steps: the step goes just before or after `parent` (the step it is
+      over), rather than under it. */
+  readonly step?: StepSpot;
 }
 
 /** One end of an arrow being dragged to another box, not yet let go. */
@@ -434,6 +440,11 @@ export interface MapState {
       drag, the move and the tidy undo together. Refused, saying why, when
       the rules say no. */
   moveToParent(id: NodeId, parent: NodeId, before: NodeId | null, gesture?: string): void;
+  /** Steps: drags step `id` to `spot` (just before or after another step;
+      `domain/steps.ts`), renumbering at once; the map re-tidies. `gesture`
+      as for `moveToParent`. Refused, saying why at `at`, when it can't go
+      there. */
+  moveStep(id: NodeId, spot: StepSpot, at: Point, gesture?: string): void;
   /** An emptied label goes back to the kind's default. */
   setLinkLabel(id: LinkId, label: string): void;
   /** Only where the rules allow it (never a tree box's only way in); when
@@ -1348,6 +1359,18 @@ export const useMapStore = create<MapState>()((set, get) => ({
       // The moved box ends up picked, so its new way back to the start
       // lights up: after the re-tidy it may sit where it was before, and
       // only its arrow would show that anything happened.
+      return { ...commit(s, next, gesture ?? null), ...selecting([id]), settleRequest: s.settleRequest + 1 };
+    }),
+  moveStep: (id, spot, at, gesture) =>
+    set((s) => {
+      const refusal = moveStepRefusal(s.map, id, spot);
+      if (refusal) {
+        useHint.getState().show(refusal, at);
+        return {};
+      }
+      const next = moveStep(s.map, id, spot);
+      if (next === s.map) return {};
+      // Picked, as a moved tree box is: its new place and number show.
       return { ...commit(s, next, gesture ?? null), ...selecting([id]), settleRequest: s.settleRequest + 1 };
     }),
   // A tree makes room for a new or changed label at once (the label and

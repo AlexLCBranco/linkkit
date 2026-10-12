@@ -360,7 +360,7 @@ export type RelinkCheck =
  * from `box` (`canLink`).
  */
 /** Why a Steps arrow that is a step's only way in can't be dragged elsewhere. */
-export const STEP_RELINK_REFUSAL = "This arrow is the step's only way in. To change the order, delete the step and add it again with “Add next”.";
+export const STEP_RELINK_REFUSAL = "This arrow is the step's only way in. To change the order, drag the step itself to where it should go.";
 
 export function relinkCheck(map: LinkMap, id: LinkId, end: "from" | "to", box: NodeId): RelinkCheck {
   const link = map.links[id];

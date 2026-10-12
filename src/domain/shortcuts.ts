@@ -6,6 +6,8 @@
  * `keyboard.test.ts` checks it: every key the map reacts to is in here.
  */
 
+import type { MapKind } from "./types";
+
 /** One key press that triggers a shortcut. `key` is the browser's
     `KeyboardEvent.key`, lower-cased ("z", "enter", " ", "arrowup").
     `mod` is Ctrl (Windows) or ⌘ (Mac). `shift` left out: either way. */
@@ -23,11 +25,15 @@ export interface Shortcut {
   readonly does: string;
   /** Alternative presses, any of which does it. */
   readonly combos: readonly KeyCombo[];
-  /** Works only in a tree map, or only outside one. Left out: any map. */
-  readonly only?: "tree" | "not-tree";
+  /** The kinds of map it works in. Left out: any map. */
+  readonly only?: readonly MapKind[];
   /** Only while typing a name or label (the map's own keys are off then). */
   readonly typing?: boolean;
 }
+
+const TREES: readonly MapKind[] = ["tree"];
+const TREE_SHAPED: readonly MapKind[] = ["tree", "steps"];
+const NOT_TREE_SHAPED: readonly MapKind[] = ["connections"];
 
 const k = (key: string, extra: Omit<KeyCombo, "key"> = {}): KeyCombo => ({ key, ...extra });
 const digits = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => k(String(from + i)));
@@ -36,9 +42,9 @@ export const SHORTCUTS = {
   // Create & edit
   addNextStep: {
     group: "Create & edit",
-    does: "Add a child under the selected box (Tab again goes one deeper)",
+    does: "Add a child under the selected box (Tab again goes one deeper); in Steps, the next step, or one more branch on a Choice or Parallel",
     combos: [k("tab", { shift: false })],
-    only: "tree",
+    only: TREE_SHAPED,
   },
   rename: { group: "Create & edit", does: "Rename the selected box", combos: [k("enter"), k("f2")] },
   save: { group: "Create & edit", does: "Keep the name or label", combos: [k("enter")], typing: true },
@@ -55,21 +61,21 @@ export const SHORTCUTS = {
     does: "Delete the selected boxes, or the picked arrow",
     combos: [k("delete"), k("backspace")],
   },
-  copy: { group: "Create & edit", does: "Copy the selected boxes", combos: [k("c", { mod: true })], only: "not-tree" },
-  cut: { group: "Create & edit", does: "Cut the selected boxes", combos: [k("x", { mod: true })], only: "not-tree" },
-  paste: { group: "Create & edit", does: "Paste", combos: [k("v", { mod: true })], only: "not-tree" },
+  copy: { group: "Create & edit", does: "Copy the selected boxes", combos: [k("c", { mod: true })], only: NOT_TREE_SHAPED },
+  cut: { group: "Create & edit", does: "Cut the selected boxes", combos: [k("x", { mod: true })], only: NOT_TREE_SHAPED },
+  paste: { group: "Create & edit", does: "Paste", combos: [k("v", { mod: true })], only: NOT_TREE_SHAPED },
   duplicate: {
     group: "Create & edit",
     does: "Duplicate the selected boxes",
     combos: [k("d", { mod: true })],
-    only: "not-tree",
+    only: NOT_TREE_SHAPED,
   },
   // Move around
   move: {
     group: "Move around",
     does: "Move the selection: up to the parent, down to a child, along the row to a sibling",
     combos: [k("arrowup", { shift: false }), k("arrowdown", { shift: false }), k("arrowleft", { shift: false }), k("arrowright", { shift: false })],
-    only: "tree",
+    only: TREE_SHAPED,
   },
   selectFocused: { group: "Move around", does: "Select the box Tab has reached", combos: [k("enter")] },
   selectAll: { group: "Move around", does: "Select every box", combos: [k("a", { mod: true })] },
@@ -77,8 +83,8 @@ export const SHORTCUTS = {
   // Organise
   colour: { group: "Organise", does: "Colour the selected boxes (in the palette's order)", combos: digits(1, 8) },
   clearColour: { group: "Organise", does: "Clear their colour", combos: [k("0")] },
-  toggleCut: { group: "Organise", does: "Mark cut, or un-cut", combos: [k("x", { shift: false })], only: "tree" },
-  toggleCollapsed: { group: "Organise", does: "Collapse or expand the selected box's branch", combos: [k(" ")], only: "tree" },
+  toggleCut: { group: "Organise", does: "Mark cut, or un-cut", combos: [k("x", { shift: false })], only: TREES },
+  toggleCollapsed: { group: "Organise", does: "Collapse or expand the selected box's branch", combos: [k(" ")], only: TREES },
   // View
   help: { group: "View", does: "Show these shortcuts", combos: [k("?")] },
   // Undo

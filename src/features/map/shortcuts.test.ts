@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { comboMatches, SHORTCUTS, type KeyCombo, type Shortcut } from "../../domain/shortcuts";
 import { startOf } from "../../domain/tree";
-import type { LinkId, NodeId } from "../../domain/types";
+import type { LinkId, MapKind, NodeId } from "../../domain/types";
 import { memoryStorage } from "../../store/memoryStorage";
 
 /** Every key worth trying: letters, digits, F-keys and the named keys. */
@@ -20,7 +20,7 @@ const MODIFIERS = [
   { ctrlKey: false, metaKey: true, shiftKey: false },
 ];
 
-type Kind = "connections" | "tree";
+type Kind = MapKind;
 interface Situation {
   readonly name: string;
   readonly kind: Kind;
@@ -92,6 +92,17 @@ const SITUATIONS: readonly Situation[] = [
     },
   },
   {
+    name: "a step selected (steps)",
+    kind: "steps",
+    setUp: async () => {
+      const { useMapStore, spyAll } = await load();
+      useMapStore.getState().newSteps("check");
+      useMapStore.getState().stopEditing();
+      useMapStore.getState().select(startOf(useMapStore.getState().map)!);
+      return spyAll();
+    },
+  },
+  {
     name: "nothing selected (tree)",
     kind: "tree",
     setUp: async () => {
@@ -133,8 +144,10 @@ describe("the shortcut table and the key handler", () => {
           const press = { key: mods.shiftKey && key.length === 1 ? key.toUpperCase() : key, ...mods };
           if (!reacts(onMapKey, spies, press)) continue;
           const rows = listedFor(press);
-          // A "Trees only" key must not do anything outside a tree.
-          const fits = rows.some((row) => row.only !== "tree" || situation.kind === "tree");
+          // A key tagged with some kinds of map must not do anything in
+          // another; copy and paste may still answer there, with a hint
+          // saying why not.
+          const fits = rows.some((row) => !row.only || row.only.includes(situation.kind) || row.only.includes("connections"));
           if (!fits) unlisted.push(JSON.stringify(press));
         }
       }
@@ -148,7 +161,7 @@ describe("the shortcut table and the key handler", () => {
       for (const combo of row.combos as readonly KeyCombo[]) {
         let works = false;
         for (const situation of SITUATIONS) {
-          if (row.only === "tree" && situation.kind !== "tree") continue;
+          if (row.only && !row.only.includes(situation.kind)) continue;
           const { onMapKey, spies } = await situation.setUp();
           for (const ctrl of combo.mod ? [true] : [false]) {
             const press = { key: realKey(combo.key), ctrlKey: ctrl, metaKey: false, shiftKey: combo.shift ?? false };

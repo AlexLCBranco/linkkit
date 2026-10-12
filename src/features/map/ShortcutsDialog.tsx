@@ -4,6 +4,7 @@ import { Fragment } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../../components/ui/dialog";
 import { Kbd, KbdGroup } from "../../components/ui/kbd";
 import { SHORTCUT_GROUPS, SHORTCUTS, shortcutCaps, type Shortcut } from "../../domain/shortcuts";
+import type { MapKind } from "../../domain/types";
 import { useShortcutsDialog } from "../../store/shortcutsDialog";
 import styles from "./HeaderButton.module.css";
 import { TreeWordsExample } from "./TreeWordsExample";
@@ -12,7 +13,14 @@ const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigat
 
 const ROWS: readonly Shortcut[] = Object.values(SHORTCUTS);
 
-const TAGS = { tree: "Trees only", "not-tree": "Not in trees" } as const;
+/** The tag for a row that works only in some kinds of map. */
+function kindsTag(kinds: readonly MapKind[]): string {
+  if (!kinds.includes("connections")) {
+    if (kinds.length === 1) return kinds[0] === "tree" ? "Trees only" : "Steps only";
+    return "Trees and Steps";
+  }
+  return kinds.length === 1 ? "Not in trees or Steps" : "Not in trees";
+}
 
 /**
  * A keyboard button in the header that opens a read-only list of every
@@ -86,7 +94,7 @@ function ShortcutList({ title, rows }: { readonly title: string; readonly rows: 
             <span className="text-foreground">
               {row.does}
               {row.typing && <Tag>While typing</Tag>}
-              {row.only && <Tag>{TAGS[row.only]}</Tag>}
+              {row.only && <Tag>{kindsTag(row.only)}</Tag>}
             </span>
             <span className="flex shrink-0 items-center gap-1.5">
               {shortcutCaps(row, isMac).map((caps, index) => (

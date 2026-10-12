@@ -81,7 +81,8 @@ export function useBoxGestures(id: NodeId) {
         const store = useMapStore.getState();
         store.moveBoxes(to, gesture);
         // One tree box on its own may also be dropped onto another box or
-        // between siblings, to move it there (with its branch).
+        // between siblings, to move it there (with its branch); a step
+        // just before or after another step.
         if (moving.size === 1) {
           const center = to.get(id)!;
           const dragged = { center, size: sizes.get(id) ?? MAP_LAYOUT.fallbackSize };
@@ -101,7 +102,8 @@ export function useBoxGestures(id: NodeId) {
           useMapStore.getState().setDropping(null);
           if (ev.type !== "pointerup") return;
           if (dropping.refusal === null && !dropping.already) {
-            useMapStore.getState().moveToParent(id, dropping.parent, dropping.before, gesture);
+            if (dropping.step) useMapStore.getState().moveStep(id, dropping.step, dropping.at, gesture);
+            else useMapStore.getState().moveToParent(id, dropping.parent, dropping.before, gesture);
           } else {
             // Let go on a box it can't go under (or is already under):
             // it glides back where it started, rather than left on top of

@@ -16,6 +16,7 @@ import type { Link, LinkId, LinkMap, MapId, NodeId, Size, StepType } from "./typ
  *  - `addNext` / `addBranch`: the "Add next" menu's edits;
  *  - `deleteStep`: deleting a step closes the gap instead of cutting the
  *    process in two;
+ *  - `moveStep`: dragging a step just before or after another one;
  *  - `joinBranches`: "Join here", a Parallel's open branches meeting again;
  *  - `createSteps`: a new Steps map from a preset.
  *
@@ -283,6 +284,28 @@ export function addBranch(
   return { map: { ...added, links, order: withNextStep(added.order, at, id) }, nodeId: id };
 }
 
+/** The arrows into `id` lead on to `goesTo` instead (same id and label),
+    each in `id`'s place among its parent's next steps; an arrow that can't
+    (no `goesTo`, or the parent already leads there) goes. Parents in
+    `skip` are left alone; `id`'s own arrows on stay. */
+function leadOn(map: LinkMap, id: NodeId, goesTo: NodeId | null, skip: ReadonlySet<NodeId> = new Set()): LinkMap {
+  const links: Record<LinkId, Link> = { ...map.links };
+  const order: Record<NodeId, readonly NodeId[]> = { ...map.order };
+  for (const parent of parentsOf(map, id)) {
+    if (skip.has(parent)) continue;
+    const into = linkBetween(map, parent, id)!;
+    const list = nextSteps(map, parent);
+    if (goesTo && !linkBetween(map, parent, goesTo)) {
+      links[into.id] = { ...into, to: goesTo };
+      order[parent] = list.map((c) => (c === id ? goesTo : c));
+    } else {
+      delete links[into.id];
+      order[parent] = list.filter((c) => c !== id);
+    }
+  }
+  return { ...map, links, order };
+}
+
 /**
  * Deletes a step and closes the gap, so the process never falls apart:
  *
@@ -309,23 +332,7 @@ export function deleteStep(map: LinkMap, id: NodeId): LinkMap {
     goesTo = nextSteps(map, id)[0] ?? null;
   }
 
-  // The arrows into the step lead on instead (same id and label), each
-  // in the step's place among its parent's next steps.
-  const links: Record<LinkId, Link> = { ...map.links };
-  const order: Record<NodeId, readonly NodeId[]> = { ...map.order };
-  for (const parent of parentsOf(map, id)) {
-    if (gone.has(parent)) continue;
-    const into = linkBetween(map, parent, id)!;
-    const list = nextSteps(map, parent);
-    if (goesTo && !linkBetween(map, parent, goesTo)) {
-      links[into.id] = { ...into, to: goesTo };
-      order[parent] = list.map((c) => (c === id ? goesTo! : c));
-    } else {
-      delete links[into.id];
-      order[parent] = list.filter((c) => c !== id);
-    }
-  }
-  let next = deleteNodes({ ...map, links, order }, gone);
+  let next = deleteNodes(leadOn(map, id, goesTo, gone), gone);
 
   // Nothing loose: whatever can no longer be reached from the start goes.
   const start = startOf(next);
@@ -335,6 +342,117 @@ export function deleteStep(map: LinkMap, id: NodeId): LinkMap {
     if (loose.length) next = deleteNodes(next, loose);
   }
   return next;
+}
+
+/* ---- Moving ---- */
+
+/** Where a dragged step can go: just before or just after another step. */
+export type StepSpot = { readonly before: NodeId } | { readonly after: NodeId };
+
+/** The step a spot is beside. */
+export const spotStep = (spot: StepSpot): NodeId => ("before" in spot ? spot.before : spot.after);
+
+/** Whether step `id` already sits at `spot`, so moving it there changes
+    nothing. */
+function alreadyAt(map: LinkMap, id: NodeId, spot: StepSpot): boolean {
+  const only = (list: readonly NodeId[], one: NodeId) => list.length === 1 && list[0] === one;
+  if ("after" in spot) return only(parentsOf(map, id), spot.after) && only(nextSteps(map, spot.after), id);
+  return only(nextSteps(map, id), spot.before) && only(parentsOf(map, spot.before), id);
+}
+
+/**
+ * Why step `id` can't move to `spot`, in words; `null` when it can (or
+ * when it is already there: `moveStep` then changes nothing).
+ *
+ *  - a split doesn't move (it would have to take its branches along);
+ *  - the only step on a branch doesn't leave it, when the branch would
+ *    vanish (it ends there, or the split also goes straight on);
+ *  - nothing goes after an End or a split (a split's branches start with
+ *    "before" their first step), nor before a join (which branch?: "after"
+ *    the step it should follow says);
+ *  - an End only goes after the last step of a path.
+ */
+export function moveStepRefusal(map: LinkMap, id: NodeId, spot: StepSpot): string | null {
+  const node = map.nodes[id];
+  const at = spotStep(spot);
+  const target = map.nodes[at];
+  if (map.kind !== "steps" || !node || !target || at === id || alreadyAt(map, id, spot)) return null;
+  const name = (n: { name: string }) => `“${n.name || "Untitled"}”`;
+  if (splits(map, id)) return `${name(node)} splits into branches, so it can't move. Delete it and add it again where it should go.`;
+  // Lifted out, a split's arrow into it leads on, or goes when there is
+  // nothing after it or the split already leads there: a lost branch.
+  const goesOn = nextSteps(map, id)[0];
+  if (parentsOf(map, id).some((p) => splits(map, p) && (!goesOn || linkBetween(map, p, goesOn)))) {
+    return `${name(node)} is the only step on its branch, which would vanish. Add another step to the branch first.`;
+  }
+  // Asked of the map with the step already lifted out.
+  const lifted = lift(map, id);
+  const isEnd = stepTypeOf(map, id) === "end";
+  if ("after" in spot) {
+    if (stepTypeOf(map, at) === "end") return `${name(target)} is an End step: nothing comes after it.`;
+    if (splits(lifted, at)) return `${name(target)} splits into branches: drop it before the first step of a branch instead.`;
+    if (isEnd && nextSteps(lifted, at).length > 0) return `${name(target)} already goes on: an End only goes after the last step.`;
+    return null;
+  }
+  if (isEnd) return "An End only goes after the last step of a path: drop it on the bottom half of that step.";
+  if (parentsOf(lifted, at).length > 1) return `${name(target)} is where branches meet: drop it after the step it should follow instead.`;
+  return null;
+}
+
+/** Step `id` taken out of the process, the gap closed (what led into it
+    leads on), its own arrow on gone: loose, ready to go in elsewhere. */
+function lift(map: LinkMap, id: NodeId): LinkMap {
+  const goesOn = nextSteps(map, id)[0] ?? null;
+  const next = leadOn(map, id, goesOn);
+  const own = goesOn ? linkBetween(next, id, goesOn) : undefined;
+  const links = { ...next.links };
+  if (own) delete links[own.id];
+  const { [id]: _, ...order } = next.order;
+  return { ...next, links, order };
+}
+
+/**
+ * Drags step `id` to `spot`: it is lifted out (the gap closes, as when it
+ * is deleted: what led into it leads on, labels kept) and goes in there,
+ * so the numbers follow at once:
+ *
+ *  - after step X: X leads to it, and it leads on to what X led to;
+ *  - before step Y: the arrow into Y (label kept, so a "Yes" branch stays
+ *    "Yes") now leads to it, and it leads on to Y. Before the start, it
+ *    becomes the start.
+ *
+ * The same map when it can't (`moveStepRefusal`) or is already there.
+ */
+export function moveStep(map: LinkMap, id: NodeId, spot: StepSpot, newLinkId: () => LinkId = createLinkId): LinkMap {
+  const at = spotStep(spot);
+  if (map.kind !== "steps" || !map.nodes[id] || !map.nodes[at] || at === id) return map;
+  if (alreadyAt(map, id, spot) || moveStepRefusal(map, id, spot)) return map;
+
+  const next = lift(map, id);
+  const links: Record<LinkId, Link> = { ...next.links };
+  const order: Record<NodeId, readonly NodeId[]> = { ...next.order };
+  if ("after" in spot) {
+    const old = nextSteps(next, at)[0] ?? null;
+    const oldLink = old ? linkBetween(next, at, old) : undefined;
+    const linkId = newLinkId();
+    links[linkId] = { id: linkId, from: at, to: id, label: "" };
+    order[at] = [id];
+    if (oldLink && old) {
+      links[oldLink.id] = { ...oldLink, from: id };
+      order[id] = [old];
+    }
+  } else {
+    const parent = parentsOf(next, at)[0];
+    if (parent) {
+      const into = linkBetween(next, parent, at)!;
+      links[into.id] = { ...into, to: id };
+      order[parent] = nextSteps(next, parent).map((c) => (c === at ? id : c));
+    }
+    const linkId = newLinkId();
+    links[linkId] = { id: linkId, from: id, to: at, label: "" };
+    order[id] = [at];
+  }
+  return { ...next, links, order };
 }
 
 /* ---- Joining ---- */

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-12, v0.0.71 (Steps step s3b: joins: "Join here" on a Parallel's open branches, Parallel drawn with fork and join bars, clearer refusals when dragging a join)_
+_Last updated: 2026-10-12, v0.0.72 (Steps step s4: drag a step before or after another to reorder it; the Steps work in the owner's spec is done)_
 
 ## What it is
 
@@ -911,6 +911,26 @@ in"). Loops and arrows into the start are refused in both. Code:
   "drawing a join"), `store/mapStore.test.ts` ("Join here …"), browser
   check of the pills, the join's place and number, the bars, a later
   branch joining the existing join, and the refused drag
+- **Reordering steps by dragging** (v0.0.72, step s4 of Steps): drag a
+  step onto another step. Over its top half, a bar across its top edge
+  and "Move before 'X'"; over its bottom half, "Move after 'X'". Let go:
+  the step leaves its old place (the gap closes, as when deleting) and
+  goes in there, numbers following at once; the map re-tidies, the step
+  stays picked, and one undo takes the whole drag back. Before the first
+  step it becomes the first; before a branch's first step it goes into
+  that branch (the "Yes" / "No" label stays on the split's arrow).
+  Refused, with the "no" ring and a hint saying why, and the step glides
+  back: a split (it would have to take its branches along), a branch's
+  only step when the branch would vanish, after a split or an End,
+  before a join, and an End anywhere but after the last step of a path.
+  Let go on bare paper, it glides home. Dragging a step's only arrow now
+  says "drag the step itself". The shortcuts dialog tags Tab and the
+  arrow keys "Trees and Steps", the cut and fold keys "Trees only", copy
+  / paste "Not in trees or Steps". Check: `domain/steps.test.ts`
+  ("moving a step"), `store/mapStore.test.ts` (drag as one undo step,
+  refusal), `features/map/shortcuts.test.ts` (now with a Steps map),
+  browser check of a move up, a move into a branch, the bar and chip,
+  undo and a refused drag
 
 ## What's next
 
@@ -980,9 +1000,14 @@ place in `domain/steps.ts`):
    shape; a Yes / No has no connect dot, since it can neither join nor
    add a step. Choice and Yes / No branches get no "Join here": they
    join by dragging, as the spec says)
-5. s4. Dragging a step reorders it in the sequence (`moveStep` in
+5. ~~s4. Dragging a step reorders it in the sequence (`moveStep` in
    `domain/steps.ts`, with tests); browser check of the whole flow,
-   polish, keyboard shortcuts dialog entries
+   polish, keyboard shortcuts dialog entries~~ (done, 2026-10-12,
+   v0.0.72. Decided while building: a step dropped on another goes
+   before it (top half) or after it (bottom half), never "under" it as
+   in a tree; a split doesn't move yet (it would carry its branches; v2
+   if wanted); a branch's only step can't leave when its branch would
+   vanish; the shortcuts dialog's tags now name the map kinds)
 
 ### Bridge follow-ups (owner's order, 2026-10-08, after the bridge audit)
 

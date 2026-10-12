@@ -13,6 +13,8 @@ import {
   deleteSteps,
   joinBranches,
   joinOf,
+  moveStep,
+  moveStepRefusal,
   openEnds,
   parallelJoins,
   stepNumbers,
@@ -267,6 +269,133 @@ describe("deleting a step", () => {
   it("never deletes the start", () => {
     const map = split();
     expect(deleteStep(map, id("a"))).toBe(map);
+  });
+});
+
+describe("moving a step (dragging it)", () => {
+  const line = () => buildSteps("a", ["b", "c", "d"], [["a", "b"], ["b", "c"], ["c", "d"]]);
+  const split = () =>
+    buildSteps(
+      "a",
+      ["s", "y1", "y2", "n1", "j", "k", "e"],
+      [["a", "s"], ["s", "y1", "Yes"], ["s", "n1", "No"], ["y1", "y2"], ["y2", "j"], ["n1", "j"], ["j", "k"], ["k", "e"]],
+      { s: "yesno", e: "end" },
+    );
+  const move = (map: LinkMap, box: string, spot: { before: string } | { after: string }) =>
+    moveStep(map, id(box), "before" in spot ? { before: id(spot.before) } : { after: id(spot.after) });
+  const refusal = (map: LinkMap, box: string, spot: { before: string } | { after: string }) =>
+    moveStepRefusal(map, id(box), "before" in spot ? { before: id(spot.before) } : { after: id(spot.after) });
+
+  it("moves a step up a straight path, renumbering at once", () => {
+    const map = move(line(), "d", { after: "a" });
+    expect(numbers(map)).toEqual({ a: "1", d: "2", b: "3", c: "4" });
+    expectWhole(map);
+  });
+
+  it("moves a step down a straight path", () => {
+    const map = move(line(), "b", { before: "d" });
+    expect(numbers(map)).toEqual({ a: "1", c: "2", b: "3", d: "4" });
+    expectWhole(map);
+  });
+
+  it("before the start, the step becomes the start", () => {
+    const map = move(line(), "c", { before: "a" });
+    expect(numbers(map)).toEqual({ c: "1", a: "2", b: "3", d: "4" });
+    expectWhole(map);
+  });
+
+  it("the start can move too: what came after it starts the process", () => {
+    const map = move(line(), "a", { after: "d" });
+    expect(numbers(map)).toEqual({ b: "1", c: "2", d: "3", a: "4" });
+    expectWhole(map);
+  });
+
+  it("moves a step into a branch, the branch's label staying on the split's arrow", () => {
+    const map = move(split(), "k", { before: "y1" });
+    expect(numbers(map)).toMatchObject({ k: "2a.1", y1: "2a.2", y2: "2a.3", n1: "2b.1", j: "3", e: "4" });
+    expect(Object.values(map.links).find((l) => l.from === id("s") && l.to === id("k"))!.label).toBe("Yes");
+    expect(Object.values(map.links).find((l) => l.from === id("k") && l.to === id("y1"))!.label).toBe("");
+    expectWhole(map);
+  });
+
+  it("moves a step out of a branch, the branch keeping its label", () => {
+    const map = move(split(), "y1", { after: "a" });
+    expect(numbers(map)).toMatchObject({ a: "1", y1: "2", s: "3", y2: "3a.1", n1: "3b.1", j: "4" });
+    expect(Object.values(map.links).find((l) => l.from === id("s") && l.to === id("y2"))!.label).toBe("Yes");
+    expectWhole(map);
+  });
+
+  it("moves a join: the branches lead on to what came after it", () => {
+    const map = move(split(), "j", { after: "k" });
+    expect(parentsOf(map, id("k")).sort()).toEqual(["n1", "y2"]);
+    expect(numbers(map)).toMatchObject({ k: "3", j: "4", e: "5" });
+    expectWhole(map);
+  });
+
+  it("an End goes after the last step of a path", () => {
+    const map = buildSteps("a", ["s", "p", "q", "q2", "e"], [["a", "s"], ["s", "p"], ["s", "q"], ["q", "q2"], ["q2", "e"]], {
+      s: "parallel",
+      e: "end",
+    });
+    const moved = move(map, "e", { after: "p" });
+    expect(nextSteps(moved, id("p"))).toEqual(["e"]);
+    expect(nextSteps(moved, id("q2"))).toEqual([]);
+    expectWhole(moved);
+  });
+
+  it("refuses moving a branch's only step when the branch ends there", () => {
+    const map = createSteps(asMapId("m"), "M", page, "decision", counters().node, counters().link).map;
+    const [yes] = nextSteps(map, id("n1"));
+    expect(moveStepRefusal(map, yes, { before: id("n1") })).toMatch(/only step on its branch/);
+  });
+
+  it("already there: no change, no refusal", () => {
+    const map = line();
+    expect(move(map, "b", { after: "a" })).toBe(map);
+    expect(move(map, "b", { before: "c" })).toBe(map);
+    expect(refusal(map, "b", { after: "a" })).toBeNull();
+  });
+
+  it("refuses, saying why, and changes nothing", () => {
+    const map = split();
+    const cases: [string, { before: string } | { after: string }, RegExp][] = [
+      ["s", { after: "k" }, /splits into branches, so it can't move/],
+      ["k", { after: "s" }, /drop it before the first step of a branch/],
+      ["k", { before: "j" }, /where branches meet/],
+      ["a", { after: "e" }, /End step: nothing comes after it/],
+      ["e", { before: "k" }, /An End only goes after the last step/],
+      ["e", { after: "a" }, /already goes on/],
+    ];
+    for (const [box, spot, why] of cases) {
+      expect(refusal(map, box, spot)).toMatch(why);
+      expect(move(map, box, spot)).toBe(map);
+    }
+  });
+
+  it("refuses moving a branch's only step when the split also goes straight to the join", () => {
+    const map = buildSteps(
+      "a",
+      ["s", "y", "j"],
+      [["a", "s"], ["s", "y", "Yes"], ["s", "j", "No"], ["y", "j"]],
+      { s: "yesno" },
+    );
+    expect(refusal(map, "y", { after: "j" })).toMatch(/only step on its branch/);
+  });
+
+  it("a branch's only step leading into a join may leave: the branch goes straight on", () => {
+    const map = move(split(), "n1", { after: "k" });
+    expect(Object.values(map.links).find((l) => l.from === id("s") && l.to === id("j"))!.label).toBe("No");
+    expect(nextSteps(map, id("k"))).toEqual(["n1"]);
+    expectWhole(map);
+  });
+
+  it("keeps types, labels and order through save and load", () => {
+    const map = move(split(), "k", { before: "y1" });
+    const read = readMap(JSON.parse(JSON.stringify(serializeMap(map))), page);
+    if (read.status === "unreadable") throw new Error("unreadable");
+    expect(read.map.links).toEqual(map.links);
+    expect(read.map.order).toEqual(map.order);
+    expect(stepNumbers(read.map)).toEqual(stepNumbers(map));
   });
 });
 
