@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-16, v0.0.74 (Bracket b2: brackets on the page; bracket mode is done)_
+_Last updated: 2026-10-16, v0.0.74 (Boardkit's automatic backup now has tests; every numbered step below is done, waiting for the owner's next plan)_
 
 ## What it is
 
@@ -992,6 +992,9 @@ in"). Loops and arrows into the start are refused in both. Code:
 
 ## What's next
 
+Every numbered step below is done (2026-10-16). Next: whatever the owner
+asks for; the v2 ideas under each plan are not queued.
+
 ### Bracket mode (owner's spec, 2026-10-16; work in this order, one chat each)
 
 The owner's spec: `reference/bracket-spec.md`. A fourth map kind,
@@ -1214,8 +1217,16 @@ can't re-join a map and its board. Work in this order, one chat each:
    already, and double-clicking a row opens it; the new map's name is
    Boardkit's, so a map list with the old unlinked copy shows "ZZ 2" as
    usual. e2e 8.2a-d added to `npm run e2e`, run against the live site)
-5. Boardkit's automatic-backup tests, built in the Boardkit repo
-   (`../Projects/boardkit`), last
+5. ~~Boardkit's automatic-backup tests, built in the Boardkit repo
+   (`../Projects/boardkit`), last~~ (done, 2026-10-16, Boardkit commit
+   601f395, no version bump: tests only. `domain/backupStatus.test.ts`
+   for the pure rules, and `features/board/autoBackup.test.ts` running
+   Boardkit's real backup engine against an in-memory folder with fake
+   timers: first write, the 10-second quiet period, no duplicate file,
+   rotation to 20, both failure states deleting nothing, Resume backups,
+   a restart, unreadable boards carried forward, finding the newest
+   backup with a board. Checked by breaking the engine on purpose: each
+   break fails a test)
 
 ### Treekit parity (owner's plan, 2026-10-08, after the parity audit)
 
