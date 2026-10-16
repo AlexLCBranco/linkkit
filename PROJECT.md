@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-12, v0.0.73 (Bridge follow-up 4b: "+ Map from a Boardkit board…" opens an existing Boardkit board as a new linked map)_
+_Last updated: 2026-10-16, v0.0.73 (Bracket b1: the bracket model, rules, save and repair; nothing on the page yet)_
 
 ## What it is
 
@@ -946,6 +946,20 @@ in"). Loops and arrows into the start are refused in both. Code:
   refusal), `features/map/shortcuts.test.ts` (now with a Steps map),
   browser check of a move up, a move into a branch, the bar and chip,
   undo and a refused drag
+- Bracket mode, the model only (step b1, no UI yet): a fourth map kind,
+  `bracket`. `domain/bracket.ts` makes a 4-, 8-, 16-, 32- or 64-player
+  bracket (every match at once, each round-1 slot with its own unnamed
+  player), names the rounds (Round 1 … Quarterfinals, Semifinals,
+  Final), renames a player (shown everywhere they reached), pastes
+  names one per line from a slot down (counting the lines left over),
+  and sets, switches or clears a winner, moving them on and clearing
+  every later result on the path (with the count, for the "Cleared 2
+  later results" message). `rules.ts` keeps the structure fixed: no
+  box added, deleted, moved or pasted, no arrow drawn or deleted. Saved
+  and read back like the other kinds; a damaged save is repaired by
+  clearing the bad result and everything after it, and arrows are
+  rebuilt; two tabs' edits are put back in order the same way. Check:
+  `domain/bracket.test.ts`
 
 ## What's next
 
