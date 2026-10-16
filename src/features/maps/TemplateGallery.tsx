@@ -11,7 +11,12 @@ import styles from "./TemplateGallery.module.css";
 import { TemplateThumb } from "./TemplateThumb";
 
 /** What the gallery adds after a template's blurb about its rules. */
-const KIND_NOTE: Readonly<Record<LinkMap["kind"], string>> = { connections: "", tree: " · tree rules on", steps: " · steps" };
+const KIND_NOTE: Readonly<Record<LinkMap["kind"], string>> = {
+  connections: "",
+  tree: " · tree rules on",
+  steps: " · steps",
+  bracket: " · bracket",
+};
 
 /** The page a template's preview is laid out for (only its shape shows). */
 const PREVIEW_PAGE = { width: 800, height: 600 };

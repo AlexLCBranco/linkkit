@@ -949,6 +949,46 @@ in"). Loops and arrows into the start are refused in both. Code:
 
 ## What's next
 
+### Bracket mode (owner's spec, 2026-10-16; work in this order, one chat each)
+
+The owner's spec: `reference/bracket-spec.md`. A fourth map kind,
+`bracket`: a single-elimination tournament bracket. Linkkit only: no
+Boardkit linking, Mermaid, keep / maybe / cut, folding or outline paste.
+Decided by the owner in step b1 (2026-10-16):
+- Changing or clearing a result clears every later result on that path,
+  not only the old winner's wins (A beat B, then C beat A; switching to
+  B clears C's win too: C never played B)
+- Deleting a round-1 name of a player who has results leaves the results
+  (it's only a name edit; the row shows "—")
+Decided while building b1 (each is one place in `domain/bracket.ts`):
+- Each match is a box (`MapNode.match`: round, place in the round, two
+  slots, winner); players live once in `LinkMap.players`, slots hold
+  player ids. Each round-1 slot has its own player from the start (name
+  empty = the empty "—" slot), so typing a name renames that player.
+  Arrows run from each match to the one it feeds (the first two matches
+  of a round feed the next round's first match, and so on); they are
+  rebuilt from the matches on load
+- Pasting skips blank lines
+- A saved bracket whose matches don't form a whole bracket (a size other
+  than 4-64, a match missing or twice) is unreadable, set aside like
+  any unreadable map, rather than guessed at
+
+1. ~~b1. The model: the `bracket` kind and its rules in `rules.ts`,
+   `domain/bracket.ts` (create by size, set name, set winner, clear
+   winner with cascade, paste names, round names), save/load and repair,
+   all with tests. No UI, no version bump~~ (done, 2026-10-16)
+2. b2. Layout and the page: `domain/bracketLayout.ts` with tests (no
+   overlaps for every size, each match centred between its feeders,
+   final on the right); the match box component, winner clicking,
+   champion box, "+ New bracket", keyboard flow, shortcuts dialog
+   ("Bracket" section). Playwright e2e: create an 8-player bracket,
+   paste 8 names, play it to a champion, change a round-1 result and
+   check the cascade, undo it, reload and check it's all still there.
+   Version bump
+
+v2 ideas (not now): byes (a size that isn't 4, 8, 16, 32 or 64);
+changing a bracket's size after it is made.
+
 ### Steps (flowchart mode) (owner's spec, 2026-10-12; work in this order, one chat each)
 
 The owner's spec: `reference/steps-spec.md`. A third map kind, `steps`:

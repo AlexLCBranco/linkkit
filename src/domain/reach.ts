@@ -46,6 +46,12 @@ export const REACH_MEANINGS: Readonly<Record<MapKind, ReachMeaning>> = {
     tealWords: (n) => `Comes after ${plural(n, "step", "steps")}`,
     orangeWords: (n) => `${plural(n, "step follows", "steps follow")}`,
   },
+  // A match's earlier matches feed it; its later ones are where its winner goes.
+  bracket: {
+    teal: "backward",
+    tealWords: (n) => `Fed by ${plural(n, "match", "matches")}`,
+    orangeWords: (n) => `Leads to ${plural(n, "match", "matches")}`,
+  },
 };
 
 export interface Reach {

@@ -11,6 +11,7 @@ const HINTS: Record<MapKind, string> = {
     "Click any box to see what it needs and what breaks without it. Double-click the paper to add a box; drag a box's dot onto another to connect them; click an arrow, then drag its ends to reconnect it; drag across the paper to select several.",
   tree: "Tree rules on. Click a box to see the way that leads to it and what comes after. Use + on a box (or drag its dot onto the paper) to add a child; drag the dot onto another box to give it a second parent; drag a box onto another (or between two), or an arrow's end onto a box, to move it there; drag across the paper to select several.",
   steps: "Steps: click a step to see what comes before and after it.",
+  bracket: "Bracket: click a player to make them the winner of their match.",
 };
 
 /** A tree linked to Boardkit: no second way in, and cards (level 3) take no

@@ -15,13 +15,15 @@ type Brand<T, B extends string> = T & { readonly __brand: B };
 export type MapId = Brand<string, "MapId">;
 export type NodeId = Brand<string, "NodeId">;
 export type LinkId = Brand<string, "LinkId">;
+export type PlayerId = Brand<string, "PlayerId">;
 
 /** Which rule set a map follows: "connections" (anything may need
     anything, loops allowed) or "tree" (a decision tree: one start, each
     step leads on to the next, no loops) or "steps" (an ordered process
     that can branch and join: a tree's shape, plus step types and
-    automatic numbers, steps.ts). See rules.ts. */
-export const MAP_KINDS = ["connections", "tree", "steps"] as const;
+    automatic numbers, steps.ts) or "bracket" (a single-elimination
+    tournament: fixed matches, winners move on, bracket.ts). See rules.ts. */
+export const MAP_KINDS = ["connections", "tree", "steps", "bracket"] as const;
 export type MapKind = (typeof MAP_KINDS)[number];
 
 /** Fixed swatches, mirrored as `--palette-*` in styles/tokens.css. */
@@ -82,7 +84,12 @@ export type LabelStyle = (typeof LABEL_STYLES)[number];
 /** The label an arrow gets when none is typed (or one is emptied), per
     kind. A connections arrow always says something ("needs"); a tree arrow
     has no label at first, and shows no pill. */
-export const DEFAULT_LINK_LABELS: Readonly<Record<MapKind, string>> = { connections: "needs", tree: "", steps: "" };
+export const DEFAULT_LINK_LABELS: Readonly<Record<MapKind, string>> = {
+  connections: "needs",
+  tree: "",
+  steps: "",
+  bracket: "",
+};
 
 /** A tree box's verdict (Treekit's): keep it, maybe, or cut it. Only a
     box's own status is stored; "looks cut" (under a cut box) is worked out
@@ -121,6 +128,32 @@ export interface MapNode {
   /** Steps maps only: how the step goes on (`StepType`). Absent = a plain
       "step", so saves from before step types read the same. */
   readonly stepType?: Exclude<StepType, "step">;
+  /** Bracket maps only: the match this box is (every box in a bracket is
+      one). Absent on every other map. */
+  readonly match?: Match;
+}
+
+/** A player in a bracket, stored once (`LinkMap.players`); match slots
+    point to them, so a rename shows everywhere they have reached. */
+export interface Player {
+  readonly id: PlayerId;
+  /** Empty = not typed yet: the slot shows a faint "—". */
+  readonly name: string;
+}
+
+/** One match of a bracket (see bracket.ts). */
+export interface Match {
+  /** 1 = the first round (the left column); the last round is the final. */
+  readonly round: number;
+  /** Its place in the round, top to bottom, from 0. Matches 2k and 2k+1
+      feed match k of the next round, into its top and bottom slot. */
+  readonly index: number;
+  /** The two players, top and bottom. Round 1: always a player (whose
+      name may be empty). Later rounds: the winners of the two feeding
+      matches, `null` until there is one. */
+  readonly slots: readonly [PlayerId | null, PlayerId | null];
+  /** One of `slots`, or `null`: not played yet. */
+  readonly winner: PlayerId | null;
 }
 
 /** An arrow. In a connections map `from` needs `to` (A -> B reads "A
@@ -202,6 +235,8 @@ export interface LinkMap {
       moves no box (the numbers float on the boxes' corners). Absent:
       shown. */
   readonly hideNumbers?: true;
+  /** Bracket maps only: every player, by id. Absent on every other map. */
+  readonly players?: Readonly<Record<PlayerId, Player>>;
 }
 
 /** Where a deleted box sat among a box's next steps (trees only), so a

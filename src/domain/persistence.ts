@@ -11,7 +11,10 @@ import type {
   MapId,
   MapKind,
   MapNode,
+  Match,
   NodeId,
+  Player,
+  PlayerId,
   NodeStatus,
   PaletteColor,
   SiblingOrder,
@@ -24,6 +27,7 @@ import { clampArrowLength } from "./map";
 import { isOrdered, normalizeOrder, sameOrder } from "./order";
 import { UNTITLED_MAP } from "./names";
 import { repairTree } from "./tree";
+import { repairBracket } from "./bracket";
 import {
   ARROW_LENGTH_PRESETS,
   ARROW_STYLES,
@@ -134,6 +138,7 @@ export function serializeMap(map: LinkMap, rev?: number): PersistedMap {
       trash,
       ...(map.noteClashes && Object.keys(map.noteClashes).length ? { noteClashes: map.noteClashes } : {}),
       ...(map.hideNumbers ? { hideNumbers: true as const } : {}),
+      ...(map.players ? { players: map.players } : {}),
     },
   };
 }
@@ -287,6 +292,7 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
     ...readNotesAside(raw, linked, fix),
     // Only a Steps map has numbers to hide.
     ...(kind === "steps" && raw.hideNumbers === true ? { hideNumbers: true as const } : {}),
+    ...(kind === "bracket" ? { players: readPlayers(raw.players, fix) } : {}),
   };
   for (const [key, link] of Object.entries(rawLinks)) {
     if (!isObject(link) || typeof link.from !== "string" || typeof link.to !== "string") {
@@ -325,6 +331,14 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
     const order = normalizeOrder(repaired.map, direction);
     if (raw.order !== undefined && repaired.fixes === 0 && !sameOrder(order, stored)) fix(null);
     read = { ...repaired.map, order };
+  } else if (kind === "bracket") {
+    // A bracket's results and arrows are put back in order; matches that
+    // don't form a whole bracket can't be (see `repairBracket`).
+    if (raw.order !== undefined && !(isObject(raw.order) && Object.keys(raw.order).length === 0)) fix(null);
+    const repaired = repairBracket(map);
+    if (!repaired) return { status: "unreadable" };
+    fixes += repaired.fixes;
+    read = repaired.map;
   } else if (raw.order !== undefined && !(isObject(raw.order) && Object.keys(raw.order).length === 0)) {
     fix(null);
   }
@@ -386,9 +400,40 @@ function readNode(id: NodeId, node: Record<string, unknown>, kind: MapKind, fix:
       : kind === "steps" && STEP_TYPES.includes(node.stepType as StepType) && node.stepType !== "step"
         ? (node.stepType as Exclude<StepType, "step">)
         : fix(undefined);
+  // Only a bracket's boxes are matches; one of the wrong shape is no match
+  // (and the bracket's repair then finds a match missing).
+  const match = node.match === undefined ? undefined : kind === "bracket" ? readMatch(node.match) ?? fix(undefined) : fix(undefined);
   const extra = unknownFields(node, NODE_FIELDS);
   const read: MapNode = notes.trim() ? { ...extra, id, name, x, y, color, status, notes } : { ...extra, id, name, x, y, color, status };
-  return stepType ? { ...read, stepType } : read;
+  return stepType ? { ...read, stepType } : match ? { ...read, match } : read;
+}
+
+const isPlayerRef = (value: unknown): value is PlayerId | null => value === null || (typeof value === "string" && !!value);
+
+/** A match of the right shape, or `null`. Whether its players exist and
+    its results agree is `repairBracket`'s business. */
+function readMatch(raw: unknown): Match | null {
+  if (!isObject(raw)) return null;
+  const { round, index, slots, winner } = raw;
+  if (typeof round !== "number" || !Number.isInteger(round) || round < 1) return null;
+  if (typeof index !== "number" || !Number.isInteger(index) || index < 0) return null;
+  if (!Array.isArray(slots) || slots.length !== 2 || !slots.every(isPlayerRef) || !isPlayerRef(winner)) return null;
+  return { round, index, slots: [slots[0], slots[1]], winner };
+}
+
+/** A bracket's players: entries that aren't a player under their own id
+    are dropped (a fix each); the slots that pointed to them are repaired
+    with the rest of the bracket. */
+function readPlayers(raw: unknown, fix: <T>(value: T) => T): Record<PlayerId, Player> {
+  if (!isObject(raw)) return fix({});
+  const out: Record<PlayerId, Player> = {};
+  for (const [id, player] of Object.entries(raw)) {
+    if (id === "__proto__") continue;
+    if (isObject(player) && player.id === id && typeof player.name === "string") {
+      out[id as PlayerId] = { id: id as PlayerId, name: player.name };
+    } else fix(null);
+  }
+  return out;
 }
 
 /**

@@ -48,7 +48,9 @@ export type LinkRefusal =
   /** Steps: only the end of a branch (a step with nothing after it yet)
       may join a later step; a step that already goes on, or a branching
       step, would become an unlabelled split. */
-  | "goes-on";
+  | "goes-on"
+  /** Bracket: the arrows are drawn for you, from the matches. */
+  | "bracket";
 
 export type MoveRefusal =
   /** One of the boxes does not exist. */
@@ -67,7 +69,9 @@ export type MoveRefusal =
   /** Linked tree: a list stays a list and a card a card. */
   | "level"
   /** Linked tree: the list already shows Boardkit's most cards. */
-  | "full";
+  | "full"
+  /** Bracket: the matches stay where the bracket puts them. */
+  | "bracket";
 
 export type MoveVerdict = { readonly ok: true } | { readonly ok: false; readonly reason: MoveRefusal };
 
@@ -303,7 +307,27 @@ const steps: KindRules = {
   canAddNextStep: (map, id) => !!map.nodes[id] && !isEnd(map, id),
 };
 
-const RULES: Record<MapKind, KindRules> = { connections, tree, steps };
+/**
+ * Bracket: a fixed set of matches (see bracket.ts). Nothing about its
+ * boxes or arrows is edited by hand: no box added, deleted, moved or
+ * pasted, no arrow drawn or deleted. Only names and results change, and
+ * bracket.ts holds those rules (`canPickWinner`).
+ */
+const bracket: KindRules = {
+  canLink: (map, from, to) => {
+    const basic = basicLinkCheck(map, from, to);
+    return basic.ok ? refuse("bracket") : basic;
+  },
+  canDeleteBox: () => false,
+  canDeleteLink: () => false,
+  canPaste: () => false,
+  canSetStatus: () => false,
+  canCollapse: () => false,
+  canAddNextStep: () => false,
+  canMove: (map, id, parent) => (!map.nodes[id] || !map.nodes[parent] ? refuseMove("missing") : refuseMove("bracket")),
+};
+
+const RULES: Record<MapKind, KindRules> = { connections, tree, steps, bracket };
 
 const rulesOf = (map: LinkMap): KindRules =>
   map.kind === "tree" && map.linkedBoard !== undefined ? linkedTree : RULES[map.kind];
@@ -330,6 +354,7 @@ export function nextStepRefusal(map: LinkMap, id: NodeId): string | null {
   const node = map.nodes[id];
   if (!node || canAddNextStep(map, id)) return null;
   if (map.kind === "steps") return `“${node.name || "Untitled"}” is an End step: nothing comes after it.`;
+  if (map.kind === "bracket") return BRACKET_FIXED;
   if (map.kind !== "tree") return "Children need tree rules on.";
   return `“${node.name || "Untitled"}” is a card, and cards can't have children in Boardkit.`;
 }
@@ -363,6 +388,8 @@ export function moveRefusalText(map: LinkMap, id: NodeId, parent: NodeId, reason
         : `${name(id)} is a list in Boardkit: lists can only be reordered.`;
     case "full":
       return `${name(parent)} already has ${MAX_CARDS_PER_LIST} cards, Boardkit's most.`;
+    case "bracket":
+      return BRACKET_FIXED;
   }
 }
 
@@ -389,18 +416,25 @@ export function linkRefusalText(map: LinkMap, from: NodeId, to: NodeId, reason: 
       return isBranching(map, from)
         ? `${name(from)} splits into branches: join from the last step of one of them.`
         : `${name(from)} already goes on: only the last step of a branch can join a later step.`;
+    case "bracket":
+      return BRACKET_FIXED;
   }
 }
+
+/** A bracket's boxes and arrows are fixed: what every refusal there says. */
+export const BRACKET_FIXED = "A bracket's matches and arrows are fixed: type the first round's names, and click a player to make them the winner.";
 
 /** Why the arrow `id` may not be deleted, in words (`null` when it may):
     in a tree it is a box's only way in, and every box needs a parent. */
 export function linkDeleteRefusal(map: LinkMap, id: LinkId): string | null {
   if (!map.links[id] || canDeleteLink(map, id)) return null;
+  if (map.kind === "bracket") return BRACKET_FIXED;
   return "With tree rules on, every box needs a parent: drag the box to a new parent, or delete the box.";
 }
 
 /** Why the box `id` may not be deleted, in words (`null` when it may). */
 export function boxDeleteRefusal(map: LinkMap, id: NodeId): string | null {
   if (!map.nodes[id] || canDeleteBox(map, id)) return null;
+  if (map.kind === "bracket") return BRACKET_FIXED;
   return `“${map.nodes[id].name || "Untitled"}” is the start box, the question itself: rename it rather than delete it.`;
 }

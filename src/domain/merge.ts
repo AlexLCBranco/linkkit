@@ -3,6 +3,7 @@ import { isOrdered, normalizeOrder } from "./order";
 import { basicLinkCheck } from "./rules";
 import { trashEntryId } from "./trash";
 import { repairTree } from "./tree";
+import { repairBracket } from "./bracket";
 import type { Link, LinkId, LinkMap, MapNode, NodeId, SiblingOrder, TrashEntry } from "./types";
 
 /**
@@ -393,6 +394,10 @@ export function mergeMaps(base: LinkMap, mine: LinkMap, theirs: LinkMap): MapMer
     map = repairTree(map).map;
     map = { ...map, order: normalizeOrder(map, map.direction) };
   }
+  // Two tabs can each set a result that is fine alone (a winner moved on
+  // in one, a result changed under it in the other): put the bracket back
+  // in order. Its matches are fixed, so they are always whole here.
+  if (map.kind === "bracket") map = repairBracket(map)?.map ?? map;
 
   // One name per item, in the order found.
   const named = new Set<string>();

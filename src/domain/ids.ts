@@ -1,6 +1,6 @@
 import { nanoid } from "nanoid";
 
-import type { LinkId, MapId, NodeId } from "./types";
+import type { LinkId, MapId, NodeId, PlayerId } from "./types";
 
 /**
  * Id generation, wrapped in one place: nothing else calls `nanoid` directly,
@@ -13,8 +13,10 @@ const ID_LENGTH = 10;
 export const createMapId = (): MapId => nanoid(ID_LENGTH) as MapId;
 export const createNodeId = (): NodeId => nanoid(ID_LENGTH) as NodeId;
 export const createLinkId = (): LinkId => nanoid(ID_LENGTH) as LinkId;
+export const createPlayerId = (): PlayerId => nanoid(ID_LENGTH) as PlayerId;
 
 /** Casts for ids coming from outside the generator (saved state, tests). */
 export const asMapId = (value: string): MapId => value as MapId;
 export const asNodeId = (value: string): NodeId => value as NodeId;
 export const asLinkId = (value: string): LinkId => value as LinkId;
+export const asPlayerId = (value: string): PlayerId => value as PlayerId;
