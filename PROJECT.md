@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-16, v0.0.74 (Boardkit's automatic backup now has tests; every numbered step below is done, waiting for the owner's next plan)_
+_Last updated: 2026-10-16, v0.0.75 (brackets can now be 128 or 256 players; every numbered step below is done, waiting for the owner's next plan)_
 
 ## What it is
 
@@ -947,7 +947,7 @@ in"). Loops and arrows into the start are refused in both. Code:
   browser check of a move up, a move into a branch, the bar and chip,
   undo and a refused drag
 - Bracket mode, the model only (step b1, no UI yet): a fourth map kind,
-  `bracket`. `domain/bracket.ts` makes a 4-, 8-, 16-, 32- or 64-player
+  `bracket`. `domain/bracket.ts` makes a 4-, 8-, 16-, 32-, 64-, 128- or 256-player
   bracket (every match at once, each round-1 slot with its own unnamed
   player), names the rounds (Round 1 … Quarterfinals, Semifinals,
   Final), renames a player (shown everywhere they reached), pastes
@@ -961,7 +961,9 @@ in"). Loops and arrows into the start are refused in both. Code:
   rebuilt; two tabs' edits are put back in order the same way. Check:
   `domain/bracket.test.ts`
 - **Brackets on the page** (v0.0.74, step b2): the map menu's "+ New
-  bracket" asks for 4, 8, 16, 32 or 64 players and opens the bracket with
+  bracket" asks for 4, 8, 16, 32, 64, 128 or 256 players (128 and 256
+  added in v0.0.75, owner's request; a 256-player bracket is a long page,
+  about 13,000px tall, scrolled natively) and opens the bracket with
   the first slot ready for typing. Round 1 is the left column, the final
   the right one, each match halfway between the two that feed it, with
   the round names over the columns and a Champion box right of the final
@@ -1016,7 +1018,7 @@ Decided while building b1 (each is one place in `domain/bracket.ts`):
   rebuilt from the matches on load
 - Pasting skips blank lines
 - A saved bracket whose matches don't form a whole bracket (a size other
-  than 4-64, a match missing or twice) is unreadable, set aside like
+  than 4-256, a match missing or twice) is unreadable, set aside like
   any unreadable map, rather than guessed at
 
 1. ~~b1. The model: the `bracket` kind and its rules in `rules.ts`,

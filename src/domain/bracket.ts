@@ -8,7 +8,7 @@ import type { Link, LinkId, LinkMap, MapId, MapNode, Match, NodeId, Player, Play
  * rules live in rules.ts (`bracket`: the structure is fixed); this file
  * holds what only a bracket needs, all pure:
  *
- *  - `createBracket`: every match of a 4- to 64-player bracket at once;
+ *  - `createBracket`: every match of a 4- to 256-player bracket at once;
  *  - `renamePlayer` / `pasteNames`: typing the first round's names;
  *  - `pickWinner` / `setWinner`: a result, moving the winner on, and
  *    clearing every later result that stood on the old one;
@@ -21,7 +21,7 @@ import type { Link, LinkId, LinkMap, MapId, MapNode, Match, NodeId, Player, Play
  * arrows (match -> the match it feeds) only draw that.
  */
 
-export const BRACKET_SIZES = [4, 8, 16, 32, 64] as const;
+export const BRACKET_SIZES = [4, 8, 16, 32, 64, 128, 256] as const;
 export type BracketSize = (typeof BRACKET_SIZES)[number];
 
 /** Top or bottom row of a match. */
@@ -260,7 +260,7 @@ export const clearedText = (cleared: number): string | null =>
 
 /**
  * Puts a saved bracket back in order, or `null` when its matches don't
- * form a whole bracket (a size other than 4-64, a match missing, out of
+ * form a whole bracket (a size other than 4-256, a match missing, out of
  * place or there twice): there is no telling what was meant, so the
  * caller treats it as unreadable instead of guessing.
  *

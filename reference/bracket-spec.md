@@ -13,7 +13,7 @@ A fourth map kind, `bracket`: a single-elimination tournament bracket. Linkkit o
 - **Only round-1 slots are typed.** Later slots are filled only by winners. A row can't be marked winner while either slot of that match is empty.
 - **Changing or clearing a result clears everything downstream that depended on it**: if the old winner had advanced and won later matches, those later results are cleared too. Do it in one undo step and show a short message ("Cleared 2 later results · Undo").
 - **Structure is fixed.** No adding/deleting individual boxes or drawing/dragging arrows in a bracket map. Arrows are drawn by the layout and can't be selected.
-- **Sizes**: 4, 8, 16, 32 or 64 players, picked when creating. No byes in v1 (that's a v2 idea; put it under v2 in the plan). Changing size later isn't in v1 either.
+- **Sizes**: 4, 8, 16, 32, 64, 128 or 256 players, picked when creating (128 and 256 added 2026-10-16). No byes in v1 (that's a v2 idea; put it under v2 in the plan). Changing size later isn't in v1 either.
 - **Creating**: "+ New bracket" in the map menu → pick a size → the map opens with the first round-1 slot ready for typing.
 - **Keyboard flow** (efficiency is the priority): typing in a round-1 slot, Enter or Tab goes to the next slot down, Shift+Tab goes back. Pasting several lines into a round-1 slot fills that slot and the ones below it, one name per line (extra lines beyond the last slot are ignored and the message says how many). Arrow keys move between matches; Space or Enter on a selected player row marks the winner.
 - **Undo/redo** covers everything: names, winners, cascades, paste.

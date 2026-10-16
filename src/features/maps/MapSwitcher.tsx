@@ -52,7 +52,7 @@ import { useNow } from "./useNow";
  * makes a Steps map (kind "steps": an ordered process that branches and
  * joins, numbered for you), its first step's name open for typing; the
  * gallery has the Steps presets. "+ New bracket" asks for the number of
- * players (4 to 64) and makes a tournament bracket (kind "bracket"), its
+ * players (4 to 256) and makes a tournament bracket (kind "bracket"), its
  * first slot open for typing.
  *
  * "Export all maps" downloads every map as one file; on an empty Linkkit

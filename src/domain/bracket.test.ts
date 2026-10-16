@@ -121,6 +121,9 @@ describe("roundNames", () => {
     expect(roundNames(8)).toEqual(["Quarterfinals", "Semifinals", "Final"]);
     expect(roundNames(16)).toEqual(["Round 1", "Quarterfinals", "Semifinals", "Final"]);
     expect(roundNames(64)).toEqual(["Round 1", "Round 2", "Round 3", "Quarterfinals", "Semifinals", "Final"]);
+    expect(roundNames(256)).toEqual([
+      "Round 1", "Round 2", "Round 3", "Round 4", "Round 5", "Quarterfinals", "Semifinals", "Final",
+    ]);
   });
 });
 
@@ -385,6 +388,12 @@ describe("save and load", () => {
     expect(read.status).toBe("repaired");
     if (read.status !== "repaired") return;
     expect(Object.values(read.map.nodes).every((n) => n.match === undefined)).toBe(true);
+  });
+
+  it.each([128, 256])("offers %i players, and reads that bracket back", (size) => {
+    expect(BRACKET_SIZES).toContain(size);
+    const { map } = createBracket(asMapId("m"), "Cup", page, size as BracketSize, counters());
+    expect(roundTrip(map)).toEqual({ status: "ok", map });
   });
 
   it("repairBracket leaves a whole bracket alone", () => {
