@@ -25,7 +25,8 @@ export interface ReachMeaning {
   readonly teal: Walk;
   /** The status line's words for each group's count. */
   readonly tealWords: (n: number) => string;
-  readonly orangeWords: (n: number) => string;
+  /** `null`: this kind has no orange group (nothing ahead is lit). */
+  readonly orangeWords: ((n: number) => string) | null;
   /** Whether boxes and arrows in neither group fade while a box is
       selected (`false`: they look as usual). */
   readonly fadesRest: boolean;
@@ -53,12 +54,12 @@ export const REACH_MEANINGS: Readonly<Record<MapKind, ReachMeaning>> = {
     orangeWords: (n) => `${plural(n, "step follows", "steps follow")}`,
     fadesRest: true,
   },
-  // A match's earlier matches feed it; its later ones are where its winner
-  // goes. The other matches stay as they are (owner's call, 2026-10-16).
+  // A match lights only the path that led to it: nothing ahead, and the
+  // other matches stay as they are (owner's calls, 2026-10-16).
   bracket: {
     teal: "backward",
     tealWords: (n) => `Fed by ${plural(n, "match", "matches")}`,
-    orangeWords: (n) => `Leads to ${plural(n, "match", "matches")}`,
+    orangeWords: null,
     fadesRest: false,
   },
 };
@@ -107,13 +108,13 @@ const opposite = (w: Walk): Walk => (w === "forward" ? "backward" : "forward");
 /** `null` when nothing is selected or the selected box no longer exists. */
 export function reachOf(map: LinkMap, selected: NodeId | null): Reach | null {
   if (selected === null || !map.nodes[selected]) return null;
-  const { teal: tealWalk, fadesRest } = REACH_MEANINGS[map.kind];
+  const { teal: tealWalk, orangeWords, fadesRest } = REACH_MEANINGS[map.kind];
   return {
     selected,
     tealWalk,
     // A bracket follows its players' path back, not every feeding match.
     teal: map.kind === "bracket" ? pathTo(map, selected) : walk(map, selected, tealWalk),
-    orange: walk(map, selected, opposite(tealWalk)),
+    orange: orangeWords ? walk(map, selected, opposite(tealWalk)) : new Set(),
     rest: fadesRest ? "faded" : "plain",
   };
 }

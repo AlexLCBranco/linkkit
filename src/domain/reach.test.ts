@@ -105,8 +105,8 @@ describe("tree highlight: teal back to the start, orange what comes after", () =
 
   it("words its status line for each kind", () => {
     expect(REACH_MEANINGS.tree.tealWords(4)).toBe("Comes from 4");
-    expect(REACH_MEANINGS.tree.orangeWords(6)).toBe("Leads to 6");
+    expect(REACH_MEANINGS.tree.orangeWords!(6)).toBe("Leads to 6");
     expect(REACH_MEANINGS.connections.tealWords(1)).toBe("Needs 1 thing");
-    expect(REACH_MEANINGS.connections.orangeWords(2)).toBe("2 things break without it");
+    expect(REACH_MEANINGS.connections.orangeWords!(2)).toBe("2 things break without it");
   });
 });

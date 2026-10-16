@@ -29,7 +29,7 @@ import {
 } from "./bracket";
 import { asLinkId, asMapId, asNodeId, asPlayerId } from "./ids";
 import { mergeMaps } from "./merge";
-import { linkHighlight, nodeHighlight, reachOf } from "./reach";
+import { linkHighlight, nodeHighlight, REACH_MEANINGS, reachOf } from "./reach";
 import { readMap, serializeMap } from "./persistence";
 import {
   canAddNextStep,
@@ -481,6 +481,16 @@ describe("pathTo (the highlight back from a selected match)", () => {
     expect(linkHighlight(reach, link(at(map, 2, 1)))).toBe("plain");
     expect(nodeHighlight(reach, at(map, 1, 1))).toBe("plain");
     expect(nodeHighlight(reach, at(map, 2, 1))).toBe("plain");
+  });
+
+  it("lights nothing ahead: only the past path", () => {
+    const map = playedOut();
+    const reach = reachOf(map, at(map, 2, 0))!; // semi #0, Ann went on to win the final
+    expect(reach.orange.size).toBe(0);
+    expect(nodeHighlight(reach, at(map, 3, 0))).toBe("plain");
+    const ahead = Object.values(map.links).find((l) => l.from === at(map, 2, 0))!;
+    expect(linkHighlight(reach, ahead)).toBe("plain");
+    expect(REACH_MEANINGS.bracket.orangeWords).toBeNull();
   });
 
   it("without a winner, lights both players' paths", () => {

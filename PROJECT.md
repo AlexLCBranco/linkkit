@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-16, v0.0.79 (a selected bracket match no longer fades the other matches; every numbered step below is done, waiting for the owner's next plan)_
+_Last updated: 2026-10-16, v0.0.80 (a selected bracket match lights only the path that led to it, nothing ahead; every numbered step below is done, waiting for the owner's next plan)_
 
 ## What it is
 
@@ -1011,6 +1011,11 @@ in"). Loops and arrows into the start are refused in both. Code:
   (v0.0.79, owner's call 2026-10-16): they look as usual, only the path
   is coloured. One switch per kind, `fadesRest` in `REACH_MEANINGS`
   (`domain/reach.ts`; off only for brackets). Check:
+  `domain/bracket.test.ts`.
+- Nothing ahead lights up either (v0.0.80, owner's call 2026-10-16): a
+  selected match shows only the path that led to it, and the status line
+  shows only "Fed by N matches". A bracket's `orangeWords` is `null` in
+  `REACH_MEANINGS`, which means "no orange group". Check:
   `domain/bracket.test.ts`.
 
 ## What's next

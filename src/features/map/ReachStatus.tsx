@@ -73,10 +73,12 @@ export function ReachStatus() {
         <span className={styles.swatch} data-kind="teal" />
         {words.tealWords(counts.teal)}
       </span>
-      <span className={styles.chip}>
-        <span className={styles.swatch} data-kind="orange" />
-        {words.orangeWords(counts.orange)}
-      </span>
+      {words.orangeWords && (
+        <span className={styles.chip}>
+          <span className={styles.swatch} data-kind="orange" />
+          {words.orangeWords(counts.orange)}
+        </span>
+      )}
     </>
   );
 }
