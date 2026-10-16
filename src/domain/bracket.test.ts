@@ -29,7 +29,7 @@ import {
 } from "./bracket";
 import { asLinkId, asMapId, asNodeId, asPlayerId } from "./ids";
 import { mergeMaps } from "./merge";
-import { linkHighlight, reachOf } from "./reach";
+import { linkHighlight, nodeHighlight, reachOf } from "./reach";
 import { readMap, serializeMap } from "./persistence";
 import {
   canAddNextStep,
@@ -476,8 +476,11 @@ describe("pathTo (the highlight back from a selected match)", () => {
     const link = (from: NodeId) => Object.values(map.links).find((l) => l.from === from)!;
     expect(linkHighlight(reach, link(at(map, 1, 0)))).toBe("teal");
     expect(linkHighlight(reach, link(at(map, 2, 0)))).toBe("teal");
-    expect(linkHighlight(reach, link(at(map, 1, 1)))).toBe("faded");
-    expect(linkHighlight(reach, link(at(map, 2, 1)))).toBe("faded");
+    // Off the path, matches and arrows look as usual: a bracket fades nothing.
+    expect(linkHighlight(reach, link(at(map, 1, 1)))).toBe("plain");
+    expect(linkHighlight(reach, link(at(map, 2, 1)))).toBe("plain");
+    expect(nodeHighlight(reach, at(map, 1, 1))).toBe("plain");
+    expect(nodeHighlight(reach, at(map, 2, 1))).toBe("plain");
   });
 
   it("without a winner, lights both players' paths", () => {

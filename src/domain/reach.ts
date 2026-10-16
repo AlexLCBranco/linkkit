@@ -26,6 +26,9 @@ export interface ReachMeaning {
   /** The status line's words for each group's count. */
   readonly tealWords: (n: number) => string;
   readonly orangeWords: (n: number) => string;
+  /** Whether boxes and arrows in neither group fade while a box is
+      selected (`false`: they look as usual). */
+  readonly fadesRest: boolean;
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -35,23 +38,28 @@ export const REACH_MEANINGS: Readonly<Record<MapKind, ReachMeaning>> = {
     teal: "forward",
     tealWords: (n) => `Needs ${plural(n, "thing", "things")}`,
     orangeWords: (n) => `${plural(n, "thing breaks", "things break")} without it`,
+    fadesRest: true,
   },
   tree: {
     teal: "backward",
     tealWords: (n) => `Comes from ${n}`,
     orangeWords: (n) => `Leads to ${n}`,
+    fadesRest: true,
   },
   // Steps read like a tree: what came before, and what comes after.
   steps: {
     teal: "backward",
     tealWords: (n) => `Comes after ${plural(n, "step", "steps")}`,
     orangeWords: (n) => `${plural(n, "step follows", "steps follow")}`,
+    fadesRest: true,
   },
-  // A match's earlier matches feed it; its later ones are where its winner goes.
+  // A match's earlier matches feed it; its later ones are where its winner
+  // goes. The other matches stay as they are (owner's call, 2026-10-16).
   bracket: {
     teal: "backward",
     tealWords: (n) => `Fed by ${plural(n, "match", "matches")}`,
     orangeWords: (n) => `Leads to ${plural(n, "match", "matches")}`,
+    fadesRest: false,
   },
 };
 
@@ -63,12 +71,14 @@ export interface Reach {
   /** Every box in the orange group, including any also in teal (possible
       only inside a loop). */
   readonly orange: ReadonlySet<NodeId>;
+  /** How boxes and arrows in neither group look: faded, or as usual. */
+  readonly rest: "faded" | "plain";
 }
 
 /** How a box looks while another (or it) is selected. */
-export type NodeHighlight = "selected" | "teal" | "orange" | "faded";
+export type NodeHighlight = "selected" | "teal" | "orange" | "faded" | "plain";
 /** How an arrow looks while a box is selected. */
-export type LinkHighlight = "teal" | "orange" | "faded";
+export type LinkHighlight = "teal" | "orange" | "faded" | "plain";
 
 /** Every box reachable from `start` by following arrows one way. */
 export function walk(map: LinkMap, start: NodeId, direction: Walk): Set<NodeId> {
@@ -97,13 +107,14 @@ const opposite = (w: Walk): Walk => (w === "forward" ? "backward" : "forward");
 /** `null` when nothing is selected or the selected box no longer exists. */
 export function reachOf(map: LinkMap, selected: NodeId | null): Reach | null {
   if (selected === null || !map.nodes[selected]) return null;
-  const tealWalk = REACH_MEANINGS[map.kind].teal;
+  const { teal: tealWalk, fadesRest } = REACH_MEANINGS[map.kind];
   return {
     selected,
     tealWalk,
     // A bracket follows its players' path back, not every feeding match.
     teal: map.kind === "bracket" ? pathTo(map, selected) : walk(map, selected, tealWalk),
     orange: walk(map, selected, opposite(tealWalk)),
+    rest: fadesRest ? "faded" : "plain",
   };
 }
 
@@ -115,7 +126,7 @@ export function nodeHighlight(reach: Reach, id: NodeId): NodeHighlight {
   if (id === reach.selected) return "selected";
   if (reach.teal.has(id)) return "teal";
   if (reach.orange.has(id)) return "orange";
-  return "faded";
+  return reach.rest;
 }
 
 /** Whether an arrow lies on a path that a walk from `selected` followed. */
@@ -129,7 +140,7 @@ export function linkHighlight(reach: Reach, link: Link): LinkHighlight {
   const { selected, tealWalk } = reach;
   if (onPath(link, selected, reach.teal, tealWalk)) return "teal";
   if (onPath(link, selected, reach.orange, opposite(tealWalk))) return "orange";
-  return "faded";
+  return reach.rest;
 }
 
 /** The status line's two numbers. A box in both groups counts only once,

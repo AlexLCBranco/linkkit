@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-16, v0.0.78 (a selected bracket match lights only its players' path, not every earlier match; every numbered step below is done, waiting for the owner's next plan)_
+_Last updated: 2026-10-16, v0.0.79 (a selected bracket match no longer fades the other matches; every numbered step below is done, waiting for the owner's next plan)_
 
 ## What it is
 
@@ -1006,6 +1006,11 @@ in"). Loops and arrows into the start are refused in both. Code:
   undecided, each player's path; an empty slot lights every match that
   could fill it. The route ahead stays orange. One place:
   `pathTo` in `domain/bracket.ts`, used by `reachOf`. Check:
+  `domain/bracket.test.ts`.
+- The other matches and arrows don't fade while a match is selected
+  (v0.0.79, owner's call 2026-10-16): they look as usual, only the path
+  is coloured. One switch per kind, `fadesRest` in `REACH_MEANINGS`
+  (`domain/reach.ts`; off only for brackets). Check:
   `domain/bracket.test.ts`.
 
 ## What's next
