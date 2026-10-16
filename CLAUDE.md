@@ -58,7 +58,8 @@ PROJECT.md's numbered "What's next" list that isn't struck through. Each
 chat:
 
 1. Read `PROJECT.md` (and `git log --oneline | head`) to get oriented, and
-   name the step you're doing.
+   name the step you're doing with its place in its plan: "Doing step 2
+   of 3 of Bracket mode: b2, layout and the page".
 2. Say briefly what you'll build and why, then build it. New pure logic
    goes in `domain/` with tests.
 3. `npm run build`, `npm test` and `npm run lint` must pass.
@@ -71,6 +72,10 @@ chat:
    version, commit on `main`, push.
 6. A step too big for one chat: split it in PROJECT.md (e.g. 5a, 5b) and
    stop at a working, pushed point; the next chat picks up the rest.
+7. End the chat's report with the plan's progress, in bold on its own
+   line: "**Step 2 of 3 done (Bracket mode). Next chat: step 3, b3 ...**",
+   or "**Step 3 of 3 done: Bracket mode is finished.**" Count the plan's
+   numbered steps (a split step's parts count as one each).
 
 ## Git and deploy
 
