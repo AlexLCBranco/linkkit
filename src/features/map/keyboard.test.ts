@@ -244,15 +244,18 @@ describe("a new tree map", () => {
 });
 
 describe("keys in a bracket", () => {
-  it("Enter on a selected match opens no name (matches have none; a focused row presses itself)", async () => {
+  it("Enter and the arrows on a selected match (no row focused) move to a row instead of opening a name", async () => {
     const { useMapStore, press } = await fresh();
     useMapStore.getState().newBracket(4);
     useMapStore.getState().placeAll(new Map());
     useMapStore.getState().stopEditing();
     const match = Object.keys(useMapStore.getState().map.nodes)[0] as NodeId;
     useMapStore.getState().select(match);
-    const enter = press("Enter");
-    expect(enter.preventDefault).not.toHaveBeenCalled();
-    expect(useMapStore.getState().editing).toBeNull();
+    for (const key of ["Enter", "ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight"]) {
+      expect(press(key).preventDefault, key).toHaveBeenCalled();
+      expect(useMapStore.getState().editing).toBeNull();
+    }
+    // Shift+Enter is not a row key.
+    expect(press("Enter", { shiftKey: true }).preventDefault).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-16, v0.0.75 (brackets can now be 128 or 256 players; every numbered step below is done, waiting for the owner's next plan)_
+_Last updated: 2026-10-16, v0.0.76 (bracket keys: Enter / ↓ go down, ← → land on a match's top row; every numbered step below is done, waiting for the owner's next plan)_
 
 ## What it is
 
@@ -976,9 +976,12 @@ in"). Loops and arrows into the start are refused in both. Code:
   down, Shift+Tab back up; pasting several lines fills that slot and the
   ones below ("1 name was left over" past the last slot). A named round-1
   player is renamed by double-click or the pencil on hover; clicking an
-  empty one opens it. Keys on a player row: the arrows move between
-  players (up / down a round, left / right between rounds), Space or
-  Enter picks. Nothing else is editable: no Add box, no Top-down /
+  empty one opens it. Keys (v0.0.76, owner's request): Enter or ↓ go to
+  the next player row down, ↑ up, ← → to the previous / next round,
+  always onto that match's top row (the owner's rule); Space picks.
+  After typing ends (Esc, Enter on the last slot) focus stays on that
+  row; with no row focused (a click on the page), the first key lands on
+  the selected match's top row, or the first slot. Nothing else is editable: no Add box, no Top-down /
   Left-right, no right-click menu, arrows can't be picked; Tidy up,
   arrow length, Align, zoom, rename, duplicate, trash, backups and image
   export work as for other maps (the image shows the players, round
@@ -986,11 +989,12 @@ in"). Loops and arrows into the start are refused in both. Code:
   Bob". The shortcuts dialog has a "Bracket" section. Check:
   `domain/bracketLayout.test.ts` (no overlaps for every size, centred
   between feeders, final on the right, headings and Champion box),
-  `domain/bracket.test.ts` (arrow-key moves, match names),
+  `domain/bracket.test.ts` (row keys, where they start, match names),
   `store/mapStore.test.ts` (new bracket, typing flow, paste, cascade and
   its Undo, a double-click's pick taken back), the keyboard and shortcut
   table tests, and `e2e/bracket.e2e.ts` (Playwright: create 8, paste 8
-  names, play to a champion, change a round-1 result, Undo, reload)
+  names, play to a champion, change a round-1 result, Undo, reload; and
+  the row keys)
 
 ## What's next
 

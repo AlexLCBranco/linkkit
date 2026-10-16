@@ -1,12 +1,13 @@
 import { useEffect } from "react";
 
+import { startRow } from "../../domain/bracket";
 import { isArrowKey } from "../../domain/navigation";
 import { pressed, type ShortcutId } from "../../domain/shortcuts";
 import { hasTreeShape, PALETTE_COLORS } from "../../domain/types";
 import type { NodeId } from "../../domain/types";
 import { selectionOf, useMapStore } from "../../store/mapStore";
 import { useShortcutsDialog } from "../../store/shortcutsDialog";
-import { BOX_ID_ATTRIBUTE, MAP_VIEW_ATTRIBUTE } from "./pageMarkers";
+import { BOX_ID_ATTRIBUTE, focusPlayerRow, MAP_VIEW_ATTRIBUTE } from "./pageMarkers";
 
 /** What the handler reads from a key press: a `KeyboardEvent` has it all,
     and a test can hand in a plain object. */
@@ -99,8 +100,18 @@ export function onMapKey(e: KeyPress): void {
 
   // One box selected, keys on the map: Treekit's keyboard flow.
   const one = store.group.length === 0 ? store.selected : null;
+  // A bracket's row keys with no row focused (after typing a name, or a
+  // click on the page): start on the selected match's top row. A focused
+  // row handles them itself (MatchBox).
+  if (store.map.kind === "bracket" && is("moveRow") && !store.editing && onCanvas(e.target)) {
+    const start = startRow(store.map, focusedBox(e.target) ?? one);
+    if (!start) return;
+    e.preventDefault();
+    focusPlayerRow(start);
+    return;
+  }
   if (is("rename") || is("selectFocused")) {
-    // A bracket's matches have no names; Enter on a player's row presses it.
+    // A bracket's matches have no names (Enter moves between rows, above).
     if (store.editing || !onCanvas(e.target) || store.map.kind === "bracket") return;
     const box = is("selectFocused") ? focusedBox(e.target) : null;
     if (box && box !== one) {

@@ -1,26 +1,21 @@
 import { Handle, Position, type Node, type NodeProps } from "@xyflow/react";
 import { Pencil } from "lucide-react";
-import { memo, useRef, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
+import { memo, useEffect, useRef, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent } from "react";
 
 import { InlineEditable } from "../../components/InlineEditable";
-import { playerName, rowAfterKey, type Slot } from "../../domain/bracket";
+import { playerName, rowAfterKey, type RowKey, type Slot } from "../../domain/bracket";
+import { pressed } from "../../domain/shortcuts";
 import type { NodeId } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { selectNodeHighlight } from "../../store/selectors";
 import boxStyles from "./BoxView.module.css";
 import styles from "./MatchBox.module.css";
-import { BOX_ID_ATTRIBUTE } from "./pageMarkers";
+import { BOX_ID_ATTRIBUTE, focusPlayerRow, PLAYER_ROW_ATTRIBUTE } from "./pageMarkers";
 
 /** React Flow's node record for a bracket's match (see BoxFlowNode). */
 export type MatchFlowNode = Node<Record<string, never>, "match">;
 
-/** The attribute each player row carries ("<match>:<slot>"), so the arrow
-    keys can move focus to another row. */
-const ROW_ATTRIBUTE = "data-player-row";
-
 const keepToRow = (e: PointerEvent | MouseEvent) => e.stopPropagation();
-
-const ARROWS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 
 /**
  * One match of a bracket: a box with its two players, one row each (the
@@ -36,8 +31,8 @@ const ARROWS = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
  * its pencil. Nothing else: a bracket's boxes don't move, connect or get
  * deleted.
  *
- * Keys: each row is a button, so Tab reaches it and Space / Enter press it;
- * the arrow keys move between rows (`rowAfterKey`). While typing, Enter
+ * Keys: each row is a button, so Tab reaches it and Space presses it; the
+ * arrow keys and Enter move between rows (`rowAfterKey`). While typing, Enter
  * and Tab go on to the next slot down, Shift+Tab back up, and pasting
  * several lines fills the slots below.
  */
@@ -95,6 +90,16 @@ function PlayerRow({ match, slot, typed }: PlayerRowProps) {
   // The result the first click of a double-click picked, taken back when
   // the double-click turns out to be a rename.
   const lastPick = useRef<string | null>(null);
+  // Typing ended (Enter on the last slot, Esc): the field is gone and focus
+  // would fall to the page, where the row keys do nothing. Back onto this
+  // row, unless a click already put focus somewhere else.
+  const wasEditing = useRef(false);
+  useEffect(() => {
+    if (wasEditing.current && !isEditing && (!document.activeElement || document.activeElement === document.body)) {
+      focusPlayerRow({ match, slot });
+    }
+    wasEditing.current = isEditing;
+  }, [isEditing, match, slot]);
 
   if (isEditing && player) {
     return (
@@ -132,13 +137,13 @@ function PlayerRow({ match, slot, typed }: PlayerRowProps) {
   };
 
   const onKeyDown = (e: KeyboardEvent) => {
-    if (!ARROWS.has(e.key) || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.altKey || !pressed(e, "moveRow")) return;
+    // Also stops Enter pressing the row (Space does that).
     e.preventDefault();
-    // Not the map's own arrow keys.
+    // Not the map's own keys.
     e.stopPropagation();
-    const to = rowAfterKey(useMapStore.getState().map, { match, slot }, e.key as Parameters<typeof rowAfterKey>[2]);
-    if (!to) return;
-    document.querySelector<HTMLElement>(`[${ROW_ATTRIBUTE}="${to.match}:${to.slot}"]`)?.focus();
+    const to = rowAfterKey(useMapStore.getState().map, { match, slot }, e.key as RowKey);
+    if (to) focusPlayerRow(to);
   };
 
   return (
@@ -146,7 +151,7 @@ function PlayerRow({ match, slot, typed }: PlayerRowProps) {
       <button
         type="button"
         className={`${styles.pick} nodrag`}
-        {...{ [ROW_ATTRIBUTE]: `${match}:${slot}` }}
+        {...{ [PLAYER_ROW_ATTRIBUTE]: `${match}:${slot}` }}
         onPointerDown={keepToRow}
         onClick={onClick}
         onDoubleClick={onDoubleClick}

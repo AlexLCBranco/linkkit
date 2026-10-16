@@ -31,7 +31,7 @@ test("bracket: paste names, play to a champion, cascade, undo, reload", async ({
   // + New bracket → 8 players: the first slot opens for typing.
   await page.getByRole("button", { name: /Switch map/ }).click();
   await page.getByRole("menuitem", { name: "+ New bracket" }).click();
-  await page.getByRole("menuitem", { name: "8 players" }).click();
+  await page.getByRole("menuitem", { name: "8 players", exact: true }).click();
   const field = page.getByRole("textbox", { name: "Player name" });
   await expect(field).toBeFocused();
   await expect(page.getByText("Quarterfinals")).toBeVisible();
@@ -77,6 +77,56 @@ test("bracket: paste names, play to a champion, cascade, undo, reload", async ({
   expect(await rowTexts(page)).toEqual([...NAMES, "Ann", "Cat", "Eve", "Gus", "Ann", "Eve"]);
   expect(await winners(page)).toBe("W.W.W.W.W.W.W.");
   await expect.poll(() => championName(page)).toContain("Ann");
+
+  // Clean up: the bracket goes (to the trash of this throwaway profile).
+  await page.getByRole("button", { name: /Switch map/ }).click();
+  await page.getByRole("menuitem", { name: "Delete this map" }).click();
+  await expect(rows(page)).toHaveCount(0);
+});
+
+/** The index (in `rows` order) of the row with keyboard focus, or -1. */
+const focusedRow = (page: Page) =>
+  rows(page).evaluateAll((els) => els.findIndex((el) => el === document.activeElement));
+
+test("bracket keys: Enter and ↓ go down, ← → land on a match's top row, focus comes back after typing", async ({ page }) => {
+  await page.goto("/linkkit/");
+  await page.getByRole("button", { name: /Switch map/ }).click();
+  await page.getByRole("menuitem", { name: "+ New bracket" }).click();
+  await page.getByRole("menuitem", { name: "8 players", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Player name" })).toBeFocused();
+
+  // Type two names; Esc ends typing and focus is back on that row.
+  await page.keyboard.type("Ann");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Bob");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Escape");
+  await expect.poll(() => focusedRow(page)).toBe(2);
+
+  // Enter and ↓ go to the next row down; ↑ back up. Enter doesn't pick.
+  await page.keyboard.press("Enter");
+  await expect.poll(() => focusedRow(page)).toBe(3);
+  await page.keyboard.press("ArrowUp");
+  await page.keyboard.press("ArrowUp");
+  await expect.poll(() => focusedRow(page)).toBe(1);
+  expect(await winners(page)).toBe("..............");
+
+  // → from a bottom row lands on the next match's top row; ← too.
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await expect.poll(() => focusedRow(page)).toBe(3); // match 2's bottom row
+  await page.keyboard.press("ArrowRight");
+  await expect.poll(() => focusedRow(page)).toBe(8); // semifinal 1's top row
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowLeft");
+  await expect.poll(() => focusedRow(page)).toBe(2); // match 2's top row
+
+  // A click on the page leaves no row focused; ↓ starts on the selected
+  // match's top row, else the first slot.
+  await page.mouse.click(1300, 850);
+  await expect.poll(() => focusedRow(page)).toBe(-1);
+  await page.keyboard.press("ArrowDown");
+  await expect.poll(() => focusedRow(page)).toBe(0);
 
   // Clean up: the bracket goes (to the trash of this throwaway profile).
   await page.getByRole("button", { name: /Switch map/ }).click();

@@ -19,6 +19,7 @@ import {
   repairBracket,
   roundNames,
   rowAfterKey,
+  startRow,
   matchTitle,
   setWinner,
   type BracketIds,
@@ -424,16 +425,32 @@ describe("rowAfterKey", () => {
     expect(rowAfterKey(map, { match: at(map, 1, 0), slot: 0 }, "ArrowUp")).toBeNull();
   });
 
-  it("goes right to the row the match feeds, and left back to the match feeding a row", () => {
+  it("Enter goes down like the down arrow", () => {
+    const map = eight();
+    expect(rowAfterKey(map, { match: at(map, 1, 0), slot: 0 }, "Enter")).toEqual({ match: at(map, 1, 0), slot: 1 });
+    expect(rowAfterKey(map, { match: at(map, 1, 0), slot: 1 }, "Enter")).toEqual({ match: at(map, 1, 1), slot: 0 });
+    expect(rowAfterKey(map, { match: at(map, 1, 3), slot: 1 }, "Enter")).toBeNull();
+  });
+
+  it("goes right to the match this one feeds, and left to the match feeding a row: always onto its top row", () => {
     let map = eight();
-    expect(rowAfterKey(map, { match: at(map, 1, 3), slot: 0 }, "ArrowRight")).toEqual({ match: at(map, 2, 1), slot: 1 });
+    // Match 3 feeds the bottom row of semifinal 1; right still lands on its top row.
+    expect(rowAfterKey(map, { match: at(map, 1, 3), slot: 0 }, "ArrowRight")).toEqual({ match: at(map, 2, 1), slot: 0 });
+    expect(rowAfterKey(map, { match: at(map, 1, 3), slot: 1 }, "ArrowRight")).toEqual({ match: at(map, 2, 1), slot: 0 });
     expect(rowAfterKey(map, { match: at(map, 3, 0), slot: 0 }, "ArrowRight")).toBeNull();
-    // Not played yet: onto the feeding match's top row.
     expect(rowAfterKey(map, { match: at(map, 2, 1), slot: 1 }, "ArrowLeft")).toEqual({ match: at(map, 1, 3), slot: 0 });
-    // Played: onto the winner's own row.
+    // Played, the winner on the bottom row: still the top row.
     map = win(map, 1, 3, 1);
-    expect(rowAfterKey(map, { match: at(map, 2, 1), slot: 1 }, "ArrowLeft")).toEqual({ match: at(map, 1, 3), slot: 1 });
+    expect(rowAfterKey(map, { match: at(map, 2, 1), slot: 1 }, "ArrowLeft")).toEqual({ match: at(map, 1, 3), slot: 0 });
     expect(rowAfterKey(map, { match: at(map, 1, 0), slot: 1 }, "ArrowLeft")).toBeNull();
+  });
+});
+
+describe("startRow", () => {
+  it("starts on the selected match's top row, else the first slot", () => {
+    const map = eight();
+    expect(startRow(map, at(map, 2, 1))).toEqual({ match: at(map, 2, 1), slot: 0 });
+    expect(startRow(map, null)).toEqual({ match: at(map, 1, 0), slot: 0 });
   });
 });
 

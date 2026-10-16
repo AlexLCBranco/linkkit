@@ -38,3 +38,15 @@ export function boxSizes(page: Element): Map<NodeId, Size> {
   }
   return sizes;
 }
+
+/** The attribute each bracket player row carries ("<match>:<slot>"), so
+    the row keys can move keyboard focus to another row. */
+export const PLAYER_ROW_ATTRIBUTE = "data-player-row";
+
+/** Puts keyboard focus on a bracket player's row; false if it isn't shown. */
+export function focusPlayerRow(spot: { readonly match: NodeId; readonly slot: number }): boolean {
+  if (typeof document === "undefined") return false;
+  const row = document.querySelector<HTMLElement>(`[${PLAYER_ROW_ATTRIBUTE}="${spot.match}:${spot.slot}"]`);
+  row?.focus();
+  return !!row;
+}

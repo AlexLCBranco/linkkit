@@ -336,32 +336,42 @@ export interface RowSpot {
   readonly slot: Slot;
 }
 
+/** The keys that move between player rows: Enter is the same as the down arrow. */
+export type RowKey = "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight" | "Enter";
+
 /**
- * Where an arrow key goes from a player row: up and down through the
- * column (a match's two rows, then the match above or below), right to the
- * row this match's winner fills in the next match, left back to the match
- * that fills this row (onto that player's row, or its top row while it has
- * no winner). `null` at an edge.
+ * Where a key goes from a player row: down (the down arrow or Enter) and up
+ * through the column (a match's two rows, then the match below or above),
+ * right to the match this one's winner moves on to, left back to the match
+ * feeding this row. Left and right always land on that match's top row
+ * (the owner's rule), so the next press of down reaches the bottom one.
+ * `null` at an edge.
  */
-export function rowAfterKey(map: LinkMap, from: RowSpot, key: "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight"): RowSpot | null {
+export function rowAfterKey(map: LinkMap, from: RowSpot, key: RowKey): RowSpot | null {
   const match = matchOf(map, from.match);
   if (!match) return null;
   const column = matchGrid(map)[match.round - 1];
-  if (key === "ArrowUp" || key === "ArrowDown") {
-    const step = key === "ArrowDown" ? 1 : -1;
+  if (key === "ArrowUp" || key === "ArrowDown" || key === "Enter") {
+    const step = key === "ArrowUp" ? -1 : 1;
     const place = match.index * 2 + from.slot + step;
     const id = column[place >> 1];
     return place >= 0 && id ? { match: id, slot: (place & 1) as Slot } : null;
   }
   if (key === "ArrowRight") {
     const next = nextMatch(map, from.match);
-    return next ? { match: next.id, slot: next.slot } : null;
+    return next ? { match: next.id, slot: 0 } : null;
   }
   const feeder = matchGrid(map)[match.round - 2]?.[match.index * 2 + from.slot];
-  if (!feeder) return null;
-  const player = match.slots[from.slot];
-  const row = matchOf(map, feeder)!.slots.indexOf(player);
-  return { match: feeder, slot: (player && row >= 0 ? row : 0) as Slot };
+  return feeder ? { match: feeder, slot: 0 } : null;
+}
+
+/** Where the row keys start when no row has keyboard focus yet (after
+    typing a name, or a click on the page): the top row of `selected` if it
+    is a match, else the bracket's first slot. */
+export function startRow(map: LinkMap, selected: NodeId | null): RowSpot | null {
+  if (selected && matchOf(map, selected)) return { match: selected, slot: 0 };
+  const first = matchGrid(map)[0]?.[0];
+  return first ? { match: first, slot: 0 } : null;
 }
 
 /** A match in words, for the status line: "Ann v Bob" ("—" for an empty

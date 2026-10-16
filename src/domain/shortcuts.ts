@@ -107,15 +107,14 @@ export const SHORTCUTS = {
   },
   moveRow: {
     group: "Bracket",
-    does: "Move between players: up and down a round, left and right between rounds",
-    combos: [k("arrowup"), k("arrowdown"), k("arrowleft"), k("arrowright")],
+    does: "Move between players: Enter or ↓ to the next one down, ↑ up, ← → between rounds (onto a match's top player)",
+    combos: [k("enter", { shift: false }), k("arrowdown", { shift: false }), k("arrowup", { shift: false }), k("arrowleft", { shift: false }), k("arrowright", { shift: false })],
     only: BRACKETS,
-    onRow: true,
   },
   pickWinner: {
     group: "Bracket",
     does: "Make that player the winner (again: clear it)",
-    combos: [k(" "), k("enter")],
+    combos: [k(" ")],
     only: BRACKETS,
     onRow: true,
   },
