@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { asNodeId } from "./ids";
+import { createBracket } from "./bracket";
+import { layoutBracket } from "./bracketLayout";
+import { asMapId, asNodeId } from "./ids";
 import { layoutMap } from "./layout";
 import { moveNode } from "./map";
 import {
@@ -66,6 +68,20 @@ describe("page", () => {
     // Another box further right (the page already scrolls): "out" stays.
     map = moveNode(map, asNodeId("unmeasured"), { x: 1000, y: 300 });
     expect(keepOnPage(map, sizes, box, insets, screen, all)).toEqual(new Map());
+  });
+
+  it("never moves a bracket's matches back onto the screen: the page scrolls instead", () => {
+    // A 16-player bracket is taller than the screen; its bottom match sits
+    // past the screen's edge. Pulling it up would stack it on the match above.
+    const map0 = createBracket(asMapId("b"), "Cup", screen, 16).map;
+    const size = { width: 150, height: 64 };
+    const options = { columnGap: 28, rowGap: 60, fallbackSize: size };
+    const placed = placeOnPage(layoutBracket(map0, new Map(), options), screen, { x: 20, y: 20 });
+    let map = map0;
+    for (const [id, at] of placed.positions) map = moveNode(map, id, at);
+    const sizes = new Map<NodeId, Size>([...placed.positions.keys()].map((id) => [id, size]));
+    expect(Math.max(...[...placed.positions.values()].map((p) => p.y))).toBeGreaterThan(screen.height);
+    expect(keepOnPage(map, sizes, size, insets, screen, sizes.keys())).toEqual(new Map());
   });
 
   it("steps a new box aside until it overlaps no box", () => {

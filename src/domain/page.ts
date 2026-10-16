@@ -152,7 +152,8 @@ export function placeOnPage(
  * fits again. Each gets the room the screen and the other boxes make (see
  * `pageSize`). Only boxes that changed: a smaller window leaves every box
  * where it is and the page scrolls, instead of piling boxes up on the
- * screen's edge. Boxes not measured yet are left alone.
+ * screen's edge. Boxes not measured yet, and a bracket's matches, are
+ * left alone.
  */
 export function keepOnPage(
   map: LinkMap,
@@ -163,6 +164,9 @@ export function keepOnPage(
   ids: Iterable<NodeId>,
 ): Map<NodeId, Point> {
   const moves = new Map<NodeId, Point>();
+  // A bracket's matches only ever sit where its Tidy up put them: moving
+  // one would stack it on its neighbour. The page scrolls instead.
+  if (map.kind === "bracket") return moves;
   for (const id of ids) {
     const node = map.nodes[id];
     const size = sizes.get(id);

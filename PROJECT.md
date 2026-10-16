@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-16, v0.0.76 (bracket keys: Enter / ↓ go down, ← → land on a match's top row; every numbered step below is done, waiting for the owner's next plan)_
+_Last updated: 2026-10-16, v0.0.77 (fix: a bracket opened in a shorter window no longer stacks its bottom match on the one above; every numbered step below is done, waiting for the owner's next plan)_
 
 ## What it is
 
@@ -995,6 +995,11 @@ in"). Loops and arrows into the start are refused in both. Code:
   table tests, and `e2e/bracket.e2e.ts` (Playwright: create 8, paste 8
   names, play to a champion, change a round-1 result, Undo, reload; and
   the row keys)
+- A bracket's matches stay where Tidy up put them when the window is
+  shorter than the bracket (v0.0.77, bug fix): the "keep a resized box on
+  screen" nudge skips brackets, and the page scrolls instead. Check:
+  `domain/page.test.ts`. A bracket already broken by the old bug is
+  fixed by one Tidy up.
 
 ## What's next
 
