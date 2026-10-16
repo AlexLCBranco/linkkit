@@ -133,7 +133,7 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
     </button>
   );
 
-  return (
+  const drawn = (
     <>
       <BaseEdge
         id={id}
@@ -154,6 +154,15 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
           d={headPath(g.head)}
         />
       )}
+    </>
+  );
+  // A bracket's arrows are drawn from its matches: nothing to pick, label
+  // or reconnect (owner's spec).
+  if (kind === "bracket") return drawn;
+
+  return (
+    <>
+      {drawn}
       {/* The line and its end handles, in one group so moving from the line
           onto a handle keeps them shown. The hit line is wider than the
           drawn one, easy to point at and click. */}

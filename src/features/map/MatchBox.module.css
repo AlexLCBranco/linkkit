@@ -1,0 +1,112 @@
+/* A bracket's match: a box (BoxView.module.css's .box) holding two player
+   rows. Every match is one width, so the rounds line up in columns. */
+.match {
+  display: flex;
+  flex-direction: column;
+  width: var(--match-width);
+  min-width: var(--match-width);
+  max-width: var(--match-width);
+  padding: 0;
+  overflow: hidden;
+  text-align: left;
+  /* Nothing to drag: a click picks a winner. */
+  cursor: default;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.row + .row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* The row itself is the button: a click picks this player. */
+.pick {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+
+.pick:hover {
+  background: var(--surface-hover);
+}
+
+.pick:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* An empty slot: a faint dash. */
+.name[data-empty] {
+  color: var(--text-muted);
+}
+
+.row[data-winner] .name {
+  font-weight: var(--weight-bold);
+}
+
+/* The other player, once there is a winner, steps back a little. */
+.row[data-loser] .name {
+  color: var(--text-secondary);
+  font-weight: var(--weight-normal);
+}
+
+/* Typing a first-round name: the field fills the row. */
+.row[data-editing] {
+  padding: var(--space-2) var(--space-3);
+}
+
+/* One line, as tall as a name shown, so typing never changes the match's
+   size (the bracket is laid out round it). */
+.field {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+/* A first-round name's pencil, shown on hover (or keyboard focus) at the
+   row's right end. */
+.rename {
+  position: absolute;
+  top: 50%;
+  right: var(--space-1);
+  display: grid;
+  place-items: center;
+  width: var(--box-button-size);
+  height: var(--box-button-size);
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+.row:hover .rename,
+.row:focus-within .rename {
+  opacity: 1;
+}
+
+.rename:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}

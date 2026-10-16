@@ -21,6 +21,10 @@ interface InlineEditableProps {
   /** Shift+Enter starts a new line (a box name, as in Treekit); Enter
       still ends typing. Off, Shift+Enter ends typing too. */
   readonly multiline?: boolean;
+  /** A list of fields typed one after another (a bracket's names): Enter
+      and Tab keep the text and ask for the next field (`1`), Shift+Tab
+      for the one before (`-1`). Called after `onDone`. */
+  readonly onStep?: (step: 1 | -1) => void;
 }
 
 /**
@@ -64,6 +68,7 @@ function EditField({
   className,
   onPasteLines,
   multiline = false,
+  onStep,
 }: Omit<InlineEditableProps, "editing">) {
   const [draft, setDraft] = useState(value);
   // Set once the edit has ended, so the blur that follows Enter/Esc (as the
@@ -122,7 +127,12 @@ function EditField({
           // Keep every key local: canvas shortcuts (Delete = delete the box)
           // must not fire while typing.
           event.stopPropagation();
-          if (pressed(event, "newLine") && multiline) {
+          if (onStep && (pressed(event, "nextName") || pressed(event, "previousName"))) {
+            event.preventDefault();
+            const step = pressed(event, "previousName") ? -1 : 1;
+            finish(true);
+            onStep(step);
+          } else if (pressed(event, "newLine") && multiline) {
             // A new line in the name: the browser types it.
           } else if (pressed(event, "save")) {
             event.preventDefault();

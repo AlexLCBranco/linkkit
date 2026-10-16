@@ -100,7 +100,8 @@ export function onMapKey(e: KeyPress): void {
   // One box selected, keys on the map: Treekit's keyboard flow.
   const one = store.group.length === 0 ? store.selected : null;
   if (is("rename") || is("selectFocused")) {
-    if (store.editing || !onCanvas(e.target)) return;
+    // A bracket's matches have no names; Enter on a player's row presses it.
+    if (store.editing || !onCanvas(e.target) || store.map.kind === "bracket") return;
     const box = is("selectFocused") ? focusedBox(e.target) : null;
     if (box && box !== one) {
       e.preventDefault();

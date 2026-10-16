@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 import { mapsToRestore } from "../domain/backup";
+import { clearedText, createBracket, EMPTY_SLOT_HINT, firstRoundSlots, pasteNames, pickWinner, renamePlayer, type BracketSize, type Slot } from "../domain/bracket";
 import { exampleMap } from "../domain/example";
 import * as history from "../domain/history";
 import { createMapId, createNodeId } from "../domain/ids";
@@ -89,7 +90,7 @@ import { followBoxName, numberedName } from "../domain/names";
 import { forkBranch } from "../domain/fork";
 import { UNTITLED_MAP } from "../domain/persistence";
 import { copyName, removeMap, upsertMap, type Registry } from "../domain/registry";
-import { ARROW_LENGTH_PRESETS, hasTreeShape, type StepType, type ArrowStyle, type LabelStyle, type LinkId, type LinkMap, type MapId, type NodeId, type NodeStatus, type PaletteColor, type Point, type Size } from "../domain/types";
+import { ARROW_LENGTH_PRESETS, hasTreeShape, type StepType, type ArrowStyle, type LabelStyle, type LinkId, type LinkMap, type MapId, type NodeId, type NodeStatus, type PaletteColor, type PlayerId, type Point, type Size } from "../domain/types";
 import { mergeMaps, shareUnchanged, type MergeConflict } from "../domain/merge";
 import {
   boardLosses,
@@ -137,7 +138,11 @@ import {
 import { cancelSave, flushSave } from "./saveQueue";
 
 /** What is open for typing: a box's name or an arrow's label. */
-export type Editing = { readonly kind: "box"; readonly id: NodeId } | { readonly kind: "link"; readonly id: LinkId };
+export type Editing =
+  | { readonly kind: "box"; readonly id: NodeId }
+  | { readonly kind: "link"; readonly id: LinkId }
+  /** A bracket: a first-round player's name. */
+  | { readonly kind: "player"; readonly id: PlayerId };
 
 /** An arrow being dragged out of a box's dot, not yet dropped. */
 export interface Connecting {
@@ -271,9 +276,10 @@ export interface MapState {
   /** Tree boxes whose delete takes other boxes with them, waiting for the
       user to confirm (`count` boxes in all). */
   readonly confirmingDelete: { readonly ids: readonly NodeId[]; readonly count: number } | null;
-  /** A box whose name opens for typing once the first tidy has shown the
-      map (a new tree's start: a hidden field could not take focus). */
-  readonly editAfterTidy: NodeId | null;
+  /** A name that opens for typing once the first tidy has shown the map
+      (a new tree's start, a new bracket's first player: a hidden field
+      could not take focus). */
+  readonly editAfterTidy: Editing | null;
   /** A tree box just renamed, waiting for its new size to be measured so
       the tree can re-tidy round it (joined to the rename's undo step).
       `map` is the map the rename made: any edit since (a drag, Tab, ...)
@@ -433,6 +439,27 @@ export interface MapState {
   /** Steps: hides the step numbers, or shows them. Undoable; moves no box. */
   setHideNumbers(hide: boolean): void;
 
+  /** Bracket: a first-round player's name (every slot they reached shows
+      it). One undo step. */
+  renamePlayer(id: PlayerId, name: string): void;
+  /** Bracket: several lines pasted into a first-round slot fill it and the
+      slots below, one name each, as one undo step; names left over past the
+      last slot are said in a message. */
+  pastePlayers(from: PlayerId, text: string): { readonly filled: number; readonly ignored: number };
+  /** Bracket: typing moves on to the first-round slot below (`1`: Enter,
+      Tab) or above (`-1`: Shift+Tab); past either end, typing stops. */
+  editNextPlayer(from: PlayerId, step: 1 | -1): void;
+  /** Bracket: a click on a player's row (`slot` of `match`): marks them the
+      winner, or clears or switches the result, as one undo step with every
+      later result it cleared (said in a message with Undo). Refused, with a
+      hint, while a slot of the match is empty (`null`). Returns the undo
+      step's key, for `takeBackPick`. */
+  pickWinner(match: NodeId, slot: Slot): string | null;
+  /** Takes back a result just picked (`key` from `pickWinner`), leaving no
+      undo step: the first click of a double-click on a name, which renames
+      it instead. Nothing if anything was done since. */
+  takeBackPick(key: string): void;
+
   /** Draws an arrow (`from` needs, or in a tree leads to, `to`) if the
       map's rules allow it. */
   connect(from: NodeId, to: NodeId): boolean;
@@ -484,6 +511,9 @@ export interface MapState {
   /** Starts a new Steps map from a preset; a blank one opens its first
       step's name for typing. */
   newSteps(preset?: StepPreset): void;
+  /** Starts a new bracket for `size` players; once shown, its first slot
+      opens for typing. */
+  newBracket(size: BracketSize): void;
   /** Opens `map` (made from a template: fresh ids, boxes not yet placed)
       as a new map, tidied once measured. */
   newFromTemplate(map: LinkMap): void;
@@ -660,7 +690,8 @@ export function selectionOf(s: Pick<MapState, "selected" | "group">): readonly N
     no longer shown on it (a cut box with "hide cut" on). */
 function forget(s: MapState, map: LinkMap): Pick<MapState, "map" | "selected" | "group" | "editing" | "selectedLink"> {
   const shown = shownMap(map);
-  const gone = (e: Editing | null) => e !== null && !(e.kind === "box" ? shown.nodes[e.id] : shown.links[e.id]);
+  const gone = (e: Editing | null) =>
+    e !== null && !(e.kind === "box" ? shown.nodes[e.id] : e.kind === "link" ? shown.links[e.id] : shown.players?.[e.id]);
   const kept = selectionOf(s).filter((id) => shown.nodes[id]);
   // A group that lost boxes stays a group only while two are left.
   const selection = kept.length === selectionOf(s).length ? { selected: s.selected, group: s.group } : selecting(kept);
@@ -924,6 +955,10 @@ export function linkPreview(map: LinkMap): LinkPreview {
     fresh (Boardkit may have changed them since the menu last opened). */
 export const boardChoices = (): BoardChoice[] => linkableBoards(listBoards(), boardLinks());
 
+/** A bracket result's undo step: each pick is its own (see `takeBackPick`). */
+const PICK_KEY = "pick:";
+let picks = 0;
+
 /** The undo step a new box and its first name share. */
 const newBoxKey = (id: NodeId) => `new:${id}`;
 
@@ -985,10 +1020,14 @@ export const useMapStore = create<MapState>()((set, get) => ({
       if (page) next = setPage(next, page);
       if (settings) next = setArrowLength(setDirection(next, settings.direction), settings.arrowLength);
       if (s.needsTidy) {
-        const edit = s.editAfterTidy && next.nodes[s.editAfterTidy] ? s.editAfterTidy : null;
+        const edit = s.editAfterTidy;
         // A new tree's start opens for typing, selected, so Tab goes on
         // to its first next step.
-        if (edit) return { map: next, needsTidy: false, editAfterTidy: null, editing: { kind: "box", id: edit }, ...selecting([edit]) };
+        if (edit?.kind === "box" && next.nodes[edit.id]) {
+          return { map: next, needsTidy: false, editAfterTidy: null, editing: edit, ...selecting([edit.id]) };
+        }
+        // A new bracket: its first slot, ready for the first name.
+        if (edit?.kind === "player" && next.players?.[edit.id]) return { map: next, needsTidy: false, editAfterTidy: null, editing: edit };
         return { map: next, needsTidy: false, editAfterTidy: null };
       }
       return commit(s, next, gesture && `arrows:${gesture}`);
@@ -1352,6 +1391,45 @@ export const useMapStore = create<MapState>()((set, get) => ({
   },
   setHideNumbers: (hide) => set((s) => commit(s, setHideNumbers(s.map, hide))),
 
+  renamePlayer: (id, name) => set((s) => commit(s, renamePlayer(s.map, id, name))),
+  pastePlayers: (from, text) => {
+    const pasted = pasteNames(get().map, from, text);
+    set((s) => commit(s, pasted.map));
+    if (pasted.ignored > 0) {
+      const more = pasted.ignored === 1 ? "1 name was" : `${pasted.ignored} names were`;
+      useSyncNotice.getState().say(`Filled ${pasted.filled} slots; ${more} left over (no slots below).`);
+    }
+    return { filled: pasted.filled, ignored: pasted.ignored };
+  },
+  editNextPlayer: (from, step) => {
+    const slots = firstRoundSlots(get().map);
+    const next = slots[slots.findIndex((p) => p.player === from) + step];
+    set(next ? { editing: { kind: "player", id: next.player }, stepKey: null } : { editing: null, stepKey: null });
+  },
+  pickWinner: (match, slot) => {
+    const s = get();
+    const edit = pickWinner(s.map, match, slot);
+    if (!edit) {
+      const node = s.map.nodes[match];
+      if (node) useHint.getState().show(EMPTY_SLOT_HINT, node);
+      return null;
+    }
+    const key = `${PICK_KEY}${match}:${++picks}`;
+    set((st) => ({ ...commit(st, edit.map, key), ...selecting([match]) }));
+    // One undo step takes the result and everything it cleared back.
+    const cleared = clearedText(edit.cleared);
+    if (cleared) useSyncNotice.getState().say(cleared, { label: "Undo", run: () => get().undo() });
+    return key;
+  },
+  takeBackPick: (key) =>
+    set((s) => {
+      if (s.stepKey !== key) return {};
+      const step = history.discardLast(s.history, s.map);
+      if (!step) return {};
+      useSyncNotice.getState().dismiss();
+      return { ...forget(s, step.map), history: step.history, stepKey: null };
+    }),
+
   connect: (from, to) => {
     const added = addLink(get().map, from, to);
     if (added.linkId === null) return false;
@@ -1471,7 +1549,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
     // Saved at once, like a new map; the first tidy centres the start box,
     // then its name opens for typing (select-all, so typing replaces
     // "Start", and leaving it empty keeps "Start").
-    set((s) => ({ ...open(s, map, createStored(map, s.maps), true), editAfterTidy: startId }));
+    set((s) => ({ ...open(s, map, createStored(map, s.maps), true), editAfterTidy: { kind: "box", id: startId } }));
   },
   newSteps: (preset = "blank") => {
     get().stopEditing();
@@ -1479,7 +1557,18 @@ export const useMapStore = create<MapState>()((set, get) => ({
     const { map, startId } = createSteps(createMapId(), untitledName(get().maps), newPageSize(), preset);
     // As a new tree: saved at once, its first step's name open for typing
     // once the first tidy has shown it (a blank one only).
-    set((s) => ({ ...open(s, map, createStored(map, s.maps), true), editAfterTidy: preset === "blank" ? startId : null }));
+    set((s) => ({
+      ...open(s, map, createStored(map, s.maps), true),
+      editAfterTidy: preset === "blank" ? { kind: "box", id: startId } : null,
+    }));
+  },
+  newBracket: (size) => {
+    get().stopEditing();
+    flushSave();
+    const { map, firstPlayer } = createBracket(createMapId(), untitledName(get().maps), newPageSize(), size);
+    // As a new tree: saved at once, and once the first tidy has shown it,
+    // the first slot of round 1 opens for typing.
+    set((s) => ({ ...open(s, map, createStored(map, s.maps), true), editAfterTidy: { kind: "player", id: firstPlayer } }));
   },
   newFromTemplate: (map) => {
     get().stopEditing();

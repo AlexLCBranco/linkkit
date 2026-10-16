@@ -18,6 +18,8 @@ import {
   renamePlayer,
   repairBracket,
   roundNames,
+  rowAfterKey,
+  matchTitle,
   setWinner,
   type BracketIds,
   type BracketSize,
@@ -84,6 +86,8 @@ describe("createBracket", () => {
   it.each(BRACKET_SIZES)("makes every match of a %i-player bracket", (size) => {
     const { map, firstPlayer } = createBracket(asMapId("m"), "Cup", page, size as BracketSize, counters());
     expect(map.kind).toBe("bracket");
+    // Round 1 to the final, left to right: arrows leave a match's right side.
+    expect(map.direction).toBe("LR");
     const grid = matchGrid(map);
     expect(grid.map((r) => r.length)).toEqual(Array.from({ length: Math.log2(size) }, (_, i) => size >> (i + 1)));
     expect(Object.keys(map.nodes)).toHaveLength(size - 1);
@@ -398,5 +402,37 @@ describe("two tabs", () => {
     expect(repairBracket(merged)).toEqual({ map: merged, fixes: 0 });
     expect(names(merged, 2, 0)).toEqual(["Bob", "Cat"]);
     expect(m(merged, 2, 0).winner).toBeNull();
+  });
+});
+
+describe("rowAfterKey", () => {
+  it("goes down a match's rows, then on to the next match, and stops at the bottom", () => {
+    const map = eight();
+    expect(rowAfterKey(map, { match: at(map, 1, 0), slot: 0 }, "ArrowDown")).toEqual({ match: at(map, 1, 0), slot: 1 });
+    expect(rowAfterKey(map, { match: at(map, 1, 0), slot: 1 }, "ArrowDown")).toEqual({ match: at(map, 1, 1), slot: 0 });
+    expect(rowAfterKey(map, { match: at(map, 1, 3), slot: 1 }, "ArrowDown")).toBeNull();
+    expect(rowAfterKey(map, { match: at(map, 2, 1), slot: 0 }, "ArrowUp")).toEqual({ match: at(map, 2, 0), slot: 1 });
+    expect(rowAfterKey(map, { match: at(map, 1, 0), slot: 0 }, "ArrowUp")).toBeNull();
+  });
+
+  it("goes right to the row the match feeds, and left back to the match feeding a row", () => {
+    let map = eight();
+    expect(rowAfterKey(map, { match: at(map, 1, 3), slot: 0 }, "ArrowRight")).toEqual({ match: at(map, 2, 1), slot: 1 });
+    expect(rowAfterKey(map, { match: at(map, 3, 0), slot: 0 }, "ArrowRight")).toBeNull();
+    // Not played yet: onto the feeding match's top row.
+    expect(rowAfterKey(map, { match: at(map, 2, 1), slot: 1 }, "ArrowLeft")).toEqual({ match: at(map, 1, 3), slot: 0 });
+    // Played: onto the winner's own row.
+    map = win(map, 1, 3, 1);
+    expect(rowAfterKey(map, { match: at(map, 2, 1), slot: 1 }, "ArrowLeft")).toEqual({ match: at(map, 1, 3), slot: 1 });
+    expect(rowAfterKey(map, { match: at(map, 1, 0), slot: 1 }, "ArrowLeft")).toBeNull();
+  });
+});
+
+describe("matchTitle", () => {
+  it("names a match by its players, a dash for an empty slot", () => {
+    const map = win(eight(), 1, 0, 0);
+    expect(matchTitle(map, at(map, 1, 0))).toBe("Ann v Bob");
+    expect(matchTitle(map, at(map, 2, 0))).toBe("Ann v —");
+    expect(matchTitle(map, asNodeId("nope"))).toBe("");
   });
 });

@@ -1,0 +1,56 @@
+/* A round's heading: centred over its column, its bottom edge just above
+   the highest match. */
+.heading {
+  position: absolute;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  transform: translate(-50%, -100%);
+}
+
+/* The Champion box: level with the final, a box like the matches. */
+.champion {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: var(--champion-width);
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  transform: translateY(-50%);
+}
+
+.champion[data-won] {
+  border: 1px solid var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--weight-medium);
+}
+
+.champion[data-won] .title {
+  color: var(--accent);
+}
+
+.name {
+  overflow: hidden;
+  font-size: var(--font-size-md);
+  font-weight: var(--weight-bold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name[data-empty] {
+  color: var(--text-muted);
+  font-weight: var(--weight-normal);
+}

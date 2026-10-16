@@ -12,7 +12,8 @@ const SHOW_MS = 6000;
  * changed, where the other tab's version was kept, or the open map deleted
  * there. A toast rather than a banner (Boardkit's choice): nothing is
  * wrong and nothing needs answering, the user just shouldn't wonder where
- * their change went.
+ * their change went. A message about the user's own edit may carry one
+ * button (a bracket's "Cleared 2 later results · Undo").
  */
 export function SyncToast() {
   const message = useSyncNotice((s) => s.message);
@@ -28,6 +29,18 @@ export function SyncToast() {
   return (
     <div className={styles.toast} role="status" key={message.seq}>
       <p className={styles.text}>{message.text}</p>
+      {message.action && (
+        <button
+          type="button"
+          className={styles.action}
+          onClick={() => {
+            dismiss();
+            message.action!.run();
+          }}
+        >
+          {message.action.label}
+        </button>
+      )}
       <button type="button" className={styles.close} onClick={dismiss} aria-label="Dismiss">
         <X size={14} aria-hidden />
       </button>

@@ -5,6 +5,8 @@ import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 
 import inlineStyles from "../../components/InlineEditable.module.css";
+import { champion, playerName } from "../../domain/bracket";
+import { bracketDecor } from "../../domain/bracketLayout";
 import { headPath, roundedPath } from "../../domain/arrows";
 import { imageLayout } from "../../domain/imageLayout";
 import { arrowsInto } from "../../domain/rules";
@@ -12,8 +14,10 @@ import { shownMap } from "../../domain/shown";
 import { looksCut } from "../../domain/status";
 import type { LinkId, LinkMap, NodeId, Size } from "../../domain/types";
 import boxStyles from "../map/BoxView.module.css";
+import decorStyles from "../map/BracketDecor.module.css";
+import matchStyles from "../map/MatchBox.module.css";
 import edgeStyles from "../map/LinkEdgeView.module.css";
-import { LABELS, ROUTES } from "../map/layoutConfig";
+import { BRACKET_DECOR, LABELS, ROUTES } from "../map/layoutConfig";
 import { STATUS_META } from "../map/statusMeta";
 
 /** Empty space around the map, in CSS pixels (Treekit's). */
@@ -48,6 +52,39 @@ function iconElement(icon: LucideIcon): Element {
  * the canvas uses (`domain/geometry.ts`, `domain/labels.ts`). No buttons,
  * no notes icons, no highlight.
  */
+/** A bracket's round headings and Champion box, as the page draws them
+    (BracketDecor), placed round its matches in the image. */
+function bracketExtras(map: LinkMap, boxes: Parameters<typeof bracketDecor>[1], shiftX: number, shiftY: number): HTMLElement[] {
+  const { headings, champion: spot } = bracketDecor(map, boxes, BRACKET_DECOR.gap);
+  const out: HTMLElement[] = [];
+  for (const h of headings) {
+    const el = document.createElement("div");
+    el.className = decorStyles.heading;
+    el.textContent = h.text;
+    el.style.left = `${h.x + shiftX}px`;
+    el.style.top = `${h.bottom + shiftY}px`;
+    out.push(el);
+  }
+  if (spot) {
+    const name = playerName(map, champion(map));
+    const el = document.createElement("div");
+    el.className = decorStyles.champion;
+    if (name) el.dataset.won = "";
+    el.style.left = `${spot.left + shiftX}px`;
+    el.style.top = `${spot.y + shiftY}px`;
+    const title = document.createElement("span");
+    title.className = decorStyles.title;
+    title.textContent = "Champion";
+    const who = document.createElement("span");
+    who.className = decorStyles.name;
+    who.textContent = name || "—";
+    if (!name) who.dataset.empty = "";
+    el.append(title, who);
+    out.push(el);
+  }
+  return out;
+}
+
 export async function renderMapImage(source: LinkMap, format: ImageFormat): Promise<string> {
   const isTree = source.kind === "tree";
   const map = shownMap(source);
@@ -77,6 +114,26 @@ export async function renderMapImage(source: LinkMap, format: ImageFormat): Prom
       if (cut.has(id)) el.dataset.cut = "";
       if (isTree && arrowsInto(map, id) === 0) el.dataset.start = "";
       el.style.position = "absolute";
+      if (node.match) {
+        // A bracket's match: its two players (MatchBox's look).
+        el.classList.add(matchStyles.match);
+        const { slots, winner } = node.match;
+        for (const player of slots) {
+          const row = document.createElement("div");
+          row.className = matchStyles.row;
+          if (winner && winner === player) row.dataset.winner = "";
+          else if (winner) row.dataset.loser = "";
+          const name = document.createElement("span");
+          name.className = `${matchStyles.pick} ${matchStyles.name}`;
+          name.textContent = playerName(map, player) || "—";
+          if (!playerName(map, player)) name.dataset.empty = "";
+          row.append(name);
+          el.append(row);
+        }
+        stage.append(el);
+        boxEls.set(id, el);
+        continue;
+      }
       const name = document.createElement("span");
       name.className = `${inlineStyles.display} ${boxStyles.name}`;
       name.textContent = node.name || "Untitled";
@@ -110,7 +167,10 @@ export async function renderMapImage(source: LinkMap, format: ImageFormat): Prom
     // 2. Where everything goes: each box at its saved place, exactly as
     //    on screen (never re-tidied), arrows and labels as the canvas
     //    works them out.
-    const { routes: geometries, spots, shift, width, height, boxes } = imageLayout(map, sizes, labelSizes, ROUTES, LABELS, MARGIN);
+    const { routes: geometries, spots, shift, width: drawnWidth, height, boxes } = imageLayout(map, sizes, labelSizes, ROUTES, LABELS, MARGIN);
+    // A bracket's Champion box stands right of the final: room for it.
+    const isBracket = map.kind === "bracket";
+    const width = drawnWidth + (isBracket ? BRACKET_DECOR.gap + BRACKET_DECOR.championWidth : 0);
     const shiftX = shift.x;
     const shiftY = shift.y;
 
@@ -161,6 +221,7 @@ export async function renderMapImage(source: LinkMap, format: ImageFormat): Prom
       el.style.transform = `translate(-50%, -50%) translate(${at.x + shiftX}px, ${at.y + shiftY}px)`;
       scene.append(el);
     }
+    if (isBracket) scene.append(...bracketExtras(map, boxes, shiftX, shiftY));
     stage.append(scene);
     // The arrows' colours come from CSS variables, which don't survive
     // into the image's SVG: each line and head gets its drawn values

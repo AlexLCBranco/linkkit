@@ -36,6 +36,8 @@ export function layoutOptions(
     return { ...MAP_LAYOUT, rowGap, labelSizes: labels };
   }
   const ends = 2 * ARROW.gap + ARROW.headLength;
+  // A bracket: room for its round headings and Champion box (no labels).
+  if (kind === "bracket") return { ...MAP_LAYOUT, rowGap: ends + length, bracketRoom: BRACKET_ROOM };
   return { ...MAP_LAYOUT, rowGap: arrowGap(length, labels.values(), direction, ends) };
 }
 
@@ -43,6 +45,16 @@ export function layoutOptions(
     `rankGap`. Short and Long move it as much as they move a map's
     (32 and 120). */
 export const TREE_ROW_GAP = 64;
+
+/** A bracket's extras round its matches: how far the round headings and
+    the Champion box keep from them, a heading's height, and the Champion
+    box's width (`--champion-width` in tokens.css). */
+export const BRACKET_DECOR = { gap: 16, headingHeight: 20, championWidth: 140 };
+
+const BRACKET_ROOM = {
+  above: BRACKET_DECOR.gap + BRACKET_DECOR.headingHeight,
+  right: BRACKET_DECOR.gap + BRACKET_DECOR.championWidth,
+};
 
 /** One notch of the mouse wheel over the arrow length (deltaY 100 in most
     browsers) changes it by this many pixels. Trackpads send smaller

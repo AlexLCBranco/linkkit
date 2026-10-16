@@ -58,6 +58,12 @@ export function BoxContextMenu({ children }: { readonly children: ReactElement }
 
   function onContextMenu(event: MouseEvent) {
     const store = useMapStore.getState();
+    // A bracket's matches and arrows are fixed: nothing to rename, copy or
+    // delete there (a click picks a winner, a player's pencil renames).
+    if (store.map.kind === "bracket") {
+      event.preventDefault();
+      return;
+    }
     const box = (event.target as HTMLElement).closest(`[${BOX_ID_ATTRIBUTE}]`);
     const id = box?.getAttribute(BOX_ID_ATTRIBUTE) as NodeId | null | undefined;
     const link = (event.target as Element).closest(`[${LINK_ID_ATTRIBUTE}]`)?.getAttribute(LINK_ID_ATTRIBUTE) as

@@ -1,3 +1,4 @@
+import { matchTitle } from "../../domain/bracket";
 import { REACH_MEANINGS, reachCounts } from "../../domain/reach";
 import type { MapKind } from "../../domain/types";
 import { useGallery } from "../../store/gallery";
@@ -33,7 +34,10 @@ export function ReachStatus() {
   const reach = useMapStore(selectReach);
   const kind = useMapStore((s) => s.map.kind);
   const linked = useMapStore((s) => s.map.linkedBoard !== undefined);
-  const name = useMapStore((s) => (s.selected ? s.map.nodes[s.selected]?.name : undefined));
+  // A bracket's match goes by its players ("Ann v Bob").
+  const name = useMapStore((s) =>
+    !s.selected ? undefined : s.map.kind === "bracket" ? matchTitle(s.map, s.selected) : s.map.nodes[s.selected]?.name,
+  );
   const picked = useMapStore((s) => s.group.length);
   // A first visit (the untouched starter example) or an empty map points
   // to the gallery, where the examples are: one click to another one.

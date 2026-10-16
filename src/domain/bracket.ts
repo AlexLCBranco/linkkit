@@ -146,7 +146,8 @@ export function createBracket(
       nodes[node] = { id: node, name: "", x: 0, y: 0, color: null, status: null, match };
     }
   }
-  const blank: LinkMap = { ...createMap(id, name, page, "bracket"), arrowStyle: "elbow", nodes, players };
+  // Left to right, round 1 to the final: the arrows leave each match's right side.
+  const blank: LinkMap = { ...createMap(id, name, page, "bracket"), direction: "LR", arrowStyle: "elbow", nodes, players };
   const map = { ...blank, links: bracketLinks(blank, ids.link) };
   return { map, firstPlayer: firstRoundSlots(map)[0].player };
 }
@@ -192,6 +193,9 @@ export function canPickWinner(map: LinkMap, id: NodeId): boolean {
   const match = matchOf(map, id);
   return !!match && !match.slots.some((p) => isEmptySlot(map, p));
 }
+
+/** What a click on a match with an empty slot says. */
+export const EMPTY_SLOT_HINT = "Both players are needed before this match has a winner.";
 
 /** A result edit: the new map, and how many later results it cleared. */
 export interface ResultEdit {
@@ -324,4 +328,45 @@ export function repairBracket(map: LinkMap, ids: BracketIds = NEW_IDS): { map: L
     Object.values(links).every((l) => map.links[l.id]?.from === l.from && map.links[l.id]?.to === l.to);
   if (!sameLinks) fixes++;
   return fixes === 0 ? { map, fixes } : { map: { ...repaired, links }, fixes };
+}
+
+/** One player row of one match: where keyboard focus sits in a bracket. */
+export interface RowSpot {
+  readonly match: NodeId;
+  readonly slot: Slot;
+}
+
+/**
+ * Where an arrow key goes from a player row: up and down through the
+ * column (a match's two rows, then the match above or below), right to the
+ * row this match's winner fills in the next match, left back to the match
+ * that fills this row (onto that player's row, or its top row while it has
+ * no winner). `null` at an edge.
+ */
+export function rowAfterKey(map: LinkMap, from: RowSpot, key: "ArrowUp" | "ArrowDown" | "ArrowLeft" | "ArrowRight"): RowSpot | null {
+  const match = matchOf(map, from.match);
+  if (!match) return null;
+  const column = matchGrid(map)[match.round - 1];
+  if (key === "ArrowUp" || key === "ArrowDown") {
+    const step = key === "ArrowDown" ? 1 : -1;
+    const place = match.index * 2 + from.slot + step;
+    const id = column[place >> 1];
+    return place >= 0 && id ? { match: id, slot: (place & 1) as Slot } : null;
+  }
+  if (key === "ArrowRight") {
+    const next = nextMatch(map, from.match);
+    return next ? { match: next.id, slot: next.slot } : null;
+  }
+  const feeder = matchGrid(map)[match.round - 2]?.[match.index * 2 + from.slot];
+  if (!feeder) return null;
+  const player = match.slots[from.slot];
+  const row = matchOf(map, feeder)!.slots.indexOf(player);
+  return { match: feeder, slot: (player && row >= 0 ? row : 0) as Slot };
+}
+
+/** A match in words, for the status line: "Ann v Bob" ("—" for an empty
+    slot). A bracket's boxes have no names of their own. */
+export function matchTitle(map: LinkMap, id: NodeId): string {
+  const match = matchOf(map, id);
+  return match ? match.slots.map((p) => playerName(map, p) || "—").join(" v ") : "";
 }

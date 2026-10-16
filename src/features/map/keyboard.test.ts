@@ -211,6 +211,13 @@ describe("focus on create", () => {
     expect(node.measured).toBeUndefined();
   });
 
+  it("a bracket's match has no stand-in size, so its first tidy waits for its real one", () => {
+    const node = boxFlowNode(asNodeId("m"), { x: 10, y: 20 }, undefined, "match");
+    expect(node.type).toBe("match");
+    expect(node.initialWidth).toBeUndefined();
+    expect(node.initialHeight).toBeUndefined();
+  });
+
   it("a new step opens its name for typing the moment it is added", async () => {
     const { useMapStore, start } = await freshTree();
     const added = useMapStore.getState().addNextStep(start);
@@ -233,5 +240,19 @@ describe("a new tree map", () => {
   it("is drawn as Treekit draws trees: elbow lines and Treekit's text", async () => {
     const { useMapStore } = await freshTree();
     expect(useMapStore.getState().map).toMatchObject({ arrowStyle: "elbow", labelStyle: "treekit" });
+  });
+});
+
+describe("keys in a bracket", () => {
+  it("Enter on a selected match opens no name (matches have none; a focused row presses itself)", async () => {
+    const { useMapStore, press } = await fresh();
+    useMapStore.getState().newBracket(4);
+    useMapStore.getState().placeAll(new Map());
+    useMapStore.getState().stopEditing();
+    const match = Object.keys(useMapStore.getState().map.nodes)[0] as NodeId;
+    useMapStore.getState().select(match);
+    const enter = press("Enter");
+    expect(enter.preventDefault).not.toHaveBeenCalled();
+    expect(useMapStore.getState().editing).toBeNull();
   });
 });

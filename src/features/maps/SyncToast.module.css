@@ -24,6 +24,28 @@
   margin: var(--space-1) 0;
 }
 
+/* The message's one button ("Undo"): a text button in the accent colour. */
+.action {
+  flex: none;
+  padding: var(--space-1) var(--space-2);
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.action:hover {
+  background: var(--surface-hover);
+}
+
+.action:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
 .close {
   display: grid;
   flex: none;

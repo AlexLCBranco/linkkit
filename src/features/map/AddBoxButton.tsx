@@ -34,6 +34,8 @@ export function AddBoxButton() {
   // A card in a tree linked to Boardkit takes no next steps: why, in words.
   const refusal = useMapStore((s) => (s.selected && isTree ? nextStepRefusal(s.map, s.selected) : null));
   const addable = useMapStore((s) => !!s.selected && canAddNextStep(s.map, s.selected));
+  // A bracket's matches are all made with it: nothing to add.
+  const isBracket = useMapStore((s) => s.map.kind === "bracket");
 
   const onClick = () => {
     if (isTree) {
@@ -53,6 +55,8 @@ export function AddBoxButton() {
     const room = pageSize(map, sizes, MAP_LAYOUT.fallbackSize, PAGE_INSETS, screenSize(view));
     addBox(clampToPage(spot, size, room, PAGE_INSETS));
   };
+
+  if (isBracket) return null;
 
   const title = !isTree
     ? "Add a box (or double-click the paper)"

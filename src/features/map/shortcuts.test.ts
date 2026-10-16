@@ -103,6 +103,18 @@ const SITUATIONS: readonly Situation[] = [
     },
   },
   {
+    name: "a match selected (bracket)",
+    kind: "bracket",
+    setUp: async () => {
+      const { useMapStore, spyAll } = await load();
+      useMapStore.getState().newBracket(4);
+      useMapStore.getState().placeAll(new Map());
+      useMapStore.getState().stopEditing();
+      useMapStore.getState().select(Object.keys(useMapStore.getState().map.nodes)[0] as NodeId);
+      return spyAll();
+    },
+  },
+  {
     name: "nothing selected (tree)",
     kind: "tree",
     setUp: async () => {
@@ -126,7 +138,7 @@ function reacts(onMapKey: (typeof import("./useMapShortcuts"))["onMapKey"], spie
 /** The browser's spelling of a table key ("arrowup" is "ArrowUp"). */
 const realKey = (key: string) => KEYS.find((k) => k.toLowerCase() === key) ?? key;
 
-const MAP_ROWS = (Object.values(SHORTCUTS) as Shortcut[]).filter((row) => !("typing" in row && row.typing));
+const MAP_ROWS = (Object.values(SHORTCUTS) as Shortcut[]).filter((row) => !("typing" in row && row.typing) && !("onRow" in row && row.onRow));
 const listedFor = (press: { key: string; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }) =>
   MAP_ROWS.filter((row) => row.combos.some((combo) => comboMatches(press, combo)));
 

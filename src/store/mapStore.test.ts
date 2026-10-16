@@ -1488,3 +1488,116 @@ describe("map store (Steps)", () => {
     expect(useMapStore.getState().map).toBe(before);
   });
 });
+
+describe("bracket maps in the store", () => {
+  /** A new 8-player bracket, shown (its first tidy done). */
+  async function freshBracket() {
+    const useMapStore = await freshStore();
+    useMapStore.getState().newBracket(8);
+    const { firstRoundSlots } = await import("../domain/bracket");
+    useMapStore.getState().placeAll(new Map(), PAGE);
+    return { useMapStore, slots: firstRoundSlots(useMapStore.getState().map) };
+  }
+
+  async function playedTo(useMapStore: Awaited<ReturnType<typeof freshStore>>) {
+    const { matchGrid } = await import("../domain/bracket");
+    const grid = matchGrid(useMapStore.getState().map);
+    return grid;
+  }
+
+  it("opens a new bracket with its first slot ready for typing once shown", async () => {
+    const useMapStore = await freshStore();
+    useMapStore.getState().newBracket(16);
+    const s = useMapStore.getState();
+    expect(s.map.kind).toBe("bracket");
+    expect(Object.keys(s.map.nodes)).toHaveLength(15);
+    expect(s.needsTidy).toBe(true);
+    expect(s.editing).toBeNull();
+    const { firstRoundSlots } = await import("../domain/bracket");
+    const first = firstRoundSlots(s.map)[0].player;
+    useMapStore.getState().placeAll(new Map(), PAGE);
+    expect(useMapStore.getState().editing).toEqual({ kind: "player", id: first });
+    // Saved at once, like any new map.
+    expect(loadRegistry().some((m) => m.id === s.map.id)).toBe(true);
+  });
+
+  it("types names down the first round: Enter / Tab go down, Shift+Tab back, past the end stops", async () => {
+    const { useMapStore, slots } = await freshBracket();
+    const s = () => useMapStore.getState();
+    s().renamePlayer(slots[0].player, "Ann");
+    s().stopEditing();
+    s().editNextPlayer(slots[0].player, 1);
+    expect(s().editing).toEqual({ kind: "player", id: slots[1].player });
+    s().editNextPlayer(slots[1].player, -1);
+    expect(s().editing).toEqual({ kind: "player", id: slots[0].player });
+    s().editNextPlayer(slots[7].player, 1);
+    expect(s().editing).toBeNull();
+    expect(s().map.players![slots[0].player].name).toBe("Ann");
+  });
+
+  it("pastes a list down the slots as one undo step, saying how many were left over", async () => {
+    const { useMapStore, slots } = await freshBracket();
+    const { useSyncNotice } = await import("./syncNotice");
+    const s = () => useMapStore.getState();
+    const result = s().pastePlayers(slots[6].player, "Gus\n\nHal\nIvy\nJo");
+    expect(result).toEqual({ filled: 2, ignored: 2 });
+    expect(s().map.players![slots[7].player].name).toBe("Hal");
+    expect(useSyncNotice.getState().message?.text).toBe("Filled 2 slots; 2 names were left over (no slots below).");
+    s().undo();
+    expect(s().map.players![slots[6].player].name).toBe("");
+    expect(s().map.players![slots[7].player].name).toBe("");
+  });
+
+  it("picks winners, clears later results in one undo step, and says so with an Undo button", async () => {
+    const { useMapStore, slots } = await freshBracket();
+    const { useSyncNotice } = await import("./syncNotice");
+    const s = () => useMapStore.getState();
+    s().pastePlayers(slots[0].player, "Ann\nBob\nCat\nDan\nEve\nFay\nGus\nHal");
+    const grid = await playedTo(useMapStore);
+    // Top player wins every match: Ann is champion.
+    for (const round of grid) for (const match of round) expect(s().pickWinner(match, 0)).not.toBeNull();
+    const finalWinner = () => s().map.nodes[grid[2][0]].match!.winner;
+    expect(finalWinner()).toBe(slots[0].player);
+    // Bob beats Ann after all: Ann's two later wins go.
+    expect(s().pickWinner(grid[0][0], 1)).not.toBeNull();
+    expect(s().map.nodes[grid[1][0]].match!.winner).toBeNull();
+    expect(finalWinner()).toBeNull();
+    expect(s().selected).toBe(grid[0][0]);
+    const message = useSyncNotice.getState().message!;
+    expect(message.text).toBe("Cleared 2 later results");
+    expect(message.action?.label).toBe("Undo");
+    message.action!.run();
+    expect(finalWinner()).toBe(slots[0].player);
+    expect(s().map.nodes[grid[0][0]].match!.winner).toBe(slots[0].player);
+  });
+
+  it("refuses a winner while a slot is empty, with a hint", async () => {
+    const { useMapStore, slots } = await freshBracket();
+    const { useHint } = await import("./hint");
+    const grid = await playedTo(useMapStore);
+    useMapStore.getState().renamePlayer(slots[0].player, "Ann");
+    const before = useMapStore.getState().map;
+    expect(useMapStore.getState().pickWinner(grid[0][0], 0)).toBeNull();
+    expect(useMapStore.getState().map).toBe(before);
+    expect(JSON.stringify(useHint.getState())).toContain("Both players are needed");
+  });
+
+  it("takes back a pick (a double-click's first click) and leaves no undo step", async () => {
+    const { useMapStore, slots } = await freshBracket();
+    const s = () => useMapStore.getState();
+    s().pastePlayers(slots[0].player, "Ann\nBob");
+    const grid = await playedTo(useMapStore);
+    const before = s().map;
+    const steps = s().history.past.length;
+    const key = s().pickWinner(grid[0][0], 0)!;
+    s().takeBackPick(key);
+    expect(s().map.nodes[grid[0][0]].match!.winner).toBeNull();
+    expect(s().map).toEqual(before);
+    expect(s().history.past.length).toBe(steps);
+    // Only the pick just made: after another edit, nothing is taken back.
+    const again = s().pickWinner(grid[0][0], 0)!;
+    s().renamePlayer(slots[0].player, "Annie");
+    s().takeBackPick(again);
+    expect(s().map.nodes[grid[0][0]].match!.winner).toBe(slots[0].player);
+  });
+});

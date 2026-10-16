@@ -17,7 +17,7 @@ export interface KeyCombo {
   readonly shift?: boolean;
 }
 
-export type ShortcutGroup = "Create & edit" | "Move around" | "Organise" | "View" | "Undo";
+export type ShortcutGroup = "Create & edit" | "Move around" | "Organise" | "Bracket" | "View" | "Undo";
 
 export interface Shortcut {
   readonly group: ShortcutGroup;
@@ -29,11 +29,15 @@ export interface Shortcut {
   readonly only?: readonly MapKind[];
   /** Only while typing a name or label (the map's own keys are off then). */
   readonly typing?: boolean;
+  /** Only with keyboard focus on a bracket's player row: the row's own
+      keys (MatchBox), not the map's. */
+  readonly onRow?: boolean;
 }
 
 const TREES: readonly MapKind[] = ["tree"];
 const TREE_SHAPED: readonly MapKind[] = ["tree", "steps"];
 const NOT_TREE_SHAPED: readonly MapKind[] = ["connections"];
+const BRACKETS: readonly MapKind[] = ["bracket"];
 
 const k = (key: string, extra: Omit<KeyCombo, "key"> = {}): KeyCombo => ({ key, ...extra });
 const digits = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => k(String(from + i)));
@@ -85,6 +89,36 @@ export const SHORTCUTS = {
   clearColour: { group: "Organise", does: "Clear their colour", combos: [k("0")] },
   toggleCut: { group: "Organise", does: "Mark cut, or un-cut", combos: [k("x", { shift: false })], only: TREES },
   toggleCollapsed: { group: "Organise", does: "Collapse or expand the selected box's branch", combos: [k(" ")], only: TREES },
+  // Bracket
+  nextName: {
+    group: "Bracket",
+    does: "Keep the name and type the next one down",
+    combos: [k("enter"), k("tab", { shift: false })],
+    only: BRACKETS,
+    typing: true,
+  },
+  previousName: { group: "Bracket", does: "Back to the name above", combos: [k("tab", { shift: true })], only: BRACKETS, typing: true },
+  pasteNames: {
+    group: "Bracket",
+    does: "Paste a list: one name per slot, going down",
+    combos: [k("v", { mod: true })],
+    only: BRACKETS,
+    typing: true,
+  },
+  moveRow: {
+    group: "Bracket",
+    does: "Move between players: up and down a round, left and right between rounds",
+    combos: [k("arrowup"), k("arrowdown"), k("arrowleft"), k("arrowright")],
+    only: BRACKETS,
+    onRow: true,
+  },
+  pickWinner: {
+    group: "Bracket",
+    does: "Make that player the winner (again: clear it)",
+    combos: [k(" "), k("enter")],
+    only: BRACKETS,
+    onRow: true,
+  },
   // View
   help: { group: "View", does: "Show these shortcuts", combos: [k("?")] },
   // Undo
@@ -94,7 +128,7 @@ export const SHORTCUTS = {
 
 export type ShortcutId = keyof typeof SHORTCUTS;
 
-export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = ["Create & edit", "Move around", "Organise", "View", "Undo"];
+export const SHORTCUT_GROUPS: readonly ShortcutGroup[] = ["Create & edit", "Move around", "Organise", "Bracket", "View", "Undo"];
 
 /** The parts of a key press a combo is matched against. */
 export interface PressedKeys {

@@ -25,6 +25,9 @@ import { namingNewBox, selectionOf, useMapStore } from "../../store/mapStore";
 import { useViewStore, zoomOf } from "../../store/viewStore";
 import { BoxContextMenu } from "./BoxContextMenu";
 import { BoxView, type BoxFlowNode } from "./BoxView";
+import { BracketDecor } from "./BracketDecor";
+import { MatchBox, type MatchFlowNode } from "./MatchBox";
+import { BRACKET_FIXED } from "../../domain/rules";
 import { ConnectPreview } from "./ConnectPreview";
 import { DropPreview } from "./DropPreview";
 import { HintBubble } from "./HintBubble";
@@ -52,7 +55,7 @@ import { useMapShortcuts } from "./useMapShortcuts";
 
 // Defined once at module level: React Flow warns (and re-mounts every
 // node) if these objects change identity between renders.
-const nodeTypes = { box: BoxView };
+const nodeTypes = { box: BoxView, match: MatchBox };
 const edgeTypes = { link: LinkEdgeView };
 /** A node's position is its centre, matching how the map stores boxes. */
 const CENTER_ORIGIN: NodeOrigin = [0.5, 0.5];
@@ -267,8 +270,9 @@ function MapCanvasInner() {
       const at = screenToFlowPosition({ x: e.clientX, y: e.clientY });
       // A tree grows only from its boxes ("+", or a box's dot): a box
       // added on its own would be loose. Said where it was tried.
-      if (hasTreeShape(useMapStore.getState().map.kind)) {
-        useHint.getState().show(PAPER_REFUSAL, at);
+      const { kind } = useMapStore.getState().map;
+      if (hasTreeShape(kind) || kind === "bracket") {
+        useHint.getState().show(kind === "bracket" ? BRACKET_FIXED : PAPER_REFUSAL, at);
         return;
       }
       // Not measured yet: a typical box's size keeps it on the page for now.
@@ -480,7 +484,11 @@ function MapCanvasInner() {
 
   const at = useCallback((id: NodeId): Point => glide.shown?.get(id) ?? map.nodes[id], [glide.shown, map.nodes]);
 
-  const nodes = useMemo<BoxFlowNode[]>(() => nodeIds.map((id) => boxFlowNode(id, at(id), sizes.get(id))), [nodeIds, at, sizes]);
+  const nodeType = map.kind === "bracket" ? "match" : "box";
+  const nodes = useMemo<(BoxFlowNode | MatchFlowNode)[]>(
+    () => nodeIds.map((id) => boxFlowNode(id, at(id), sizes.get(id), nodeType)),
+    [nodeIds, at, sizes, nodeType],
+  );
 
   const onLabelSize = useCallback((id: LinkId, size: Size | null) => {
     const prev = labelSizesRef.current;
@@ -587,7 +595,7 @@ function MapCanvasInner() {
     [map.links, geometries, labelSpots, onLabelSize],
   );
 
-  const onNodesChange = useCallback((changes: NodeChange<BoxFlowNode>[]) => {
+  const onNodesChange = useCallback((changes: NodeChange<BoxFlowNode | MatchFlowNode>[]) => {
     // Only measured sizes are read back.
     setSizes((prev) => {
       let next: Map<NodeId, Size> | null = null;
@@ -670,6 +678,7 @@ function MapCanvasInner() {
             <RelinkPreview boxes={boxes} />
             <DropPreview />
             <HintBubble />
+            <BracketDecor boxes={boxes} />
             {marquee && (
               <div
                 className={styles.marquee}

@@ -15,6 +15,8 @@ const ROWS: readonly Shortcut[] = Object.values(SHORTCUTS);
 
 /** The tag for a row that works only in some kinds of map. */
 function kindsTag(kinds: readonly MapKind[]): string {
+  // The Bracket section's own heading says where its keys work.
+  if (kinds.length === 1 && kinds[0] === "bracket") return "";
   if (!kinds.includes("connections")) {
     if (kinds.length === 1) return kinds[0] === "tree" ? "Trees only" : "Steps only";
     return "Trees and Steps";
@@ -94,7 +96,7 @@ function ShortcutList({ title, rows }: { readonly title: string; readonly rows: 
             <span className="text-foreground">
               {row.does}
               {row.typing && <Tag>While typing</Tag>}
-              {row.only && <Tag>{kindsTag(row.only)}</Tag>}
+              {row.only && kindsTag(row.only) && <Tag>{kindsTag(row.only)}</Tag>}
             </span>
             <span className="flex shrink-0 items-center gap-1.5">
               {shortcutCaps(row, isMac).map((caps, index) => (

@@ -16,8 +16,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
+import { BRACKET_SIZES, type BracketSize } from "../../domain/bracket";
 import { backupNeedsAttention, backupStopped } from "../../domain/autoBackup";
 import { displayNames } from "../../domain/names";
 import { useBackupStore } from "../../store/backupStore";
@@ -47,7 +51,9 @@ import { useNow } from "./useNow";
  * A new tree opens its start box's name for typing. "+ New steps map"
  * makes a Steps map (kind "steps": an ordered process that branches and
  * joins, numbered for you), its first step's name open for typing; the
- * gallery has the Steps presets.
+ * gallery has the Steps presets. "+ New bracket" asks for the number of
+ * players (4 to 64) and makes a tournament bracket (kind "bracket"), its
+ * first slot open for typing.
  *
  * "Export all maps" downloads every map as one file; on an empty Linkkit
  * (only the untouched starter example) "Restore all maps from a file"
@@ -75,8 +81,10 @@ export function MapSwitcher() {
   const duplicateMap = useMapStore((s) => s.duplicateMap);
   const newTree = useMapStore((s) => s.newTree);
   const newSteps = useMapStore((s) => s.newSteps);
+  const newBracket = useMapStore((s) => s.newBracket);
   const deleteMap = useMapStore((s) => s.deleteMap);
   const isTree = useMapStore((s) => s.map.kind === "tree");
+  const isBracket = useMapStore((s) => s.map.kind === "bracket");
   const linked = useMapStore((s) => !!s.map.linkedBoard);
   // Asked as the menu opens: Boardkit may have been opened since.
   const [boardkitHere, setBoardkitHere] = useState(false);
@@ -115,6 +123,8 @@ export function MapSwitcher() {
   const newTreeAfterClose = useRef(false);
   // The same for "New steps map".
   const newStepsAfterClose = useRef(false);
+  // The same for "New bracket": the size picked.
+  const newBracketAfterClose = useRef<BracketSize | null>(null);
   // Set by "Save this map as a template": its name field opens once the
   // menu has closed, for the same reason as "New map".
   const saveAfterClose = useRef(false);
@@ -171,6 +181,13 @@ export function MapSwitcher() {
               setSavingTemplate(true);
               return;
             }
+            const size = newBracketAfterClose.current;
+            if (size) {
+              newBracketAfterClose.current = null;
+              event.preventDefault();
+              newBracket(size);
+              return;
+            }
             if (newStepsAfterClose.current) {
               newStepsAfterClose.current = false;
               event.preventDefault();
@@ -210,11 +227,24 @@ export function MapSwitcher() {
             <DropdownMenuItem onSelect={() => setBoardChoices(boardChoices())}>+ Map from a Boardkit board…</DropdownMenuItem>
           )}
           <DropdownMenuItem onSelect={() => (newStepsAfterClose.current = true)}>+ New steps map</DropdownMenuItem>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>+ New bracket</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {BRACKET_SIZES.map((size) => (
+                <DropdownMenuItem key={size} onSelect={() => (newBracketAfterClose.current = size)}>
+                  {size} players
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
           <DropdownMenuItem onSelect={() => setTemplates(true)}>New from template…</DropdownMenuItem>
           <DropdownMenuItem onSelect={duplicateMap}>Duplicate this map</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => (saveAfterClose.current = true)}>
-            Save this map as a template…
-          </DropdownMenuItem>
+          {/* Not a bracket: its matches are made from a size, not a template. */}
+          {!isBracket && (
+            <DropdownMenuItem onSelect={() => (saveAfterClose.current = true)}>
+              Save this map as a template…
+            </DropdownMenuItem>
+          )}
           {isTree && !linked && boardkitHere && (
             <DropdownMenuItem onSelect={() => setLinking(linkPreview(useMapStore.getState().map))}>
               Link to Boardkit…

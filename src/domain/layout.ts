@@ -1,6 +1,7 @@
 import { layerNodes, loopBreakingLinks } from "./graph";
 import { isOrdered, nextSteps } from "./order";
 import { rowMiddle, rowsDown } from "./rows";
+import { layoutBracket, type BracketRoom } from "./bracketLayout";
 import { layoutSteps } from "./stepsLayout";
 import type { LayoutDirection, LinkId, LinkMap, NodeId, Point, Size } from "./types";
 
@@ -47,6 +48,9 @@ export interface LayoutOptions {
       wide as a box beside its neighbours (`layoutTree`). Unused by other
       maps, whose `rowGap` already holds the deepest label. */
   readonly labelSizes?: ReadonlyMap<LinkId, Size>;
+  /** A bracket's round headings and Champion box: room kept for them
+      (`layoutBracket`). Unused by other maps. */
+  readonly bracketRoom?: BracketRoom;
 }
 
 export interface Bounds {
@@ -86,6 +90,8 @@ export function layoutMap(
   options: LayoutOptions,
   direction: LayoutDirection = map.direction,
 ): MapLayout {
+  // A bracket always reads left to right (round 1 to the final).
+  if (map.kind === "bracket") return layoutBracket(map, sizes, options, options.bracketRoom);
   if (direction === "TB") return layoutTopDown(map, sizes, options);
   const flip = ({ width, height }: Size): Size => ({ width: height, height: width });
   const flipped = new Map([...sizes].map(([id, s]) => [id, flip(s)]));

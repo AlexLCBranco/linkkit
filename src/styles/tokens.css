@@ -94,6 +94,12 @@
   --edge-width-lit: 2.2px;
   /* The colour squares beside the status line's counts. */
   --status-swatch-size: 10px;
+  /* A bracket's match box (every one the same width, so the rounds line
+     up) and the Champion box right of the final; the gap between the
+     matches and the round headings / Champion box is layoutConfig's
+     BRACKET_DECOR_GAP. */
+  --match-width: 168px;
+  --champion-width: 140px;
   /* The ring round the selected box (as on a selected Treekit node). */
   --select-ring-width: 2px;
   /* The ring round a box an arrow being dragged would connect to. */

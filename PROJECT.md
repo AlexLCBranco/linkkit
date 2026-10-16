@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-16, v0.0.73 (Bracket b1: the bracket model, rules, save and repair; nothing on the page yet)_
+_Last updated: 2026-10-16, v0.0.74 (Bracket b2: brackets on the page; bracket mode is done)_
 
 ## What it is
 
@@ -960,6 +960,35 @@ in"). Loops and arrows into the start are refused in both. Code:
   clearing the bad result and everything after it, and arrows are
   rebuilt; two tabs' edits are put back in order the same way. Check:
   `domain/bracket.test.ts`
+- **Brackets on the page** (v0.0.74, step b2): the map menu's "+ New
+  bracket" asks for 4, 8, 16, 32 or 64 players and opens the bracket with
+  the first slot ready for typing. Round 1 is the left column, the final
+  the right one, each match halfway between the two that feed it, with
+  the round names over the columns and a Champion box right of the final
+  (a faint "—" until there is one). Each match is a box with two player
+  rows: click a player to make them the winner (bold; their name moves
+  on), click the winner again to clear it, the other player to switch it.
+  A result that clears later ones says "Cleared 2 later results · Undo";
+  one undo takes all of it back. A match with an empty slot can't have a
+  winner (a hint says so). Typing: Enter or Tab goes to the next slot
+  down, Shift+Tab back up; pasting several lines fills that slot and the
+  ones below ("1 name was left over" past the last slot). A named round-1
+  player is renamed by double-click or the pencil on hover; clicking an
+  empty one opens it. Keys on a player row: the arrows move between
+  players (up / down a round, left / right between rounds), Space or
+  Enter picks. Nothing else is editable: no Add box, no Top-down /
+  Left-right, no right-click menu, arrows can't be picked; Tidy up,
+  arrow length, Align, zoom, rename, duplicate, trash, backups and image
+  export work as for other maps (the image shows the players, round
+  names and Champion box). The status line names a selected match "Ann v
+  Bob". The shortcuts dialog has a "Bracket" section. Check:
+  `domain/bracketLayout.test.ts` (no overlaps for every size, centred
+  between feeders, final on the right, headings and Champion box),
+  `domain/bracket.test.ts` (arrow-key moves, match names),
+  `store/mapStore.test.ts` (new bracket, typing flow, paste, cascade and
+  its Undo, a double-click's pick taken back), the keyboard and shortcut
+  table tests, and `e2e/bracket.e2e.ts` (Playwright: create 8, paste 8
+  names, play to a champion, change a round-1 result, Undo, reload)
 
 ## What's next
 
@@ -991,14 +1020,22 @@ Decided while building b1 (each is one place in `domain/bracket.ts`):
    `domain/bracket.ts` (create by size, set name, set winner, clear
    winner with cascade, paste names, round names), save/load and repair,
    all with tests. No UI, no version bump~~ (done, 2026-10-16)
-2. b2. Layout and the page: `domain/bracketLayout.ts` with tests (no
+2. ~~b2. Layout and the page: `domain/bracketLayout.ts` with tests (no
    overlaps for every size, each match centred between its feeders,
    final on the right); the match box component, winner clicking,
    champion box, "+ New bracket", keyboard flow, shortcuts dialog
    ("Bracket" section). Playwright e2e: create an 8-player bracket,
    paste 8 names, play it to a champion, change a round-1 result and
    check the cascade, undo it, reload and check it's all still there.
-   Version bump
+   Version bump~~ (done, 2026-10-16, v0.0.74. Decided while building,
+   each one place in the code: a named round-1 player is renamed by
+   double-click or a pencil on hover, since a single click picks the
+   winner (the double-click's first click is taken back, leaving no undo
+   step); an empty one opens on a click. The Champion box is always
+   there, faint until the final is played. A bracket always reads left
+   to right (no Top-down switch), has no right-click menu, and can't be
+   saved as a template (templates aren't in the spec). "Save as
+   template" is hidden there)
 
 v2 ideas (not now): byes (a size that isn't 4, 8, 16, 32 or 64);
 changing a bracket's size after it is made.

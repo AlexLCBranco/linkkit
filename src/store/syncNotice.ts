@@ -11,14 +11,21 @@ import type { MergeConflict } from "../domain/merge";
  */
 interface SyncNotice {
   /** The latest message; `seq` tells a repeat of the same text apart. */
-  readonly message: { readonly seq: number; readonly text: string } | null;
+  readonly message: { readonly seq: number; readonly text: string; readonly action?: NoticeAction } | null;
   conflicted: (conflicts: readonly MergeConflict[]) => void;
   mapDeleted: (name: string) => void;
   /** A linked tree whose board was deleted in Boardkit: kept unlinked. */
   boardDeleted: (name: string) => void;
-  /** Any other message (an edit a linked tree refuses, and why). */
-  say: (text: string) => void;
+  /** Any other message (an edit a linked tree refuses, and why), with a
+      button when it can be acted on ("Cleared 2 later results · Undo"). */
+  say: (text: string, action?: NoticeAction) => void;
   dismiss: () => void;
+}
+
+/** A button on a message: its word, and what it does (the message goes). */
+export interface NoticeAction {
+  readonly label: string;
+  readonly run: () => void;
 }
 
 const quoted = (title: string) => `“${title}”`;
@@ -35,7 +42,8 @@ export function conflictText(conflicts: readonly MergeConflict[]): string {
 }
 
 export const useSyncNotice = create<SyncNotice>((set, get) => {
-  const say = (text: string) => set({ message: { seq: (get().message?.seq ?? 0) + 1, text } });
+  const say = (text: string, action?: NoticeAction) =>
+    set({ message: { seq: (get().message?.seq ?? 0) + 1, text, ...(action ? { action } : {}) } });
   return {
     message: null,
     conflicted: (conflicts) => {
