@@ -1,3 +1,4 @@
+import { pathTo } from "./bracket";
 import type { Link, LinkMap, MapKind, NodeId } from "./types";
 
 /**
@@ -100,7 +101,8 @@ export function reachOf(map: LinkMap, selected: NodeId | null): Reach | null {
   return {
     selected,
     tealWalk,
-    teal: walk(map, selected, tealWalk),
+    // A bracket follows its players' path back, not every feeding match.
+    teal: map.kind === "bracket" ? pathTo(map, selected) : walk(map, selected, tealWalk),
     orange: walk(map, selected, opposite(tealWalk)),
   };
 }

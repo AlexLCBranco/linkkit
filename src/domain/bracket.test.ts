@@ -21,6 +21,7 @@ import {
   rowAfterKey,
   startRow,
   matchTitle,
+  pathTo,
   setWinner,
   type BracketIds,
   type BracketSize,
@@ -28,6 +29,7 @@ import {
 } from "./bracket";
 import { asLinkId, asMapId, asNodeId, asPlayerId } from "./ids";
 import { mergeMaps } from "./merge";
+import { linkHighlight, reachOf } from "./reach";
 import { readMap, serializeMap } from "./persistence";
 import {
   canAddNextStep,
@@ -460,5 +462,36 @@ describe("matchTitle", () => {
     expect(matchTitle(map, at(map, 1, 0))).toBe("Ann v Bob");
     expect(matchTitle(map, at(map, 2, 0))).toBe("Ann v —");
     expect(matchTitle(map, asNodeId("nope"))).toBe("");
+  });
+});
+
+describe("pathTo (the highlight back from a selected match)", () => {
+  const ids = (map: LinkMap, ...spots: [number, number][]) => new Set(spots.map(([r, i]) => at(map, r, i)));
+
+  it("lights only the winner's path, not every match feeding it", () => {
+    const map = playedOut(); // Ann won R1 #0, the semi #0 and the final
+    expect(pathTo(map, at(map, 3, 0))).toEqual(ids(map, [1, 0], [2, 0]));
+    const reach = reachOf(map, at(map, 3, 0))!;
+    expect(reach.teal).toEqual(ids(map, [1, 0], [2, 0]));
+    const link = (from: NodeId) => Object.values(map.links).find((l) => l.from === from)!;
+    expect(linkHighlight(reach, link(at(map, 1, 0)))).toBe("teal");
+    expect(linkHighlight(reach, link(at(map, 2, 0)))).toBe("teal");
+    expect(linkHighlight(reach, link(at(map, 1, 1)))).toBe("faded");
+    expect(linkHighlight(reach, link(at(map, 2, 1)))).toBe("faded");
+  });
+
+  it("without a winner, lights both players' paths", () => {
+    let map = eight();
+    for (let i = 0; i < 4; i++) map = win(map, 1, i, 0);
+    map = win(win(map, 2, 0, 0), 2, 1, 1); // Ann v Gus in the final, undecided
+    expect(pathTo(map, at(map, 3, 0))).toEqual(ids(map, [1, 0], [2, 0], [1, 3], [2, 1]));
+  });
+
+  it("an empty slot lights every match that could fill it", () => {
+    const fresh = createBracket(asMapId("m"), "Cup", page, 8, counters()).map;
+    expect(pathTo(fresh, at(fresh, 3, 0)).size).toBe(6);
+    const map = win(eight(), 1, 0, 0); // semi #0: Ann v (empty)
+    expect(pathTo(map, at(map, 2, 0))).toEqual(ids(map, [1, 0], [1, 1]));
+    expect(pathTo(map, at(map, 1, 0)).size).toBe(0);
   });
 });

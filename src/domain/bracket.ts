@@ -72,6 +72,31 @@ export function nextMatch(map: LinkMap, id: NodeId): { readonly id: NodeId; read
   return next ? { id: next, slot: (match.index & 1) as Slot } : null;
 }
 
+/**
+ * The earlier matches a selected match lights up: the path its players took
+ * to get here, not every match that feeds it (owner's call, 2026-10-16).
+ * With a winner, only the winner's path; without one, each player's path,
+ * and for a still-empty slot every match that could send a player into it.
+ */
+export function pathTo(map: LinkMap, id: NodeId): Set<NodeId> {
+  const grid = matchGrid(map);
+  const out = new Set<NodeId>();
+  // `player`: the one player to follow back from `at`, or `null` for both slots.
+  const visit = (at: NodeId, player: PlayerId | null): void => {
+    const match = matchOf(map, at);
+    if (!match) return;
+    match.slots.forEach((p, slot) => {
+      if (player && p !== player) return;
+      const feeder = grid[match.round - 2]?.[match.index * 2 + slot];
+      if (!feeder) return;
+      out.add(feeder);
+      visit(feeder, p);
+    });
+  };
+  visit(id, matchOf(map, id)?.winner ?? null);
+  return out;
+}
+
 /** The final's winner, or `null`. */
 export function champion(map: LinkMap): PlayerId | null {
   const grid = matchGrid(map);

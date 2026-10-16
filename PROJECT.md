@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-16, v0.0.77 (fix: a bracket opened in a shorter window no longer stacks its bottom match on the one above; every numbered step below is done, waiting for the owner's next plan)_
+_Last updated: 2026-10-16, v0.0.78 (a selected bracket match lights only its players' path, not every earlier match; every numbered step below is done, waiting for the owner's next plan)_
 
 ## What it is
 
@@ -1000,6 +1000,13 @@ in"). Loops and arrows into the start are refused in both. Code:
   screen" nudge skips brackets, and the page scrolls instead. Check:
   `domain/page.test.ts`. A bracket already broken by the old bug is
   fixed by one Tidy up.
+- A selected match lights only the path its players took (v0.0.78,
+  owner's call 2026-10-16), not every earlier match: with a winner, only
+  the winner's path (the final won by Ann lights Ann's three matches);
+  undecided, each player's path; an empty slot lights every match that
+  could fill it. The route ahead stays orange. One place:
+  `pathTo` in `domain/bracket.ts`, used by `reachOf`. Check:
+  `domain/bracket.test.ts`.
 
 ## What's next
 
