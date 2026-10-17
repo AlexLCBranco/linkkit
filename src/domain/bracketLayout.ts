@@ -83,10 +83,15 @@ export interface BracketDecor {
  * they are drawn (so they glide with them): every heading sits `gap` above
  * the highest match, centred on its column; the Champion box `gap` right of
  * the final, level with it. Boxes not measured yet are left out. With the
- * later rounds pinned from round `pinnedFrom` (`pinnedRounds`), their
- * headings sit over the pinned block instead, and follow it down.
+ * later rounds pinned (`pinnedRounds`), their headings stay fixed at the
+ * top of the screen instead: their bottom edge at `pinned.headingBottom`.
  */
-export function bracketDecor(map: LinkMap, boxes: ReadonlyMap<NodeId, Box>, gap: number, pinnedFrom = 0): BracketDecor {
+export function bracketDecor(
+  map: LinkMap,
+  boxes: ReadonlyMap<NodeId, Box>,
+  gap: number,
+  pinned: { readonly from: number; readonly headingBottom: number } | null = null,
+): BracketDecor {
   const grid = matchGrid(map);
   const names = roundNames(grid[0]?.length * 2 || 0);
   const placed = grid.flat().map((id) => boxes.get(id)).filter((b): b is Box => !!b);
@@ -98,14 +103,13 @@ export function bracketDecor(map: LinkMap, boxes: ReadonlyMap<NodeId, Box>, gap:
     });
     return tops.length > 0 ? Math.min(...tops) : null;
   };
-  const split = pinnedFrom > 1 ? pinnedFrom - 1 : grid.length;
-  const top = topOf(grid.slice(0, split));
-  const pinnedTop = topOf(grid.slice(split)) ?? top;
+  const split = pinned && pinned.from > 1 ? pinned.from - 1 : grid.length;
+  const top = topOf(grid.slice(0, split)) ?? 0;
   const headings: RoundHeading[] = [];
   for (const [r, column] of grid.entries()) {
     const box = column.map((id) => boxes.get(id)).find((b) => !!b);
-    const above = r >= split || top === null ? pinnedTop! : top;
-    if (box) headings.push({ round: r + 1, text: names[r], x: box.center.x, bottom: above - gap });
+    const bottom = pinned && r >= split ? pinned.headingBottom : top - gap;
+    if (box) headings.push({ round: r + 1, text: names[r], x: box.center.x, bottom });
   }
   const finalId = grid[grid.length - 1]?.[0];
   const final = finalId && matchOf(map, finalId) ? boxes.get(finalId) : undefined;
@@ -115,28 +119,26 @@ export function bracketDecor(map: LinkMap, boxes: ReadonlyMap<NodeId, Box>, gap:
 
 /**
  * Pinned later rounds (owner's request, 2026-10-17, as on bracket.tennis):
- * from round `from` on, the matches are drawn packed together and follow
- * the screen down as the page scrolls, so the later rounds stay in view
- * while the early rounds scroll past them; the arrows from the last
- * scrolling round run to them wherever they are.
+ * from round `from` on, the matches are drawn packed together and stay
+ * fixed in the middle of the screen while the page scrolls; only the early
+ * rounds move, and the arrows from the last scrolling round stretch to
+ * reach the pinned ones wherever they are.
  *
  * Returns the height (`y`, in page units) each pinned match is drawn at;
  * its across-the-page place stays its own. The first pinned round stacks
  * one slot (the tallest match plus `columnGap`) apart, each later round
- * halfway between its feeders, as Tidy up does. The block's top follows
- * `viewTop` (the page's top edge in view) plus `above` (room for the
- * headings), but never above the bracket's top nor past its bottom.
+ * halfway between its feeders, as Tidy up does. The block is centred in
+ * the screen (`view`, in page units) below `above` (room for the fixed
+ * headings); taller than that, it starts right under the headings.
  * Nothing is pinned when `from` is not a round after the first one shown.
- * Works on the matches as they stand (`centres`), so it is a drawing only:
- * the saved places never change.
+ * A drawing only: the saved places never change.
  */
 export function pinnedRounds(
   map: LinkMap,
-  centres: ReadonlyMap<NodeId, Point>,
   sizes: ReadonlyMap<NodeId, Size>,
   fallback: Size,
   from: number,
-  viewTop: number,
+  view: { readonly top: number; readonly height: number },
   above: number,
   columnGap: number,
 ): Map<NodeId, number> {
@@ -146,15 +148,6 @@ export function pinnedRounds(
   const p = from - 1;
   if (first < 0 || p <= first || !grid[p]) return out;
   const sizeOf = (id: NodeId) => sizes.get(id) ?? fallback;
-  const edges = (ids: readonly NodeId[]) => {
-    const placed = ids.filter((id) => centres.has(id));
-    return {
-      top: Math.min(...placed.map((id) => centres.get(id)!.y - sizeOf(id).height / 2)),
-      bottom: Math.max(...placed.map((id) => centres.get(id)!.y + sizeOf(id).height / 2)),
-    };
-  };
-  const { top, bottom } = edges(grid[first]);
-  if (!Number.isFinite(top)) return out;
   const pinned = grid.slice(p);
   const slot = Math.max(...pinned.flat().map((id) => sizeOf(id).height)) + columnGap;
   // Packed, as if the block's top edge were at 0.
@@ -165,8 +158,9 @@ export function pinnedRounds(
       packed.set(id, y);
     });
   }
-  const height = pinned[0].length * slot;
-  const blockTop = top - columnGap / 2 + Math.max(0, Math.min(viewTop + above - top, bottom - top - height + columnGap));
+  // The matches' own height: the slots less the half gaps at both ends.
+  const height = pinned[0].length * slot - columnGap;
+  const blockTop = view.top + above + Math.max(0, (view.height - above - height) / 2) - columnGap / 2;
   for (const [id, y] of packed) out.set(id, blockTop + y);
   return out;
 }

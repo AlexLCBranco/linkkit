@@ -263,12 +263,22 @@ test("bracket pinned rounds: the later rounds follow the scroll, survive a reloa
   const heading = page.getByText("Quarterfinals", { exact: true });
   const headingY = (await heading.boundingBox())!.y;
 
+  // The pinned block sits in the middle of the screen: the final, its
+  // middle, is level with the screen's middle below the headings (60px).
+  const middle = async () => {
+    const box = (await view.boundingBox())!;
+    const final = (await rows(page).nth(60).boundingBox())!;
+    return final.y + final.height - (box.y + 60 + (box.height - 60) / 2);
+  };
+  expect(Math.abs(await middle())).toBeLessThan(8);
+
   // Scrolled down: round 1 goes up the screen, the quarterfinals and their
   // heading stay put.
   await scrollTo(600);
   await expect.poll(() => yOf(0)).toBeCloseTo(round1 - 600, 0);
   await expect.poll(() => yOf(48)).toBeCloseTo(quarters, 0);
   expect((await heading.boundingBox())!.y).toBeCloseTo(headingY, 0);
+  expect(Math.abs(await middle())).toBeLessThan(8);
 
   // A reload keeps the choice.
   await page.reload();

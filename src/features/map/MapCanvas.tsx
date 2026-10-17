@@ -35,6 +35,7 @@ import { HintBubble } from "./HintBubble";
 import { RelinkPreview } from "./RelinkPreview";
 import { useHint } from "../../store/hint";
 import {
+  BRACKET_DECOR,
   BRACKET_PIN_ABOVE,
   DRAG_THRESHOLD,
   LABEL_FALLBACK_SIZE,
@@ -266,14 +267,21 @@ function MapCanvasInner() {
     if (pinnedFrom > 0 && viewRef.current) setScrollTop(viewRef.current.scrollTop);
   }, [pinnedFrom]);
   // Where each pinned match is drawn down the page (null: nothing pinned):
-  // the block follows the screen's top edge, in page units.
+  // fixed in the middle of the screen, in page units.
   const viewTop = drawn ? (scrollTop - drawn.y) / drawn.zoom : 0;
+  const viewHeight = drawn && screen ? screen.height / drawn.zoom : 0;
   const pins = useMemo(() => {
     if (pinnedFrom === 0) return null;
-    const centres = new Map<NodeId, Point>(Object.values(map.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
-    const found = pinnedRounds(map, centres, sizes, MAP_LAYOUT.fallbackSize, pinnedFrom, viewTop, BRACKET_PIN_ABOVE, MAP_LAYOUT.columnGap);
+    const view = { top: viewTop, height: viewHeight };
+    const found = pinnedRounds(map, sizes, MAP_LAYOUT.fallbackSize, pinnedFrom, view, BRACKET_PIN_ABOVE, MAP_LAYOUT.columnGap);
     return found.size > 0 ? found : null;
-  }, [map, sizes, pinnedFrom, viewTop]);
+  }, [map, sizes, pinnedFrom, viewTop, viewHeight]);
+  // Their headings stay at the top of the screen, where round 1's sit
+  // before any scrolling.
+  const pinnedDecor = useMemo(
+    () => (pins ? { from: pinnedFrom, headingBottom: viewTop + BRACKET_PIN_ABOVE - BRACKET_DECOR.gap } : null),
+    [pins, pinnedFrom, viewTop],
+  );
   const drawnBefore = useRef<ZoomedPage | null>(null);
   useLayoutEffect(() => {
     const before = drawnBefore.current;
@@ -724,7 +732,7 @@ function MapCanvasInner() {
             <RelinkPreview boxes={boxes} />
             <DropPreview />
             <HintBubble />
-            <BracketDecor boxes={boxes} pinnedFrom={pins ? pinnedFrom : 0} />
+            <BracketDecor boxes={boxes} pinned={pinnedDecor} />
             {marquee && (
               <div
                 className={styles.marquee}

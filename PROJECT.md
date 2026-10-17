@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-17, v0.0.92 (a bracket's later rounds can stay on screen while the early ones scroll; every numbered step below is done, waiting for the owner’s next plan)_
+_Last updated: 2026-10-17, v0.0.93 (a bracket's later rounds stay fixed mid-screen while the early ones scroll; every numbered step below is done, waiting for the owner’s next plan)_
 
 ## What it is
 
@@ -1083,11 +1083,14 @@ in"). Loops and arrows into the start are refused in both. Code:
   request 2026-10-17: "fixate the later rounds in a bracket like on
   bracket.tennis"). Rounds ▸ Keep on screen ▸ "Quarterfinals on" (Off,
   or any round after the first one shown): from that round on, the
-  matches pack together at the bracket's top, and as the page scrolls
-  they and their headings follow the screen down (stopping at the
-  bracket's bottom) while the earlier rounds scroll past; the arrows
-  from the last scrolling round run to them wherever they are, so they
-  bunch into long lines, as on bracket.tennis. The button shows a pin
+  matches pack together and stay fixed in the middle of the screen
+  (below their headings, which stay fixed at the top) while the earlier
+  rounds scroll past; only the arrows from the last scrolling round move,
+  stretching to reach them, so they bunch into long lines, as on
+  bracket.tennis (v0.0.93, owner's follow-up the same day: "always on
+  the middle of the screen fixed"; v0.0.92 had them follow the scroll
+  from the bracket's top and stop at its bottom). A block taller than the
+  screen starts right under the headings. The button shows a pin
   while it is on. A drawing only: the saved places never change, and
   the image export shows the bracket unpinned. A view choice like hidden
   rounds (decided while building): per bracket, remembered in this
@@ -1095,7 +1098,7 @@ in"). Loops and arrows into the start are refused in both. Code:
   place: `pinnedRounds` in `domain/bracketLayout.ts` (headings:
   `bracketDecor`'s `pinnedFrom`). Check: `domain/bracketLayout.test.ts`,
   `store/viewStore.test.ts`, and `e2e/bracket.e2e.ts` ("bracket pinned
-  rounds": pin, scroll, reload, off).
+  rounds": pin, centred, scroll, reload, off).
 
 ## What's next
 

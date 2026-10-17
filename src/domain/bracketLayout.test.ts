@@ -162,34 +162,35 @@ describe("pinned later rounds", () => {
   const layout = layoutBracket(map, new Map(), options);
   const grid = matchGrid(map);
   const h = options.fallbackSize.height;
-  const top = Math.min(...grid[0].map((id) => layout.positions.get(id)!.y)) - h / 2;
-  const bottom = Math.max(...grid[0].map((id) => layout.positions.get(id)!.y)) + h / 2;
-  const pin = (from: number, viewTop: number, m = map) =>
-    pinnedRounds(m, layout.positions, new Map(), options.fallbackSize, from, viewTop, 40, options.columnGap);
+  const gap = options.columnGap;
+  const pin = (from: number, top: number, m = map, height = 800) =>
+    pinnedRounds(m, new Map(), options.fallbackSize, from, { top, height }, 40, gap);
+  const extent = (pins: Map<NodeId, number>) => ({
+    top: Math.min(...pins.values()) - h / 2,
+    bottom: Math.max(...pins.values()) + h / 2,
+  });
 
-  it("packs the rounds from the one picked on, each still centred between its feeders, at the bracket's top", () => {
-    // Semifinals of 32; the screen's top where the headings fit over round 1.
-    const pins = pin(4, top - 40);
+  it("packs the rounds from the one picked on, each still centred between its feeders", () => {
+    const pins = pin(4, 0); // Semifinals of 32 (five rounds)
     expect([...pins.keys()].sort()).toEqual([...grid[3], ...grid[4]].sort());
-    const qf = grid[3].map((id) => pins.get(id)!);
-    expect(qf[0] - h / 2).toBeCloseTo(top);
-    for (let i = 1; i < qf.length; i++) expect(qf[i] - qf[i - 1]).toBeCloseTo(h + options.columnGap);
-    expect(pins.get(grid[4][0])).toBeCloseTo((qf[0] + qf[1]) / 2);
-    // Earlier rounds keep their places: nothing for them.
+    const semis = grid[3].map((id) => pins.get(id)!);
+    expect(semis[1] - semis[0]).toBeCloseTo(h + gap);
+    expect(pins.get(grid[4][0])).toBeCloseTo((semis[0] + semis[1]) / 2);
     for (const id of grid[2]) expect(pins.has(id)).toBe(false);
   });
 
-  it("follows the screen down as the page scrolls, below room for the headings", () => {
-    const at0 = pin(4, top - 40).get(grid[3][0])!;
-    const scrolled = pin(4, 500).get(grid[3][0])!;
-    expect(scrolled - h / 2).toBeCloseTo(500 + 40);
-    expect(at0 - h / 2).toBeCloseTo(top);
+  it("sits in the middle of the screen below the headings, wherever the page is scrolled", () => {
+    for (const top of [0, 500, 1e6]) {
+      const { top: t, bottom: b } = extent(pin(3, top));
+      // Quarterfinals: 4 matches, 3 gaps.
+      expect(b - t).toBeCloseTo(4 * h + 3 * gap);
+      expect(t - (top + 40)).toBeCloseTo(top + 800 - b);
+    }
   });
 
-  it("stops at the bracket's bottom", () => {
-    const pins = pin(4, 1e6);
-    const last = Math.max(...[...pins.values()]) + h / 2;
-    expect(last).toBeCloseTo(bottom);
+  it("starts right under the headings when taller than the screen", () => {
+    const { top } = extent(pin(2, 300, map, 200));
+    expect(top).toBeCloseTo(300 + 40);
   });
 
   it("pins nothing from the first round shown or earlier, or past the final", () => {
@@ -201,15 +202,13 @@ describe("pinned later rounds", () => {
     expect(pin(4, 500, shown).size).toBe(3);
   });
 
-  it("puts the pinned rounds' headings over the pinned block, the others over round 1", () => {
+  it("keeps the pinned rounds' headings where it is told, the others over round 1", () => {
     const pins = pin(4, 500);
     const boxes = new Map<NodeId, Box>(
       [...layout.positions].map(([id, c]) => [id, { center: { x: c.x, y: pins.get(id) ?? c.y }, size: options.fallbackSize }]),
     );
-    const { headings } = bracketDecor(map, boxes, 16, 4);
-    const bottoms = headings.map((x) => x.bottom);
-    expect(bottoms.slice(0, 3).every((b) => Math.abs(b - (top - 16)) < 0.01)).toBe(true);
-    expect(bottoms[3]).toBeCloseTo(500 + 40 - 16);
-    expect(bottoms[4]).toBeCloseTo(500 + 40 - 16);
+    const top = Math.min(...grid[0].map((id) => layout.positions.get(id)!.y)) - h / 2;
+    const { headings } = bracketDecor(map, boxes, 16, { from: 4, headingBottom: 520 });
+    expect(headings.map((x) => x.bottom)).toEqual([top - 16, top - 16, top - 16, 520, 520]);
   });
 });
