@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-16, v0.0.80 (a selected bracket match lights only the path that led to it, nothing ahead; every numbered step below is done, waiting for the owner's next plan)_
+_Last updated: 2026-10-16, v0.0.81 (hovering a bracket match lights the path that led to it; every numbered step below is done, waiting for the owner's next plan)_
 
 ## What it is
 
@@ -1017,6 +1017,11 @@ in"). Loops and arrows into the start are refused in both. Code:
   shows only "Fed by N matches". A bracket's `orangeWords` is `null` in
   `REACH_MEANINGS`, which means "no orange group". Check:
   `domain/bracket.test.ts`.
+- Hovering a match lights its path too (v0.0.81, owner's call
+  2026-10-16), and the status line names it; moving off goes back to the
+  selected match's path. The selected match keeps its ring meanwhile.
+  The store's `hovered` (never saved, not undone) and `selectFocus` in
+  `store/selectors.ts` (brackets only). Check: `store/selectors.test.ts`.
 
 ## What's next
 

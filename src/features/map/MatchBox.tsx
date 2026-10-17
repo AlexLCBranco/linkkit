@@ -41,6 +41,7 @@ export const MatchBox = memo(function MatchBox({ id }: NodeProps<MatchFlowNode>)
   const round = useMapStore((s) => s.map.nodes[nodeId]?.match?.round);
   const color = useMapStore((s) => s.map.nodes[nodeId]?.color ?? null);
   const highlight = useMapStore((s) => selectNodeHighlight(s, nodeId));
+  const hover = useMapStore((s) => s.hover);
   if (round === undefined) return null;
 
   const style = color ? ({ "--box-accent": `var(--palette-${color})` } as CSSProperties) : undefined;
@@ -51,6 +52,9 @@ export const MatchBox = memo(function MatchBox({ id }: NodeProps<MatchFlowNode>)
       data-colored={color ? true : undefined}
       data-highlight={highlight ?? undefined}
       style={style}
+      // While the mouse is on a match, its path lights up (selectFocus).
+      onPointerEnter={() => hover(nodeId)}
+      onPointerLeave={() => useMapStore.getState().hovered === nodeId && hover(null)}
     >
       {/* React Flow only draws an edge between nodes that have handles
           (see BoxView); arrows are drawn box to box by LinkEdgeView. */}

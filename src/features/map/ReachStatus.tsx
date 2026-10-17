@@ -3,7 +3,7 @@ import { REACH_MEANINGS, reachCounts } from "../../domain/reach";
 import type { MapKind } from "../../domain/types";
 import { useGallery } from "../../store/gallery";
 import { useMapStore } from "../../store/mapStore";
-import { selectReach } from "../../store/selectors";
+import { selectFocus, selectReach } from "../../store/selectors";
 import styles from "./ReachStatus.module.css";
 
 /** What the status line says while nothing is selected. */
@@ -34,10 +34,12 @@ export function ReachStatus() {
   const reach = useMapStore(selectReach);
   const kind = useMapStore((s) => s.map.kind);
   const linked = useMapStore((s) => s.map.linkedBoard !== undefined);
-  // A bracket's match goes by its players ("Ann v Bob").
-  const name = useMapStore((s) =>
-    !s.selected ? undefined : s.map.kind === "bracket" ? matchTitle(s.map, s.selected) : s.map.nodes[s.selected]?.name,
-  );
+  // A bracket's match goes by its players ("Ann v Bob"); the hovered one
+  // while there is one, as the highlight shows it.
+  const name = useMapStore((s) => {
+    const focus = selectFocus(s);
+    return !focus ? undefined : s.map.kind === "bracket" ? matchTitle(s.map, focus) : s.map.nodes[focus]?.name;
+  });
   const picked = useMapStore((s) => s.group.length);
   // A first visit (the untouched starter example) or an empty map points
   // to the gallery, where the examples are: one click to another one.

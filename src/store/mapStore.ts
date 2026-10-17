@@ -239,6 +239,9 @@ export interface MapState {
   /** The box whose needs / breaks are highlighted, or `null`. Always `null`
       while a group is picked (several highlights at once would be noise). */
   readonly selected: NodeId | null;
+  /** The bracket match under the mouse, or `null`: its path lights up while
+      the mouse is on it (see `selectFocus`). Never saved, never undone. */
+  readonly hovered: NodeId | null;
   /** Two or more boxes picked together (the marquee, Shift+click, Ctrl+A,
       a paste), or empty. A group of one is just `selected`. See
       `selectionOf`. */
@@ -312,6 +315,8 @@ export interface MapState {
   placeAll(positions: ReadonlyMap<NodeId, Point>, page?: Size, settings?: TidySettings, gesture?: string | null): void;
   /** Selects a box (`null` clears the selection), ending any group. */
   select(id: NodeId | null): void;
+  /** The mouse entered (`id`) or left (`null`) a bracket match. */
+  hover(id: NodeId | null): void;
   /** An arrow key in a tree: up to a parent, down to a next step, along
       the row (`domain/navigation.ts`). With nothing selected, the start. */
   moveSelection(key: ArrowKey): void;
@@ -649,6 +654,7 @@ function open(s: MapState, map: LinkMap, maps: Registry, needsTidy = takeUnplace
     histories: maps.some((m) => m.id === s.map.id) ? { ...others, [s.map.id]: s.history } : others,
     stepKey: null,
     selected: null,
+    hovered: null,
     group: [],
     editing: null,
     connecting: null,
@@ -992,6 +998,7 @@ let nav: NavMemory = EMPTY_MEMORY;
 export const useMapStore = create<MapState>()((set, get) => ({
   ...initialState(),
   selected: null,
+  hovered: null,
   group: [],
   clipboard: null,
   editing: null,
@@ -1033,6 +1040,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
       return commit(s, next, gesture && `arrows:${gesture}`);
     }),
   select: (id) => set({ selected: id, group: [], selectedLink: null }),
+  hover: (id) => set({ hovered: id }),
   moveSelection: (key) =>
     set((s) => {
       if (!hasTreeShape(s.map.kind) || s.editing) return {};
