@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { boxesIn, holds, marqueeSelection, rectBetween } from "./marquee";
+import { boxesIn, marqueeSelection, rectBetween, touches } from "./marquee";
 import { ids } from "./testMaps";
 
 const size = { width: 40, height: 20 };
@@ -10,22 +10,23 @@ describe("marquee", () => {
     expect(rectBetween({ x: 50, y: 80 }, { x: 10, y: 20 })).toEqual({ x: 10, y: 20, width: 40, height: 60 });
   });
 
-  it("picks a box only when it holds all of it", () => {
+  it("picks a box as soon as it touches any part of it", () => {
     const rect = { x: 0, y: 0, width: 100, height: 100 };
-    expect(holds(rect, { x: 50, y: 50 }, size)).toBe(true);
-    expect(holds(rect, { x: 20, y: 10 }, size)).toBe(true); // touching the edges
-    expect(holds(rect, { x: 90, y: 50 }, size)).toBe(false); // sticks out on the right
+    expect(touches(rect, { x: 50, y: 50 }, size)).toBe(true); // wholly inside
+    expect(touches(rect, { x: 110, y: 50 }, size)).toBe(true); // half sticks out on the right
+    expect(touches(rect, { x: 120, y: 50 }, size)).toBe(true); // touching the edge
+    expect(touches(rect, { x: 130, y: 50 }, size)).toBe(false); // clear of it
   });
 
-  it("lists every box inside", () => {
-    const rect = { x: 0, y: 0, width: 100, height: 100 };
+  it("lists every box it touches, so a strip dragged through a row picks the whole row", () => {
+    const strip = { x: 0, y: 45, width: 400, height: 10 };
     const [a, b, c] = ids("a", "b", "c");
     const boxes = [
-      [a, { center: { x: 30, y: 30 }, size }],
-      [b, { center: { x: 300, y: 30 }, size }],
-      [c, { center: { x: 60, y: 70 }, size }],
+      [a, { center: { x: 30, y: 50 }, size }],
+      [b, { center: { x: 300, y: 50 }, size }],
+      [c, { center: { x: 60, y: 200 }, size }],
     ] as const;
-    expect(boxesIn(rect, boxes)).toEqual([a, c]);
+    expect(boxesIn(strip, boxes)).toEqual([a, b]);
   });
 
   it("replaces the selection, or adds to it with Shift", () => {

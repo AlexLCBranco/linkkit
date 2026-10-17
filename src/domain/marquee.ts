@@ -2,9 +2,10 @@ import type { NodeId, Point, Size } from "./types";
 
 /**
  * What the marquee (the box dragged out on empty paper) picks. Pure
- * geometry in page pixels, so it can be tested without React Flow. Like
- * Treekit's: a box is picked when the marquee holds ALL of it, so brushing
- * past the edge of a box doesn't pick it.
+ * geometry in page pixels, so it can be tested without React Flow. A box
+ * is picked as soon as the marquee touches it (unlike Treekit, which wants
+ * all of it inside): the owner's call, so a strip dragged through a row
+ * picks the whole row.
  */
 
 export interface Rect {
@@ -19,21 +20,21 @@ export function rectBetween(a: Point, b: Point): Rect {
   return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), width: Math.abs(a.x - b.x), height: Math.abs(a.y - b.y) };
 }
 
-/** Whether `outer` holds all of a box centred on `center` (touching edges
-    count). */
-export function holds(outer: Rect, center: Point, size: Size): boolean {
+/** Whether `outer` touches any part of a box centred on `center` (touching
+    edges count). */
+export function touches(outer: Rect, center: Point, size: Size): boolean {
   return (
-    center.x - size.width / 2 >= outer.x &&
-    center.y - size.height / 2 >= outer.y &&
-    center.x + size.width / 2 <= outer.x + outer.width &&
-    center.y + size.height / 2 <= outer.y + outer.height
+    center.x + size.width / 2 >= outer.x &&
+    center.y + size.height / 2 >= outer.y &&
+    center.x - size.width / 2 <= outer.x + outer.width &&
+    center.y - size.height / 2 <= outer.y + outer.height
   );
 }
 
-/** Every box the marquee holds, in the order given. */
+/** Every box the marquee touches, in the order given. */
 export function boxesIn(rect: Rect, boxes: Iterable<readonly [NodeId, { center: Point; size: Size }]>): NodeId[] {
   const picked: NodeId[] = [];
-  for (const [id, box] of boxes) if (holds(rect, box.center, box.size)) picked.push(id);
+  for (const [id, box] of boxes) if (touches(rect, box.center, box.size)) picked.push(id);
   return picked;
 }
 

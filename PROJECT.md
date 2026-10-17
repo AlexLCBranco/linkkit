@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-16, v0.0.84 (a bracket always sits flush to the top, so zooming out no longer opens a gap over its round headings; every numbered step below is done, waiting for the owner's next plan)_
+_Last updated: 2026-10-16, v0.0.85 (the marquee picks every box it touches, not only boxes wholly inside it; every numbered step below is done, waiting for the owner's next plan)_
 
 ## What it is
 
@@ -326,8 +326,8 @@ in"). Loops and arrows into the start are refused in both. Code:
     side by side instead of on top of each other
 - Selecting several boxes (the marquee), in both kinds of map:
   - Drag across empty paper: a tinted box follows the pointer and every
-    box it holds completely is picked as it goes (brushing a box's edge
-    doesn't pick it). Shift+drag adds to what is already picked.
+    box it touches is picked as it goes (so a thin strip dragged through
+    a row picks the whole row). Shift+drag adds to what is already picked.
     Shift+click a box adds it or takes it out; Ctrl+A picks every box;
     clicking a box (or the paper, or Escape) goes back to one / none.
     Picked boxes get the selection ring; the teal / orange highlight
@@ -556,7 +556,7 @@ in"). Loops and arrows into the start are refused in both. Code:
     and the same for several boxes at once (delete, colour) plus copy /
     paste: `copyFragment` (boxes and the arrows between them) and
     `pasteFragment` (new ids, moved by an offset)
-  - `marquee.ts`: which boxes the marquee holds, and the selection it
+  - `marquee.ts`: which boxes the marquee touches, and the selection it
     makes (replace, or add with Shift)
   - `reach.ts`: the teal and orange groups (walking the arrows forward or
     backward), each box's and arrow's highlight, and the status-line
@@ -2277,14 +2277,17 @@ All bridge-mapping questions are decided.
   inside of it and lets me move around the selections and or copy and or
   delete"; it had been listed as not in this build, the owner's request
   overrides that). Treekit's marquee and selection bar are the reference.
-  Choices made without asking, easy to change: a box is picked only when
-  the marquee holds all of it (Treekit's rule); the highlight is off while
+  Choices made without asking, easy to change: the highlight is off while
   several are picked; the clipboard is Linkkit's own (not the system
   clipboard, so it can't paste into other apps) and lasts until a reload;
   a paste lands 24px down-right (another 24px each time); trees get no
   copy / paste (`canPaste` in rules.ts) because a pasted box would be
   loose. Not done: the page doesn't scroll by itself when the marquee
   reaches the screen's edge.
+- Marquee picking (2026-10-16, v0.0.85; owner: "the lasso thing has to
+  select multiple nodes at once"): a box is picked as soon as the
+  marquee touches it, not only when it holds all of it (Treekit's rule,
+  dropped). Holding-all made a drag through a row pick nothing.
 - `.claude/launch.json` has a second dev server, `linkkit-2` on port
   5182, for when another chat already runs `linkkit` on 5181 (each port
   has its own localStorage, so test maps never mix).
