@@ -28,9 +28,10 @@ test("bracket: paste names, play to a champion, cascade, undo, reload", async ({
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/linkkit/");
 
-  // + New bracket → 8 players: the first slot opens for typing.
+  // + New → Bracket → 8 players: the first slot opens for typing.
   await page.getByRole("button", { name: /Switch map/ }).click();
-  await page.getByRole("menuitem", { name: "+ New bracket" }).click();
+  await page.getByRole("menuitem", { name: "+ New" }).click();
+  await page.getByRole("menuitem", { name: "Bracket" }).click();
   await page.getByRole("menuitem", { name: "8 players", exact: true }).click();
   const field = page.getByRole("textbox", { name: "Player name" });
   await expect(field).toBeFocused();
@@ -80,7 +81,8 @@ test("bracket: paste names, play to a champion, cascade, undo, reload", async ({
 
   // Clean up: the bracket goes (to the trash of this throwaway profile).
   await page.getByRole("button", { name: /Switch map/ }).click();
-  await page.getByRole("menuitem", { name: "Delete this map" }).click();
+  await page.getByRole("menuitem", { name: "This map" }).click();
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
   await expect(rows(page)).toHaveCount(0);
 });
 
@@ -88,7 +90,8 @@ test("bracket marquee: picks both semifinals and lights both their past paths", 
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
   await page.goto("/linkkit/");
   await page.getByRole("button", { name: /Switch map/ }).click();
-  await page.getByRole("menuitem", { name: "+ New bracket" }).click();
+  await page.getByRole("menuitem", { name: "+ New" }).click();
+  await page.getByRole("menuitem", { name: "Bracket" }).click();
   await page.getByRole("menuitem", { name: "8 players", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Player name" })).toBeFocused();
   await page.evaluate((text) => navigator.clipboard.writeText(text), NAMES.join("\n"));
@@ -127,7 +130,8 @@ test("bracket marquee: picks both semifinals and lights both their past paths", 
   // Clean up: the bracket goes (to the trash of this throwaway profile).
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: /Switch map/ }).click();
-  await page.getByRole("menuitem", { name: "Delete this map" }).click();
+  await page.getByRole("menuitem", { name: "This map" }).click();
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
   await expect(rows(page)).toHaveCount(0);
 });
 
@@ -138,7 +142,8 @@ const focusedRow = (page: Page) =>
 test("bracket keys: Enter and ↓ go down, ← → land on a match's top row, focus comes back after typing", async ({ page }) => {
   await page.goto("/linkkit/");
   await page.getByRole("button", { name: /Switch map/ }).click();
-  await page.getByRole("menuitem", { name: "+ New bracket" }).click();
+  await page.getByRole("menuitem", { name: "+ New" }).click();
+  await page.getByRole("menuitem", { name: "Bracket" }).click();
   await page.getByRole("menuitem", { name: "8 players", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Player name" })).toBeFocused();
 
@@ -177,6 +182,7 @@ test("bracket keys: Enter and ↓ go down, ← → land on a match's top row, fo
 
   // Clean up: the bracket goes (to the trash of this throwaway profile).
   await page.getByRole("button", { name: /Switch map/ }).click();
-  await page.getByRole("menuitem", { name: "Delete this map" }).click();
+  await page.getByRole("menuitem", { name: "This map" }).click();
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
   await expect(rows(page)).toHaveCount(0);
 });

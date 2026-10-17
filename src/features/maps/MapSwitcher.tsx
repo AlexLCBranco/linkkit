@@ -15,6 +15,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -23,7 +24,9 @@ import {
 } from "../../components/ui/dropdown-menu";
 import { BRACKET_SIZES, type BracketSize } from "../../domain/bracket";
 import { backupNeedsAttention, backupStopped } from "../../domain/autoBackup";
+import { mapMenuList, RECENT_MAPS } from "../../domain/mapMenu";
 import { displayNames } from "../../domain/names";
+import type { MapId } from "../../domain/types";
 import { useBackupStore } from "../../store/backupStore";
 import { hasBoardList } from "../../store/persistBoard";
 import type { BoardChoice } from "../../domain/bridge";
@@ -34,6 +37,7 @@ import { useGallery } from "../../store/gallery";
 import { SaveTemplateDialog } from "./SaveTemplateDialog";
 import { BackupMenuItems } from "./BackupMenuItems";
 import { exportAllMaps, restoreFrom } from "./backupFile";
+import { MapSearch } from "./MapSearch";
 import styles from "./MapSwitcher.module.css";
 import { useNow } from "./useNow";
 
@@ -41,6 +45,12 @@ import { useNow } from "./useNow";
  * The open map's name (click to rename) plus a menu to switch to another
  * saved map, start a new one (blank or from a template), duplicate or
  * delete this one. Copied from Treekit's `TreeSwitcher`.
+ *
+ * The menu is the map list, then three submenus: "+ New ▸" (every kind),
+ * "This map ▸" and "Backup ▸" (the owner's pick, 2026-10-17, when the
+ * flat menu had grown too long). The list shows the 8 newest maps and the
+ * rest under "All maps ▸"; past 8 maps a search box on top finds any of
+ * them (`domain/mapMenu.ts`).
  *
  * The examples are templates in the gallery (U12), replacing the
  * prototype's "Reset example": they always add a new map, so they can
@@ -134,6 +144,17 @@ export function MapSwitcher() {
   const newestFirst = useMemo(() => [...maps].reverse(), [maps]);
   // Two maps never show the same name: a repeat shows as "Rent 2" (U11).
   const shown = useMemo(() => displayNames(maps), [maps]);
+  const rows = useMemo(() => newestFirst.map((m) => ({ id: m.id, name: shown.get(m.id) ?? m.name })), [newestFirst, shown]);
+  // Controlled, so Enter in the search box can close the menu itself.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const list = mapMenuList(rows, query);
+  const mapRow = (m: { id: MapId; name: string }) => (
+    <DropdownMenuItem key={m.id} onSelect={() => switchMap(m.id)}>
+      <span className={styles.check}>{m.id === mapId ? "✓" : ""}</span>
+      {m.name}
+    </DropdownMenuItem>
+  );
 
   return (
     <div className={styles.switcher}>
@@ -154,7 +175,17 @@ export function MapSwitcher() {
         </button>
       )}
 
-      <DropdownMenu onOpenChange={(open) => open && setBoardkitHere(hasBoardList())}>
+      <DropdownMenu
+        open={menuOpen}
+        onOpenChange={(open) => {
+          setMenuOpen(open);
+          // Each opening starts with no search typed.
+          if (open) {
+            setBoardkitHere(hasBoardList());
+            setQuery("");
+          }
+        }}
+      >
         <DropdownMenuTrigger asChild>
           <button
             type="button"
@@ -206,61 +237,107 @@ export function MapSwitcher() {
             setRenaming(true);
           }}
         >
-          {newestFirst.map((m) => (
-            <DropdownMenuItem key={m.id} onSelect={() => switchMap(m.id)}>
-              <span className={styles.check}>{m.id === mapId ? "✓" : ""}</span>
-              {shown.get(m.id) ?? m.name}
-            </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onSelect={() => {
-              newMap();
-              // Straight into naming it, like a new box.
-              focusNameAfterClose.current = true;
-            }}
-          >
-            + New map
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => (newTreeAfterClose.current = true)}>+ New map with tree rules</DropdownMenuItem>
-          {boardkitHere && (
-            <DropdownMenuItem onSelect={() => setBoardChoices(boardChoices())}>+ Map from a Boardkit board…</DropdownMenuItem>
+          {/* Only worth a search box once some maps sit under "All maps". */}
+          {rows.length > RECENT_MAPS && (
+            <MapSearch
+              value={query}
+              onChange={setQuery}
+              onEnter={() => {
+                if (!list.shown[0]) return;
+                switchMap(list.shown[0].id);
+                setMenuOpen(false);
+              }}
+            />
           )}
-          <DropdownMenuItem onSelect={() => (newStepsAfterClose.current = true)}>+ New steps map</DropdownMenuItem>
+          {list.shown.map(mapRow)}
+          {query.trim() && list.shown.length === 0 && (
+            <DropdownMenuLabel className="font-normal text-muted-foreground">No map called that</DropdownMenuLabel>
+          )}
+          {list.more.length > 0 && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>All maps ({rows.length})</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="max-h-96 overflow-y-auto">
+                {list.more.map(mapRow)}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          )}
+          <DropdownMenuSeparator />
+
+          {/* Every kind of new map in one place, in the same order as the
+              gallery: plain, tree rules, steps, bracket, then the ways that
+              start from something already made. */}
           <DropdownMenuSub>
-            <DropdownMenuSubTrigger>+ New bracket</DropdownMenuSubTrigger>
+            <DropdownMenuSubTrigger>+ New</DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
-              {BRACKET_SIZES.map((size) => (
-                <DropdownMenuItem key={size} onSelect={() => (newBracketAfterClose.current = size)}>
-                  {size} players
-                </DropdownMenuItem>
-              ))}
+              <DropdownMenuItem
+                onSelect={() => {
+                  newMap();
+                  // Straight into naming it, like a new box.
+                  focusNameAfterClose.current = true;
+                }}
+              >
+                Map
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => (newTreeAfterClose.current = true)}>Map with tree rules</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => (newStepsAfterClose.current = true)}>Steps map</DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>Bracket</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {BRACKET_SIZES.map((size) => (
+                    <DropdownMenuItem key={size} onSelect={() => (newBracketAfterClose.current = size)}>
+                      {size} players
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => setTemplates(true)}>From a template…</DropdownMenuItem>
+              {boardkitHere && (
+                <DropdownMenuItem onSelect={() => setBoardChoices(boardChoices())}>From a Boardkit board…</DropdownMenuItem>
+              )}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
-          <DropdownMenuItem onSelect={() => setTemplates(true)}>New from template…</DropdownMenuItem>
-          <DropdownMenuItem onSelect={duplicateMap}>Duplicate this map</DropdownMenuItem>
-          {/* Not a bracket: its matches are made from a size, not a template. */}
-          {!isBracket && (
-            <DropdownMenuItem onSelect={() => (saveAfterClose.current = true)}>
-              Save this map as a template…
-            </DropdownMenuItem>
-          )}
-          {isTree && !linked && boardkitHere && (
-            <DropdownMenuItem onSelect={() => setLinking(linkPreview(useMapStore.getState().map))}>
-              Link to Boardkit…
-            </DropdownMenuItem>
-          )}
-          {linked && <DropdownMenuItem onSelect={() => setUnlinking(true)}>Unlink from Boardkit…</DropdownMenuItem>}
-          {/* No question asked: the map goes to the trash, to restore from there. */}
-          <DropdownMenuItem disabled={maps.length <= 1} onSelect={() => deleteMap(mapId)}>
-            Delete this map
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={exportAllMaps}>Export all maps</DropdownMenuItem>
-          <BackupMenuItems />
-          {empty && (
-            <DropdownMenuItem onSelect={() => filePicker.current?.click()}>Restore all maps from a file…</DropdownMenuItem>
-          )}
+
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>This map</DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem onSelect={() => (focusNameAfterClose.current = true)}>Rename</DropdownMenuItem>
+              <DropdownMenuItem onSelect={duplicateMap}>Duplicate</DropdownMenuItem>
+              {/* Not a bracket: its matches are made from a size, not a template. */}
+              {!isBracket && (
+                <DropdownMenuItem onSelect={() => (saveAfterClose.current = true)}>Save as a template…</DropdownMenuItem>
+              )}
+              {isTree && !linked && boardkitHere && (
+                <DropdownMenuItem onSelect={() => setLinking(linkPreview(useMapStore.getState().map))}>
+                  Link to Boardkit…
+                </DropdownMenuItem>
+              )}
+              {linked && <DropdownMenuItem onSelect={() => setUnlinking(true)}>Unlink from Boardkit…</DropdownMenuItem>}
+              <DropdownMenuSeparator />
+              {/* No question asked: the map goes to the trash, to restore from there. */}
+              <DropdownMenuItem disabled={maps.length <= 1} onSelect={() => deleteMap(mapId)}>
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+
+          <DropdownMenuSub>
+            {/* The button's dot repeats here, so it leads the user to the
+                submenu that needs them. */}
+            <DropdownMenuSubTrigger className="relative">
+              Backup
+              {attention && <span className={styles.subDot} />}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuItem onSelect={exportAllMaps}>Export all maps</DropdownMenuItem>
+              <BackupMenuItems />
+              {empty && (
+                <DropdownMenuItem onSelect={() => filePicker.current?.click()}>
+                  Restore all maps from a file…
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
         </DropdownMenuContent>
       </DropdownMenu>
 

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-16, v0.0.87 (a bracket always sits top left, one dot in from both edges at every zoom; every numbered step below is done, waiting for the owner's next plan)_
+_Last updated: 2026-10-17, v0.0.88 (the map menu is regrouped: the 8 newest maps, "All maps ▸", a search box past 8 maps, then "+ New ▸", "This map ▸" and "Backup ▸"; every numbered step below is done, waiting for the owner’s next plan)_
 
 ## What it is
 
@@ -125,6 +125,21 @@ in"). Loops and arrows into the start are refused in both. Code:
   history for the session, so switching away and back still undoes.
   Renaming a map is not an undo step. A reload opens the map that was
   open last
+- **The map menu, regrouped** (v0.0.88, owner’s pick 2026-10-17, when
+  the flat menu had grown too long with every map kind): the 8 newest
+  maps, the rest under "All maps (N) ▸"; past 8 maps a "Find a map…" box
+  on top takes the focus as the menu opens and searches every map (Enter
+  opens the first match). Then three submenus: "+ New ▸" (Map, Map with
+  tree rules, Steps map, Bracket ▸ sizes, From a template…, From a
+  Boardkit board…), "This map ▸" (Rename, Duplicate, Save as a template…,
+  Link / Unlink Boardkit…, Delete) and "Backup ▸" (Export all maps, the
+  backup status and actions, Restore all maps from a file…; it carries the
+  button’s orange dot when backups need the user). Older notes below
+  still use the old item names ("+ New map with tree rules", "Delete this
+  map", …): same actions, now in these submenus. Code:
+  `domain/mapMenu.ts`, `MapSwitcher.tsx`, `MapSearch.tsx`; Playwright:
+  `e2e/mapMenu.e2e.ts`. Not done: a kind icon beside each map (the saved
+  map index doesn’t record kinds yet)
 - Moving maps to another address (each web address has its own
   storage): the map menu's "Export all maps" downloads every map as one
   file (`linkkit-maps-<date>.json`). On an empty Linkkit (only the

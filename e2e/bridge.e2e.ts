@@ -107,9 +107,11 @@ async function renameBox(lk: Page, id: string, name: string) {
   await expect(lk.getByRole("textbox", { name: "Box name" })).toHaveCount(0);
 }
 
-async function mapMenu(lk: Page, item: string) {
+/** Clicks through the map menu: each item but the last opens a submenu
+    ("+ New", "This map", "Backup"). */
+async function mapMenu(lk: Page, ...path: string[]) {
   await lk.getByRole("button", { name: /^Switch map/ }).click();
-  await lk.getByRole("menuitem", { name: item }).click();
+  for (const item of path) await lk.getByRole("menuitem", { name: item, exact: true }).click();
 }
 
 // --------------------------------------------------------------- Boardkit
@@ -198,19 +200,21 @@ async function backupAfter(page: Page, app: "linkkit" | "boardkit", since: numbe
 const browserNow = (page: Page) => page.evaluate(() => Date.now());
 
 /** The text of an app's switcher menu, which holds the backup status line. */
-async function menuText(page: Page, button: RegExp | string) {
+async function menuText(page: Page, button: RegExp | string, submenu?: string) {
   // A hidden tab doesn't run animations, so its menu would never finish
   // closing.
   await page.bringToFront();
   await page.getByRole("button", { name: button }).click();
-  const text = await page.getByRole("menu").innerText();
+  // Linkkit keeps its backup lines in the "Backup" submenu: both menus are read.
+  if (submenu) await page.getByRole("menuitem", { name: submenu, exact: true }).click();
+  const text = (await page.getByRole("menu").allInnerTexts()).join("\n");
   await page.keyboard.press("Escape");
   // Closed for good before the next look, so a click can't land on a menu
   // still animating shut.
   await expect(page.getByRole("menu")).toHaveCount(0);
   return text;
 }
-const linkkitMenu = (lk: Page) => menuText(lk, /^Switch map/);
+const linkkitMenu = (lk: Page) => menuText(lk, /^Switch map/, "Backup");
 const boardkitMenu = (bk: Page) => menuText(bk, "Switch board");
 
 async function openBoardkitTrash(bk: Page) {
@@ -253,7 +257,7 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
   // steps 1 and 2 waits for the edits in step 4: a first-visit Linkkit has
   // nothing to back up yet (its example map isn't saved until tidied).
   await check("1.1", "Linkkit: Automatic backup… with a folder: menu says backing up", async () => {
-    await mapMenu(lk, "Automatic backup…");
+    await mapMenu(lk, "Backup", "Automatic backup…");
     await expect.poll(() => linkkitMenu(lk)).toContain("Backing up to “e2e-linkkit-backup”");
   });
 
@@ -268,7 +272,7 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
 
   // ---- 3. Link a throwaway tree
   await check("3.1", "New tree ZZ bridge test with List A (A1, A2) and List B (B1, B2)", async () => {
-    await mapMenu(lk, "+ New map with tree rules");
+    await mapMenu(lk, "+ New", "Map with tree rules");
     await expect(lk.getByRole("textbox", { name: "Box name" })).toBeFocused();
     await lk.keyboard.type(NAME);
     await lk.keyboard.press("Enter");
@@ -296,7 +300,7 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
   });
 
   await check("3.2", "Link to Boardkit: says 2 lists and 4 cards, A3 moves to Boardkit's trash; chip after Link", async () => {
-    await mapMenu(lk, "Link to Boardkit…");
+    await mapMenu(lk, "This map", "Link to Boardkit…");
     const dialog = lk.getByRole("alertdialog");
     await expect(dialog).toContainText("It becomes a board in Boardkit with 2 lists and 4 cards");
     await expect(dialog).toContainText("The 1 deleted box in this map's trash will move to Boardkit's trash");
@@ -533,7 +537,7 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
   });
 
   await check("8.2", "Unlink from Boardkit in Linkkit: chip gone, map still a tree, board still in Boardkit", async () => {
-    await mapMenu(lk, "Unlink from Boardkit…");
+    await mapMenu(lk, "This map", "Unlink from Boardkit…");
     await lk.getByRole("alertdialog").getByRole("button", { name: "Unlink" }).click();
     await expect(lk.getByText("Linked to Boardkit")).toHaveCount(0);
     await expect(lk.getByRole("button", { name: NAME, exact: true })).toBeVisible();
@@ -550,7 +554,7 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
   await check("8.2a", "Map from a Boardkit board…: ZZ board says 2 lists · 3 cards; Open as map links it, board untouched", async () => {
     await lk.bringToFront();
     const boardBefore = await lk.evaluate((key) => localStorage.getItem(key), boardKey);
-    await mapMenu(lk, "+ Map from a Boardkit board…");
+    await mapMenu(lk, "+ New", "From a Boardkit board…");
     const dialog = lk.getByRole("alertdialog");
     const row = dialog.getByRole("radio", { name: new RegExp(`^${NAME}`) });
     await expect(row).toContainText("2 lists · 3 cards");
@@ -570,7 +574,7 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
   });
 
   await check("8.2c", "Map from a Boardkit board… again: the ZZ board is greyed, linked to the new map", async () => {
-    await mapMenu(lk, "+ Map from a Boardkit board…");
+    await mapMenu(lk, "+ New", "From a Boardkit board…");
     const dialog = lk.getByRole("alertdialog");
     const row = dialog.getByRole("radio", { name: new RegExp(`^${NAME}`) });
     await expect(row).toBeDisabled();
@@ -580,7 +584,7 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
   });
 
   await check("8.2d", "Delete the new map, Delete for good; the step-3 map open again", async () => {
-    await mapMenu(lk, "Delete this map");
+    await mapMenu(lk, "This map", "Delete");
     await lk.getByRole("button", { name: "Recently deleted" }).click();
     const lkTrash = lk.getByRole("dialog");
     const row = lkTrash.locator("li").filter({ hasText: NAME });
@@ -608,7 +612,7 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
   });
 
   await check("8.4", "Delete the ZZ bridge test map in Linkkit, then Delete for good", async () => {
-    await mapMenu(lk, "Delete this map");
+    await mapMenu(lk, "This map", "Delete");
     await expect(lk.getByRole("button", { name: NAME, exact: true })).toHaveCount(0);
     await lk.getByRole("button", { name: "Recently deleted" }).click();
     const lkTrash = lk.getByRole("dialog");
@@ -623,7 +627,7 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
   });
 
   await check("8.5", "Turn off automatic backup in both apps: still off after a reload", async () => {
-    await mapMenu(lk, "Turn off automatic backup");
+    await mapMenu(lk, "Backup", "Turn off automatic backup");
     await bk.bringToFront();
     await bk.getByRole("button", { name: "Switch board" }).click();
     await bk.getByRole("menuitem", { name: "Turn off automatic backup" }).click();

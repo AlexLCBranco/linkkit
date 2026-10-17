@@ -60,3 +60,33 @@ button.name:hover {
   border-radius: var(--radius-full);
   background: var(--palette-orange);
 }
+
+/* The map menu's search box (MapSearch), past 8 maps. */
+.search {
+  width: 100%;
+  margin-bottom: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.search::placeholder {
+  color: var(--text-muted);
+}
+
+.search:focus {
+  outline: none;
+  border-color: var(--border-strong);
+}
+
+/* The button's dot, again on the "Backup" row. */
+.subDot {
+  width: var(--space-2);
+  height: var(--space-2);
+  margin-left: auto;
+  border-radius: var(--radius-full);
+  background: var(--palette-orange);
+}
