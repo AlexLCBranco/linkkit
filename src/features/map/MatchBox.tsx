@@ -53,7 +53,8 @@ export const MatchBox = memo(function MatchBox({ id }: NodeProps<MatchFlowNode>)
       data-colored={color ? true : undefined}
       data-highlight={highlight ?? undefined}
       style={style}
-      // While the mouse is on a match, its path lights up (selectFocus).
+      // While the mouse is on a match, its path lights up (selectFocus); on
+      // a player's row, only that player's path (PlayerRow).
       onPointerEnter={() => hover(nodeId)}
       onPointerLeave={() => useMapStore.getState().hovered === nodeId && hover(null)}
     >
@@ -92,6 +93,11 @@ function PlayerRow({ match, slot, typed }: PlayerRowProps) {
   const pastePlayers = useMapStore((s) => s.pastePlayers);
   const editNextPlayer = useMapStore((s) => s.editNextPlayer);
   const select = useMapStore((s) => s.select);
+  const hover = useMapStore((s) => s.hover);
+  // Leaving the row is left to the box: the path stays on this row's player
+  // until the mouse reaches the other row or leaves the match, so moving
+  // between rows never flashes both paths.
+  const onPointerEnter = () => hover(match, slot);
   // The result the first click of a double-click picked, taken back when
   // the double-click turns out to be a rename.
   const lastPick = useRef<string | null>(null);
@@ -108,7 +114,7 @@ function PlayerRow({ match, slot, typed }: PlayerRowProps) {
 
   if (isEditing && player) {
     return (
-      <div className={styles.row} data-editing>
+      <div className={styles.row} data-editing onPointerEnter={onPointerEnter}>
         <InlineEditable
           value={name}
           editing
@@ -152,7 +158,12 @@ function PlayerRow({ match, slot, typed }: PlayerRowProps) {
   };
 
   return (
-    <div className={styles.row} data-winner={isWinner || undefined} data-loser={isLoser || undefined}>
+    <div
+      className={styles.row}
+      data-winner={isWinner || undefined}
+      data-loser={isLoser || undefined}
+      onPointerEnter={onPointerEnter}
+    >
       <button
         type="button"
         className={`${styles.pick} nodrag`}

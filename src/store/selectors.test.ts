@@ -109,6 +109,23 @@ describe("a bracket's hovered match", () => {
     expect(selectNodeHighlight({ map, selected: null, group: [id("a"), id("b")] }, id("c"))).toBeNull();
   });
 
+  it("lights only the hovered player's path, not the other row's", () => {
+    const { bracket, grid } = played();
+    const final = grid[2][0];
+    // The final's bottom row is E, from the lower semi and the third
+    // first-round match; A (the winner, top row) came the other way.
+    const s = { map: bracket, selected: null, hovered: final, hoveredSlot: 1 as const };
+    expect(selectNodeHighlight(s, grid[1][1])).toBe("teal");
+    expect(selectNodeHighlight(s, grid[0][2])).toBe("teal");
+    expect(selectNodeHighlight(s, grid[1][0])).toBe("plain");
+    expect(selectNodeHighlight(s, grid[0][0])).toBe("plain");
+    expect(selectReach(s)?.teal.size).toBe(2);
+    // The top row: A's path only.
+    const top = { ...s, hoveredSlot: 0 as const };
+    expect(selectNodeHighlight(top, grid[1][0])).toBe("teal");
+    expect(selectNodeHighlight(top, grid[1][1])).toBe("plain");
+  });
+
   it("forgets a hovered match that no longer exists", () => {
     const { bracket, grid } = played();
     expect(selectFocus({ map: bracket, selected: grid[2][0], hovered: asNodeId("gone") })).toBe(grid[2][0]);

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-17, v0.0.95 (the rounds before the quarterfinals are named "Round of 32" and "Round of 16"; every numbered step below is done, waiting for the owner’s next plan)_
+_Last updated: 2026-10-17, v0.0.96 (hovering a player’s row in a bracket lights only that player’s path; every numbered step below is done, waiting for the owner’s next plan)_
 
 ## What it is
 
@@ -1051,6 +1051,12 @@ in"). Loops and arrows into the start are refused in both. Code:
   selected match's path. The selected match keeps its ring meanwhile.
   The store's `hovered` (never saved, not undone) and `selectFocus` in
   `store/selectors.ts` (brackets only). Check: `store/selectors.test.ts`.
+  On a player's row, only that player's path lights, winner or not: the
+  two rows' paths are separate (v0.0.96, owner's call 2026-10-17; before,
+  hovering anywhere on a match lit both players' paths, or the winner's).
+  Moving onto the box's edge keeps the last row's path, so moving between
+  rows never flashes both. The store's `hoveredSlot`, `pathTo(map, id,
+  slot)`. Check: `domain/bracket.test.ts`, `store/selectors.test.ts`.
 - Several matches picked with the marquee each get the ring, and all
   their past paths light up together (v0.0.86, owner's call 2026-10-16);
   the status line says "2 matches selected · Fed by N matches". Hovering

@@ -1,4 +1,4 @@
-import { pathTo } from "./bracket";
+import { pathTo, type Slot } from "./bracket";
 import type { Link, LinkMap, MapKind, NodeId } from "./types";
 
 /**
@@ -112,9 +112,14 @@ const opposite = (w: Walk): Walk => (w === "forward" ? "backward" : "forward");
 /**
  * `null` when nothing is selected or no selected box exists any more.
  * Several boxes: each group is every box any of them reaches, less the
- * selected ones themselves.
+ * selected ones themselves. `slot`: a bracket's row under the mouse, so only
+ * that player's path lights (see `pathTo`).
  */
-export function reachOf(map: LinkMap, selected: NodeId | readonly NodeId[] | null): Reach | null {
+export function reachOf(
+  map: LinkMap,
+  selected: NodeId | readonly NodeId[] | null,
+  slot: Slot | null = null,
+): Reach | null {
   const starts = (selected === null ? [] : typeof selected === "string" ? [selected] : selected).filter(
     (id) => map.nodes[id],
   );
@@ -131,7 +136,7 @@ export function reachOf(map: LinkMap, selected: NodeId | readonly NodeId[] | nul
     picked,
     tealWalk,
     // A bracket follows its players' path back, not every feeding match.
-    teal: gather((id) => (map.kind === "bracket" ? pathTo(map, id) : walk(map, id, tealWalk))),
+    teal: gather((id) => (map.kind === "bracket" ? pathTo(map, id, starts.length === 1 ? slot : null) : walk(map, id, tealWalk))),
     orange: orangeWords ? gather((id) => walk(map, id, opposite(tealWalk))) : new Set(),
     rest: fadesRest ? "faded" : "plain",
   };

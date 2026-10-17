@@ -515,6 +515,21 @@ describe("pathTo (the highlight back from a selected match)", () => {
     expect(pathTo(map, at(map, 3, 0))).toEqual(ids(map, [1, 0], [2, 0], [1, 3], [2, 1]));
   });
 
+  it("from one row, lights only that player's path", () => {
+    let map = eight();
+    for (let i = 0; i < 4; i++) map = win(map, 1, i, 0);
+    map = win(win(map, 2, 0, 0), 2, 1, 1); // Ann v Gus in the final, undecided
+    expect(pathTo(map, at(map, 3, 0), 0)).toEqual(ids(map, [1, 0], [2, 0]));
+    expect(pathTo(map, at(map, 3, 0), 1)).toEqual(ids(map, [1, 3], [2, 1]));
+    // Even the loser's row shows the loser's path, not the winner's.
+    const decided = win(map, 3, 0, 0);
+    expect(pathTo(decided, at(decided, 3, 0), 1)).toEqual(ids(map, [1, 3], [2, 1]));
+    // An empty row: every match that could fill it.
+    const half = win(eight(), 1, 0, 0); // semi #0: Ann v (empty)
+    expect(pathTo(half, at(half, 2, 0), 1)).toEqual(ids(half, [1, 1]));
+    expect(reachOf(map, at(map, 3, 0), 1)!.teal).toEqual(ids(map, [1, 3], [2, 1]));
+  });
+
   it("several picked matches light all their past paths at once", () => {
     const map = playedOut();
     const semis = [at(map, 2, 0), at(map, 2, 1)];

@@ -242,6 +242,9 @@ export interface MapState {
   /** The bracket match under the mouse, or `null`: its path lights up while
       the mouse is on it (see `selectFocus`). Never saved, never undone. */
   readonly hovered: NodeId | null;
+  /** The hovered match's player row under the mouse, or `null` (its edge):
+      only that player's path lights. */
+  readonly hoveredSlot: Slot | null;
   /** Two or more boxes picked together (the marquee, Shift+click, Ctrl+A,
       a paste), or empty. A group of one is just `selected`. See
       `selectionOf`. */
@@ -315,8 +318,9 @@ export interface MapState {
   placeAll(positions: ReadonlyMap<NodeId, Point>, page?: Size, settings?: TidySettings, gesture?: string | null): void;
   /** Selects a box (`null` clears the selection), ending any group. */
   select(id: NodeId | null): void;
-  /** The mouse entered (`id`) or left (`null`) a bracket match. */
-  hover(id: NodeId | null): void;
+  /** The mouse entered (`id`) or left (`null`) a bracket match, or one of
+      its player rows (`slot`). */
+  hover(id: NodeId | null, slot?: Slot | null): void;
   /** An arrow key in a tree: up to a parent, down to a next step, along
       the row (`domain/navigation.ts`). With nothing selected, the start. */
   moveSelection(key: ArrowKey): void;
@@ -660,6 +664,7 @@ function open(s: MapState, map: LinkMap, maps: Registry, needsTidy = takeUnplace
     stepKey: null,
     selected: null,
     hovered: null,
+    hoveredSlot: null,
     group: [],
     editing: null,
     connecting: null,
@@ -1004,6 +1009,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
   ...initialState(),
   selected: null,
   hovered: null,
+  hoveredSlot: null,
   group: [],
   clipboard: null,
   editing: null,
@@ -1045,7 +1051,7 @@ export const useMapStore = create<MapState>()((set, get) => ({
       return commit(s, next, gesture && `arrows:${gesture}`);
     }),
   select: (id) => set({ selected: id, group: [], selectedLink: null }),
-  hover: (id) => set({ hovered: id }),
+  hover: (id, slot = null) => set({ hovered: id, hoveredSlot: id ? slot : null }),
   moveSelection: (key) =>
     set((s) => {
       if (!hasTreeShape(s.map.kind) || s.editing) return {};

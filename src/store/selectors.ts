@@ -2,6 +2,7 @@ import { linkHighlight, nodeHighlight, reachOf, type LinkHighlight, type NodeHig
 import { shownMap } from "../domain/shown";
 import { canSetStatus } from "../domain/rules";
 import { parallelJoins, stepNumbers } from "../domain/steps";
+import type { Slot } from "../domain/bracket";
 import type { LinkId, NodeId, NodeStatus, PaletteColor } from "../domain/types";
 import type { MapState } from "./mapStore";
 
@@ -17,10 +18,11 @@ import type { MapState } from "./mapStore";
 let cached: { map: MapState["map"]; key: string; reach: Reach | null } | null = null;
 
 /** What the highlight reads from: the selection, and a bracket's hovered
-    match and picked group (optional, so a caller without them sees only
-    the selection). */
+    match (and row) and picked group (optional, so a caller without them
+    sees only the selection). */
 type HighlightState = Pick<MapState, "map" | "selected"> & {
   readonly hovered?: NodeId | null;
+  readonly hoveredSlot?: Slot | null;
   readonly group?: readonly NodeId[];
 };
 
@@ -31,6 +33,13 @@ function highlightFrom(s: HighlightState): readonly NodeId[] {
   const focus = selectFocus(s);
   if (focus) return [focus];
   return s.map.kind === "bracket" ? (s.group ?? []) : [];
+}
+
+/** The row under the mouse while the hovered match is the focus: only its
+    player's path lights (owner's call, 2026-10-17). */
+function focusSlot(s: HighlightState): Slot | null {
+  const focus = selectFocus(s);
+  return focus !== null && focus === s.hovered ? (s.hoveredSlot ?? null) : null;
 }
 
 /** The box whose highlight shows: in a bracket, the match under the mouse
@@ -44,12 +53,13 @@ export function selectFocus(s: HighlightState): NodeId | null {
     nothing (or a box that no longer exists) is focused. */
 export function selectReach(s: HighlightState): Reach | null {
   const from = highlightFrom(s);
+  const slot = focusSlot(s);
   // By the ids, not the array: the marquee hands over a new one each move.
-  const key = from.join(" ");
+  const key = `${from.join(" ")}:${slot}`;
   if (cached?.map !== s.map || cached.key !== key) {
     // Walked on the map as it shows: with "hide cut" on, hidden boxes are
     // neither lit nor counted.
-    cached = { map: s.map, key, reach: reachOf(shownMap(s.map), from) };
+    cached = { map: s.map, key, reach: reachOf(shownMap(s.map), from, slot) };
   }
   return cached.reach;
 }

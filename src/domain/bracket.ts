@@ -77,23 +77,26 @@ export function nextMatch(map: LinkMap, id: NodeId): { readonly id: NodeId; read
  * to get here, not every match that feeds it (owner's call, 2026-10-16).
  * With a winner, only the winner's path; without one, each player's path,
  * and for a still-empty slot every match that could send a player into it.
+ * With a `slot` (the row under the mouse), only that row's player's path,
+ * winner or not: the two rows' paths are separate (owner's call, 2026-10-17).
  */
-export function pathTo(map: LinkMap, id: NodeId): Set<NodeId> {
+export function pathTo(map: LinkMap, id: NodeId, slot: Slot | null = null): Set<NodeId> {
   const grid = matchGrid(map);
   const out = new Set<NodeId>();
-  // `player`: the one player to follow back from `at`, or `null` for both slots.
-  const visit = (at: NodeId, player: PlayerId | null): void => {
+  // `player`: the one player to follow back from `at`, or `null` for both
+  // slots. `only`: just this slot of `at`.
+  const visit = (at: NodeId, player: PlayerId | null, only: Slot | null = null): void => {
     const match = matchOf(map, at);
     if (!match) return;
-    match.slots.forEach((p, slot) => {
-      if (player && p !== player) return;
-      const feeder = grid[match.round - 2]?.[match.index * 2 + slot];
+    match.slots.forEach((p, s) => {
+      if (only !== null ? s !== only : player && p !== player) return;
+      const feeder = grid[match.round - 2]?.[match.index * 2 + s];
       if (!feeder) return;
       out.add(feeder);
       visit(feeder, p);
     });
   };
-  visit(id, matchOf(map, id)?.winner ?? null);
+  visit(id, slot === null ? (matchOf(map, id)?.winner ?? null) : null, slot);
   return out;
 }
 
