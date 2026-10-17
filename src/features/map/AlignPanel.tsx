@@ -43,10 +43,10 @@ const ROWS: { axis: "x" | "y"; options: { value: Align; label: string; Icon: Luc
 export function AlignPanel() {
   const alignment = useViewStore((s) => s.alignment);
   const setAlign = useViewStore((s) => s.setAlign);
-  // A bracket always sits at the top (`alignFor`): no vertical row.
+  // A bracket always sits top left (`alignFor`): nothing to align.
   const isBracket = useMapStore((s) => s.map.kind === "bracket");
-  const rows = isBracket ? ROWS.filter((r) => r.axis === "x") : ROWS;
 
+  if (isBracket) return null;
   return (
     <Popover.Root>
       <Popover.Trigger className={styles.trigger} title="Move the whole map on the screen">
@@ -56,7 +56,7 @@ export function AlignPanel() {
       <Popover.Portal>
         <Popover.Content className={styles.panel} align="start" sideOffset={6}>
           <div className={styles.title}>Align</div>
-          {rows.map(({ axis, options }) => (
+          {ROWS.map(({ axis, options }) => (
             <div key={axis} className={styles.row} role="radiogroup" aria-label={axis === "x" ? "Horizontal" : "Vertical"}>
               {options.map(({ value, label, Icon }) => (
                 <button

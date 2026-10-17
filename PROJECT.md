@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-16, v0.0.86 (in a bracket, matches picked with the marquee get their rings and all their past paths light up; every numbered step below is done, waiting for the owner's next plan)_
+_Last updated: 2026-10-16, v0.0.87 (a bracket always sits top left, one dot in from both edges at every zoom; every numbered step below is done, waiting for the owner's next plan)_
 
 ## What it is
 
@@ -990,10 +990,11 @@ in"). Loops and arrows into the start are refused in both. Code:
   below the top of the page (owner, 2026-10-16), not the usual 64px
   page margin (`BRACKET_DECOR.pageTop`). A saved bracket is laid out
   afresh each time it opens (`refitBracket`, no undo step), so a layout
-  change reaches brackets saved before it. A bracket always sits flush
-  to the top at every zoom (owner, 2026-10-16: no extra space over the
-  headings), whatever Align's vertical choice; its Align panel shows
-  only the horizontal row (`alignFor` in `domain/page.ts`). The status line names a selected match "Ann v
+  change reaches brackets saved before it. A bracket always sits top
+  left at every zoom, one dot in from both edges (owner, 2026-10-16: no
+  extra space over the headings or left of round 1), whatever Align's
+  choice, so a bracket has no Align button (`alignFor` in
+  `domain/page.ts`). The status line names a selected match "Ann v
   Bob". The shortcuts dialog has a "Bracket" section. Check:
   `domain/bracketLayout.test.ts` (no overlaps for every size, centred
   between feeders, final on the right, headings and Champion box),

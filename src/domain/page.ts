@@ -103,10 +103,10 @@ export interface PageAlign {
 export const CENTERED: PageAlign = { x: "center", y: "center" };
 
 /** The alignment a map of this kind really uses. A bracket always sits
-    flush to the top (owner, 2026-10-16), so its round headings stay one
-    dot under the toolbar at every zoom. */
+    flush to the top left (owner, 2026-10-16), one dot in from both edges
+    at every zoom. */
 export function alignFor(kind: MapKind, align: PageAlign): PageAlign {
-  return kind === "bracket" ? { x: align.x, y: "start" } : align;
+  return kind === "bracket" ? { x: "start", y: "start" } : align;
 }
 
 /** The outer edges of all the boxes, where they are now. */

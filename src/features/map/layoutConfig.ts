@@ -49,8 +49,8 @@ export const TREE_ROW_GAP = 64;
 /** A bracket's extras round its matches: how far the round headings and
     the Champion box keep from them, a heading's height, and the Champion
     box's width (`--champion-width` in tokens.css). `pageTop` is the clear
-    space over the headings (owner: one paper dot, `--page-dot-gap`), in
-    place of the page's usual top margin. */
+    space over the headings and left of round 1 (owner: one paper dot,
+    `--page-dot-gap`), in place of the page's usual margins. */
 export const BRACKET_DECOR = { gap: 16, headingHeight: 20, championWidth: 140, pageTop: 24 };
 
 /** Clear space around a tidied map on the page (the prototype's numbers). */
@@ -60,6 +60,8 @@ const BRACKET_ROOM = {
   // Less than the headings need when the page margin is wider than
   // `pageTop`: the margin then makes up the rest.
   above: BRACKET_DECOR.gap + BRACKET_DECOR.headingHeight + BRACKET_DECOR.pageTop - PAGE_MARGIN.y,
+  // One dot left of round 1, the same way.
+  left: BRACKET_DECOR.pageTop - PAGE_MARGIN.x,
   right: BRACKET_DECOR.gap + BRACKET_DECOR.championWidth,
 };
 

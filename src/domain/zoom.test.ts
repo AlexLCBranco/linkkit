@@ -55,11 +55,12 @@ describe("scrolling after a zoom", () => {
 });
 
 describe("a bracket zoomed out", () => {
-  it("stays flush to the top, whatever the vertical Align choice", () => {
+  it("stays flush to the top left, whatever the Align choice", () => {
     const page = { width: 1400, height: 820 };
     const screen = { width: 1900, height: 800 };
     const drawn = zoomPage(page, screen, 0.9, alignFor("bracket", CENTERED));
     expect(drawn.y).toBe(0);
+    expect(drawn.x).toBe(0);
     // Other maps still centre.
     expect(zoomPage(page, screen, 0.9, alignFor("connections", CENTERED)).y).toBeGreaterThan(0);
   });

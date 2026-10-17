@@ -19,9 +19,12 @@ import type { LinkMap, NodeId, Point, Size } from "./types";
  * so a tidied bracket never pushes them off the page.
  */
 
-/** Space the bracket's extras take: above the top match, right of the final. */
+/** Space the bracket's extras take: above the top match, right of the
+    final. `left` is added left of round 1 (negative: less than the page
+    margin). */
 export interface BracketRoom {
   readonly above: number;
+  readonly left?: number;
   readonly right: number;
 }
 
@@ -54,7 +57,7 @@ export function layoutBracket(
   const right = left - rowGap;
   const top = columnGap / 2;
   const bottom = grid[0].length * slot - columnGap / 2;
-  const bounds: Bounds = { left: 0, top: top - room.above, right: right + room.right, bottom };
+  const bounds: Bounds = { left: 0 - (room.left ?? 0), top: top - room.above, right: right + room.right, bottom };
   return { positions, bounds, loopLinks: new Set() };
 }
 
