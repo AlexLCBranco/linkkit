@@ -286,7 +286,7 @@ export function MapSwitcher() {
                 <KindHelp text={NEW_MAP_HELP.tree} />
               </DropdownMenuItem>
               <DropdownMenuItem onSelect={() => (newStepsAfterClose.current = true)}>
-                Steps map
+                Process
                 <KindHelp text={NEW_MAP_HELP.steps} />
               </DropdownMenuItem>
               <DropdownMenuSub>

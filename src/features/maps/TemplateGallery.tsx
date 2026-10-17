@@ -14,7 +14,7 @@ import { TemplateThumb } from "./TemplateThumb";
 const KIND_NOTE: Readonly<Record<LinkMap["kind"], string>> = {
   connections: "",
   tree: " · tree rules on",
-  steps: " · steps",
+  steps: " · process",
   bracket: " · bracket",
 };
 

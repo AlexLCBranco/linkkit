@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-17, v0.0.89 (each "+ New ▸" item has a small "?" that says what that kind of map is; every numbered step below is done, waiting for the owner’s next plan)_
+_Last updated: 2026-10-17, v0.0.90 (the Steps kind is now called "Process" on screen; every numbered step below is done, waiting for the owner’s next plan)_
 
 ## What it is
 
@@ -1058,6 +1058,11 @@ in"). Loops and arrows into the start are refused in both. Code:
   several boxes (each group is the union, less the picked ones). Check:
   `domain/bracket.test.ts`, `store/selectors.test.ts`,
   `e2e/bracket.e2e.ts` ("bracket marquee").
+- **"Steps" is called "Process" on screen** (v0.0.90, owner's call
+  2026-10-17: "process makes more sense"): "+ New ▸ Process", the blank
+  template "Process", and " · process" in the template gallery. Inside
+  the code and in saved maps the kind stays `steps`, so existing maps and
+  backups load unchanged. Check: `e2e/mapMenu.e2e.ts`.
 
 ## What's next
 

@@ -98,10 +98,10 @@ export const BUILT_IN_TEMPLATES: readonly BuiltInTemplate[] = [
   // The Steps presets (owner's spec): a process, numbered for you.
   {
     id: "steps-blank",
-    name: "Steps",
+    name: "Process",
     blurb: "A process, one step at a time: start with one step",
     kind: "steps",
-    make: steps("blank", "Steps"),
+    make: steps("blank", "Process"),
   },
   {
     id: "steps-decision",

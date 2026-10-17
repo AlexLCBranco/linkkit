@@ -28,7 +28,7 @@ test("map menu: recent 8, All maps, search, This map ▸ Rename and Delete", asy
   // clicking it shows the same and makes no map.
   await switcher(page).click();
   await page.getByRole("menuitem", { name: "+ New", exact: true }).click();
-  const help = page.getByRole("menuitem", { name: "Steps map" }).getByRole("button", { name: "What is this?" });
+  const help = page.getByRole("menuitem", { name: "Process", exact: true }).getByRole("button", { name: "What is this?" });
   await help.hover();
   await expect(page.getByRole("tooltip")).toContainText("A process in order");
   await page.getByRole("menuitem", { name: "Bracket" }).getByRole("button", { name: "What is this?" }).click();
