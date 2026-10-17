@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-17, v0.0.94 (a bracket's pinned later rounds never move while the early ones scroll; every numbered step below is done, waiting for the owner’s next plan)_
+_Last updated: 2026-10-17, v0.0.95 (the rounds before the quarterfinals are named "Round of 32" and "Round of 16"; every numbered step below is done, waiting for the owner’s next plan)_
 
 ## What it is
 
@@ -1107,6 +1107,12 @@ in"). Loops and arrows into the start are refused in both. Code:
   `store/viewStore.test.ts`, and `e2e/bracket.e2e.ts` ("bracket pinned
   rounds": pin, centred, unmoved in the very frame of a scroll, reload,
   off).
+- **The two rounds before the quarterfinals are "Round of 32" and
+  "Round of 16"** (v0.0.95, owner's request 2026-10-17). Earlier rounds
+  still count up from "Round 1" (a 256-player bracket: Round 1, 2, 3,
+  Round of 32, Round of 16, Quarterfinals …). The column headings and the
+  Rounds menu both read them from `roundNames` in `domain/bracket.ts`.
+  Check: `domain/bracket.test.ts`.
 
 ## What's next
 

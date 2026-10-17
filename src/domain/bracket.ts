@@ -40,12 +40,12 @@ export const roundsFor = (size: number): number => Math.round(Math.log2(size));
 
 /**
  * The column headings, first round first: "Round 1", "Round 2" …, with the
- * last three called "Quarterfinals", "Semifinals" and "Final" (only the
- * ones that exist).
+ * last five called "Round of 32", "Round of 16", "Quarterfinals",
+ * "Semifinals" and "Final" (only the ones that exist).
  */
 export function roundNames(size: number): string[] {
   const rounds = roundsFor(size);
-  const last = ["Final", "Semifinals", "Quarterfinals"];
+  const last = ["Final", "Semifinals", "Quarterfinals", "Round of 16", "Round of 32"];
   return Array.from({ length: rounds }, (_, i) => last[rounds - 1 - i] ?? `Round ${i + 1}`);
 }
 

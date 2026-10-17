@@ -100,7 +100,7 @@ describe("bracket headings and Champion box", () => {
     const boxes = boxesOf(layout);
     const decor = bracketDecor(map, boxes, 12);
     expect(decor.headings.map((h) => h.text)).toEqual(roundNames(16));
-    expect(decor.headings.map((h) => h.text)).toEqual(["Round 1", "Quarterfinals", "Semifinals", "Final"]);
+    expect(decor.headings.map((h) => h.text)).toEqual(["Round of 16", "Quarterfinals", "Semifinals", "Final"]);
     const grid = matchGrid(map);
     const top = Math.min(...[...boxes.values()].map((b) => b.center.y - b.size.height / 2));
     decor.headings.forEach((h, r) => {

@@ -120,13 +120,16 @@ describe("createBracket", () => {
 });
 
 describe("roundNames", () => {
-  it("names the last three rounds, the rest by number", () => {
+  it("names the last five rounds, the rest by number", () => {
     expect(roundNames(4)).toEqual(["Semifinals", "Final"]);
     expect(roundNames(8)).toEqual(["Quarterfinals", "Semifinals", "Final"]);
-    expect(roundNames(16)).toEqual(["Round 1", "Quarterfinals", "Semifinals", "Final"]);
-    expect(roundNames(64)).toEqual(["Round 1", "Round 2", "Round 3", "Quarterfinals", "Semifinals", "Final"]);
+    expect(roundNames(16)).toEqual(["Round of 16", "Quarterfinals", "Semifinals", "Final"]);
+    expect(roundNames(32)).toEqual(["Round of 32", "Round of 16", "Quarterfinals", "Semifinals", "Final"]);
+    expect(roundNames(64)).toEqual([
+      "Round 1", "Round of 32", "Round of 16", "Quarterfinals", "Semifinals", "Final",
+    ]);
     expect(roundNames(256)).toEqual([
-      "Round 1", "Round 2", "Round 3", "Round 4", "Round 5", "Quarterfinals", "Semifinals", "Final",
+      "Round 1", "Round 2", "Round 3", "Round of 32", "Round of 16", "Quarterfinals", "Semifinals", "Final",
     ]);
   });
 });

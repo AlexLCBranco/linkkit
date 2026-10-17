@@ -4,7 +4,7 @@ Bracket mode for Linkkit (owner's spec, 2026-10-16). Same process as Steps: firs
 A fourth map kind, `bracket`: a single-elimination tournament bracket. Linkkit only — no Boardkit linking, no Mermaid import/export, no keep / maybe / cut, no folding, no outline paste.
 
 ## The three things it does
-1. **Layout**: round 1 is the left column, the final is the right column. Each match sits vertically centred between the two matches that feed it. Columns get automatic headings from the size: "Round 1", "Round 2"…, with the last three named "Quarterfinals", "Semifinals", "Final" (only the ones that exist). The final's winner shows as a "Champion" box to the right of the final.
+1. **Layout**: round 1 is the left column, the final is the right column. Each match sits vertically centred between the two matches that feed it. Columns get automatic headings from the size: "Round 1", "Round 2"…, with the last five named "Round of 32", "Round of 16", "Quarterfinals", "Semifinals", "Final" (only the ones that exist). The final's winner shows as a "Champion" box to the right of the final.
 2. **Match boxes**: each match is one box with two player rows. No scores. The winner's row is bold. An empty slot shows a faint "—".
 3. **Winner moves on**: clicking a player row marks them the winner of that match and fills their name into the right slot of the next match. Clicking the bold winner again clears it. Clicking the other player switches the winner.
 
