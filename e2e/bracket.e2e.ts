@@ -84,6 +84,53 @@ test("bracket: paste names, play to a champion, cascade, undo, reload", async ({
   await expect(rows(page)).toHaveCount(0);
 });
 
+test("bracket marquee: picks both semifinals and lights both their past paths", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/linkkit/");
+  await page.getByRole("button", { name: /Switch map/ }).click();
+  await page.getByRole("menuitem", { name: "+ New bracket" }).click();
+  await page.getByRole("menuitem", { name: "8 players", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Player name" })).toBeFocused();
+  await page.evaluate((text) => navigator.clipboard.writeText(text), NAMES.join("\n"));
+  await page.keyboard.press("Control+V");
+  await page.keyboard.press("Escape");
+  // The top player wins each first-round match: Ann, Cat, Eve, Gus go on.
+  for (const name of ["Ann", "Cat", "Eve", "Gus"]) await rows(page).getByText(name, { exact: true }).first().click();
+  await expect.poll(() => rowTexts(page)).toEqual([...NAMES, "Ann", "Cat", "Eve", "Gus", "—", "—"]);
+  await page.mouse.move(5, 400); // off every match, so nothing is hovered
+
+  // Every match's look, top to bottom, round by round (7 of them).
+  const looks = () =>
+    page.locator("[data-box-id]").evaluateAll((els) =>
+      els
+        .map((el) => ({ top: el.getBoundingClientRect().top, left: el.getBoundingClientRect().left, look: el.getAttribute("data-highlight") ?? "-" }))
+        .sort((a, b) => a.left - b.left || a.top - b.top)
+        .map((m) => m.look),
+    );
+
+  // A thin strip down the semifinals' column, from above the first to
+  // below the second: it touches both and nothing else.
+  const semiTop = (await rows(page).nth(8).boundingBox())!;
+  const semiBottom = (await rows(page).nth(11).boundingBox())!;
+  const x = semiTop.x + semiTop.width / 2;
+  await page.mouse.move(x, semiTop.y - 20);
+  await page.mouse.down();
+  await page.mouse.move(x + 10, semiBottom.y + semiBottom.height + 20, { steps: 8 });
+  await page.mouse.up();
+  await page.mouse.move(5, 400);
+
+  // Round 1 (4), the semis (2), the final: both semis ringed, every
+  // first-round match that fed them lit, nothing ahead.
+  await expect.poll(looks).toEqual(["teal", "teal", "teal", "teal", "selected", "selected", "plain"]);
+  await expect(page.getByText("2 matches selected")).toBeVisible();
+
+  // Clean up: the bracket goes (to the trash of this throwaway profile).
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: /Switch map/ }).click();
+  await page.getByRole("menuitem", { name: "Delete this map" }).click();
+  await expect(rows(page)).toHaveCount(0);
+});
+
 /** The index (in `rows` order) of the row with keyboard focus, or -1. */
 const focusedRow = (page: Page) =>
   rows(page).evaluateAll((els) => els.findIndex((el) => el === document.activeElement));

@@ -65,7 +65,11 @@ export const REACH_MEANINGS: Readonly<Record<MapKind, ReachMeaning>> = {
 };
 
 export interface Reach {
+  /** The first box the highlight starts from. */
   readonly selected: NodeId;
+  /** Every box it starts from: one, or several picked together (a
+      bracket's marquee lights all their paths at once). */
+  readonly picked: ReadonlySet<NodeId>;
   /** Which way teal walked (from the map's kind). */
   readonly tealWalk: Walk;
   readonly teal: ReadonlySet<NodeId>;
@@ -105,16 +109,30 @@ export function walk(map: LinkMap, start: NodeId, direction: Walk): Set<NodeId> 
 
 const opposite = (w: Walk): Walk => (w === "forward" ? "backward" : "forward");
 
-/** `null` when nothing is selected or the selected box no longer exists. */
-export function reachOf(map: LinkMap, selected: NodeId | null): Reach | null {
-  if (selected === null || !map.nodes[selected]) return null;
+/**
+ * `null` when nothing is selected or no selected box exists any more.
+ * Several boxes: each group is every box any of them reaches, less the
+ * selected ones themselves.
+ */
+export function reachOf(map: LinkMap, selected: NodeId | readonly NodeId[] | null): Reach | null {
+  const starts = (selected === null ? [] : typeof selected === "string" ? [selected] : selected).filter(
+    (id) => map.nodes[id],
+  );
+  if (starts.length === 0) return null;
+  const picked = new Set(starts);
   const { teal: tealWalk, orangeWords, fadesRest } = REACH_MEANINGS[map.kind];
+  const gather = (from: (id: NodeId) => Set<NodeId>) => {
+    const out = new Set<NodeId>();
+    for (const start of starts) for (const id of from(start)) if (!picked.has(id)) out.add(id);
+    return out;
+  };
   return {
-    selected,
+    selected: starts[0],
+    picked,
     tealWalk,
     // A bracket follows its players' path back, not every feeding match.
-    teal: map.kind === "bracket" ? pathTo(map, selected) : walk(map, selected, tealWalk),
-    orange: orangeWords ? walk(map, selected, opposite(tealWalk)) : new Set(),
+    teal: gather((id) => (map.kind === "bracket" ? pathTo(map, id) : walk(map, id, tealWalk))),
+    orange: orangeWords ? gather((id) => walk(map, id, opposite(tealWalk))) : new Set(),
     rest: fadesRest ? "faded" : "plain",
   };
 }
@@ -124,23 +142,23 @@ export function reachOf(map: LinkMap, selected: NodeId | null): Reach | null {
  * teal, as in the prototype.
  */
 export function nodeHighlight(reach: Reach, id: NodeId): NodeHighlight {
-  if (id === reach.selected) return "selected";
+  if (reach.picked.has(id)) return "selected";
   if (reach.teal.has(id)) return "teal";
   if (reach.orange.has(id)) return "orange";
   return reach.rest;
 }
 
-/** Whether an arrow lies on a path that a walk from `selected` followed. */
-function onPath(link: Link, selected: NodeId, group: ReadonlySet<NodeId>, direction: Walk): boolean {
+/** Whether an arrow lies on a path that a walk from the picked boxes followed. */
+function onPath(link: Link, picked: ReadonlySet<NodeId>, group: ReadonlySet<NodeId>, direction: Walk): boolean {
   const [near, far] = direction === "forward" ? [link.from, link.to] : [link.to, link.from];
-  return (near === selected || group.has(near)) && group.has(far);
+  return (picked.has(near) || group.has(near)) && group.has(far);
 }
 
 /** An arrow lights up when it lies on a path the highlight follows. */
 export function linkHighlight(reach: Reach, link: Link): LinkHighlight {
-  const { selected, tealWalk } = reach;
-  if (onPath(link, selected, reach.teal, tealWalk)) return "teal";
-  if (onPath(link, selected, reach.orange, opposite(tealWalk))) return "orange";
+  const { picked, tealWalk } = reach;
+  if (onPath(link, picked, reach.teal, tealWalk)) return "teal";
+  if (onPath(link, picked, reach.orange, opposite(tealWalk))) return "orange";
   return reach.rest;
 }
 

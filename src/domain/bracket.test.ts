@@ -500,6 +500,20 @@ describe("pathTo (the highlight back from a selected match)", () => {
     expect(pathTo(map, at(map, 3, 0))).toEqual(ids(map, [1, 0], [2, 0], [1, 3], [2, 1]));
   });
 
+  it("several picked matches light all their past paths at once", () => {
+    const map = playedOut();
+    const semis = [at(map, 2, 0), at(map, 2, 1)];
+    const reach = reachOf(map, semis)!;
+    expect(reach.teal).toEqual(new Set([...pathTo(map, semis[0]), ...pathTo(map, semis[1])]));
+    for (const semi of semis) expect(nodeHighlight(reach, semi)).toBe("selected");
+    expect(nodeHighlight(reach, at(map, 3, 0))).toBe("plain"); // nothing ahead
+    // The arrows into each picked semi, from its path, light up too.
+    for (const semi of semis) {
+      const into = Object.values(map.links).find((l) => l.to === semi && reach.teal.has(l.from))!;
+      expect(linkHighlight(reach, into)).toBe("teal");
+    }
+  });
+
   it("an empty slot lights every match that could fill it", () => {
     const fresh = createBracket(asMapId("m"), "Cup", page, 8, counters()).map;
     expect(pathTo(fresh, at(fresh, 3, 0)).size).toBe(6);

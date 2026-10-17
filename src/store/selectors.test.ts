@@ -90,6 +90,25 @@ describe("a bracket's hovered match", () => {
     expect(selectNodeHighlight(s, grid[1][0])).toBe("teal");
   });
 
+  it("lights the past paths of every match the marquee picked, each with its ring", () => {
+    const { bracket, grid } = played();
+    const s = { map: bracket, selected: null, group: [grid[1][0], grid[1][1]] };
+    expect(selectNodeHighlight(s, grid[1][0])).toBe("selected");
+    expect(selectNodeHighlight(s, grid[1][1])).toBe("selected");
+    expect(selectNodeHighlight(s, grid[0][0])).toBe("teal"); // A, into the upper semi
+    expect(selectNodeHighlight(s, grid[0][2])).toBe("teal"); // E, into the lower semi
+    expect(selectNodeHighlight(s, grid[0][1])).toBe("plain");
+    expect(selectNodeHighlight(s, grid[2][0])).toBe("plain"); // nothing ahead
+    // Hovering another match shows its path; the picked ones keep their rings.
+    const hovering = { ...s, hovered: grid[0][3] };
+    expect(selectNodeHighlight(hovering, grid[1][0])).toBe("selected");
+    expect(selectNodeHighlight(hovering, grid[0][0])).toBe("plain");
+  });
+
+  it("lights no paths for a group outside a bracket", () => {
+    expect(selectNodeHighlight({ map, selected: null, group: [id("a"), id("b")] }, id("c"))).toBeNull();
+  });
+
   it("forgets a hovered match that no longer exists", () => {
     const { bracket, grid } = played();
     expect(selectFocus({ map: bracket, selected: grid[2][0], hovered: asNodeId("gone") })).toBe(grid[2][0]);

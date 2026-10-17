@@ -14,11 +14,24 @@ import type { MapState } from "./mapStore";
 // Every box and arrow asks at once after a click, so the reach is worked
 // out once and reused until the map or the selection changes. One entry is
 // enough: there is only one open map.
-let cached: { map: MapState["map"]; focus: NodeId | null; reach: Reach | null } | null = null;
+let cached: { map: MapState["map"]; key: string; reach: Reach | null } | null = null;
 
 /** What the highlight reads from: the selection, and a bracket's hovered
-    match (optional, so a caller without one sees only the selection). */
-type HighlightState = Pick<MapState, "map" | "selected"> & { readonly hovered?: NodeId | null };
+    match and picked group (optional, so a caller without them sees only
+    the selection). */
+type HighlightState = Pick<MapState, "map" | "selected"> & {
+  readonly hovered?: NodeId | null;
+  readonly group?: readonly NodeId[];
+};
+
+/** The boxes the highlight starts from: the focus, else, in a bracket, every
+    match the marquee picked (owner's call, 2026-10-16: their past paths all
+    light up). Other kinds light nothing for a group. */
+function highlightFrom(s: HighlightState): readonly NodeId[] {
+  const focus = selectFocus(s);
+  if (focus) return [focus];
+  return s.map.kind === "bracket" ? (s.group ?? []) : [];
+}
 
 /** The box whose highlight shows: in a bracket, the match under the mouse
     while there is one (owner's call, 2026-10-16), else the selected box. */
@@ -30,22 +43,24 @@ export function selectFocus(s: HighlightState): NodeId | null {
 /** What the focused box needs and what breaks without it; `null` when
     nothing (or a box that no longer exists) is focused. */
 export function selectReach(s: HighlightState): Reach | null {
-  const focus = selectFocus(s);
-  if (cached?.map !== s.map || cached.focus !== focus) {
+  const from = highlightFrom(s);
+  // By the ids, not the array: the marquee hands over a new one each move.
+  const key = from.join(" ");
+  if (cached?.map !== s.map || cached.key !== key) {
     // Walked on the map as it shows: with "hide cut" on, hidden boxes are
     // neither lit nor counted.
-    cached = { map: s.map, focus, reach: reachOf(shownMap(s.map), focus) };
+    cached = { map: s.map, key, reach: reachOf(shownMap(s.map), from) };
   }
   return cached.reach;
 }
 
 /** `null` while nothing is selected or hovered: the box looks as usual. The
-    selected box keeps its ring while another match is hovered; the hovered
-    one shows as the end of its own path (teal). */
+    selected box (or picked group) keeps its ring while another match is
+    hovered; the hovered one shows as the end of its own path (teal). */
 export function selectNodeHighlight(s: HighlightState, id: NodeId): NodeHighlight | null {
   const reach = selectReach(s);
   if (!reach || !s.map.nodes[id]) return null;
-  if (id === s.selected) return "selected";
+  if (id === s.selected || s.group?.includes(id)) return "selected";
   return id === reach.selected ? "teal" : nodeHighlight(reach, id);
 }
 

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-16, v0.0.85 (the marquee picks every box it touches, not only boxes wholly inside it; every numbered step below is done, waiting for the owner's next plan)_
+_Last updated: 2026-10-16, v0.0.86 (in a bracket, matches picked with the marquee get their rings and all their past paths light up; every numbered step below is done, waiting for the owner's next plan)_
 
 ## What it is
 
@@ -331,7 +331,8 @@ in"). Loops and arrows into the start are refused in both. Code:
     Shift+click a box adds it or takes it out; Ctrl+A picks every box;
     clicking a box (or the paper, or Escape) goes back to one / none.
     Picked boxes get the selection ring; the teal / orange highlight
-    is off while several are picked, and the status line says how many
+    is off while several are picked (except in a bracket, where every
+    picked match's past path lights up), and the status line says how many
   - Drag any picked box and they all move together as one block (it
     stops at the page's edge as a whole, so the shape never squashes).
     One undo step
@@ -1030,6 +1031,13 @@ in"). Loops and arrows into the start are refused in both. Code:
   selected match's path. The selected match keeps its ring meanwhile.
   The store's `hovered` (never saved, not undone) and `selectFocus` in
   `store/selectors.ts` (brackets only). Check: `store/selectors.test.ts`.
+- Several matches picked with the marquee each get the ring, and all
+  their past paths light up together (v0.0.86, owner's call 2026-10-16);
+  the status line says "2 matches selected · Fed by N matches". Hovering
+  another match still shows its own path meanwhile. `reachOf` takes
+  several boxes (each group is the union, less the picked ones). Check:
+  `domain/bracket.test.ts`, `store/selectors.test.ts`,
+  `e2e/bracket.e2e.ts` ("bracket marquee").
 
 ## What's next
 
@@ -2288,6 +2296,12 @@ All bridge-mapping questions are decided.
   select multiple nodes at once"): a box is picked as soon as the
   marquee touches it, not only when it holds all of it (Treekit's rule,
   dropped). Holding-all made a drag through a row pick nothing.
+- Bracket marquee (2026-10-16, v0.0.86; owner: "the lasso has to be able
+  to select the nodes 1-7 and the nodes 9-13 and highlight whatever nodes
+  are on the past path of those nodes"): picked matches had no ring and
+  lit nothing, because a match's look read only the one selected box.
+  Now a bracket lights every picked match's past path. Other kinds still
+  light nothing for a group (not asked for).
 - `.claude/launch.json` has a second dev server, `linkkit-2` on port
   5182, for when another chat already runs `linkkit` on 5181 (each port
   has its own localStorage, so test maps never mix).

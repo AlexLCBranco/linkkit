@@ -45,7 +45,11 @@ export function ReachStatus() {
   // to the gallery, where the examples are: one click to another one.
   const offerTemplates = useMapStore((s) => s.starter === s.map.id || isEmpty(s.map.nodes));
 
-  if (picked > 1) {
+  // A bracket's picked matches light their paths (see `selectReach`), so
+  // they read like one selected match (the hovered one's name while there
+  // is one); matches don't move, so no drag hint.
+  const group = picked > 1 && kind === "bracket" && !name;
+  if (picked > 1 && kind !== "bracket") {
     return (
       <>
         <span className={styles.who}>{picked} boxes selected</span>
@@ -70,7 +74,7 @@ export function ReachStatus() {
   const words = REACH_MEANINGS[kind];
   return (
     <>
-      <span className={styles.who}>{name || "Untitled"}</span>
+      <span className={styles.who}>{group ? `${picked} matches selected` : name || "Untitled"}</span>
       <span className={styles.chip}>
         <span className={styles.swatch} data-kind="teal" />
         {words.tealWords(counts.teal)}
