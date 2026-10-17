@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-16, v0.0.82 (a bracket's round headings sit one paper dot below the top of the page, not three; every numbered step below is done, waiting for the owner's next plan)_
+_Last updated: 2026-10-16, v0.0.83 (a saved bracket is laid out afresh each time it opens, so brackets saved before v0.0.82 get the one-dot gap over their headings too; every numbered step below is done, waiting for the owner's next plan)_
 
 ## What it is
 
@@ -987,7 +987,9 @@ in"). Loops and arrows into the start are refused in both. Code:
   export work as for other maps (the image shows the players, round
   names and Champion box). The round headings sit one paper dot (24px)
   below the top of the page (owner, 2026-10-16), not the usual 64px
-  page margin (`BRACKET_DECOR.pageTop`). The status line names a selected match "Ann v
+  page margin (`BRACKET_DECOR.pageTop`). A saved bracket is laid out
+  afresh each time it opens (`refitBracket`, no undo step), so a layout
+  change reaches brackets saved before it. The status line names a selected match "Ann v
   Bob". The shortcuts dialog has a "Bracket" section. Check:
   `domain/bracketLayout.test.ts` (no overlaps for every size, centred
   between feeders, final on the right, headings and Champion box),

@@ -1505,6 +1505,17 @@ describe("bracket maps in the store", () => {
     return grid;
   }
 
+  it("re-places a saved bracket as it opens, without an undo step", async () => {
+    const { useMapStore } = await freshBracket();
+    const before = useMapStore.getState();
+    const [id] = Object.keys(before.map.nodes) as NodeId[];
+    useMapStore.getState().refitBracket(new Map([[id, { x: 7, y: 9 }]]), { width: 640, height: 480 });
+    const after = useMapStore.getState();
+    expect(after.map.nodes[id]).toMatchObject({ x: 7, y: 9 });
+    expect(after.map.page).toEqual({ width: 640, height: 480 });
+    expect(after.history).toBe(before.history);
+  });
+
   it("opens a new bracket with its first slot ready for typing once shown", async () => {
     const useMapStore = await freshStore();
     useMapStore.getState().newBracket(16);

@@ -20,7 +20,7 @@ import { shownMap } from "../../domain/shown";
 import { boxesIn, marqueeSelection, rectBetween, type Rect } from "../../domain/marquee";
 import { boxBounds, clampToPage, keepOnPage, pageSize, placeBlockBeside, placeOnPage } from "../../domain/page";
 import { scrollAfterZoom, ZOOM_MAX, ZOOM_MIN, zoomPage, type ZoomedPage } from "../../domain/zoom";
-import { hasTreeShape, type ArrowLength, type LayoutDirection, type LinkId, type LinkMap, type NodeId, type Point, type Size } from "../../domain/types";
+import { hasTreeShape, type ArrowLength, type LayoutDirection, type LinkId, type LinkMap, type MapId, type NodeId, type Point, type Size } from "../../domain/types";
 import { namingNewBox, selectionOf, useMapStore } from "../../store/mapStore";
 import { useViewStore, zoomOf } from "../../store/viewStore";
 import { BoxContextMenu } from "./BoxContextMenu";
@@ -189,6 +189,17 @@ function MapCanvasInner() {
     const placed = placeOnPage(layoutMap(map, sizes, options), screen, PAGE_MARGIN, align);
     placeAll(placed.positions, placed.page);
   }, [needsTidy, allMeasured, screen, map, sizes, placeAll]);
+
+  // A saved bracket is laid out afresh once each time it opens, so a
+  // change to how brackets are laid out reaches it (`refitBracket`).
+  const refitted = useRef<MapId | null>(null);
+  useEffect(() => {
+    if (map.kind !== "bracket" || needsTidy || !allMeasured || !screen || refitted.current === map.id) return;
+    refitted.current = map.id;
+    const options = tidyOptions(map, labelSizesRef.current, map.arrowLength, map.direction);
+    const placed = placeOnPage(layoutMap(map, sizes, options), screen, PAGE_MARGIN, useViewStore.getState().alignment);
+    useMapStore.getState().refitBracket(placed.positions, placed.page);
+  }, [needsTidy, allMeasured, screen, map, sizes]);
 
   // A box that grew past the screen's edge (renamed, or newly named) moves
   // back onto it, unless other boxes already make the page bigger there.

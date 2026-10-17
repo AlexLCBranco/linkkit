@@ -359,6 +359,11 @@ export interface MapState {
   /** Moves boxes back onto the page after a change made them stick out (a
       longer name). Part of that change, so it joins the latest undo step. */
   nudgeBoxes(positions: ReadonlyMap<NodeId, Point>): void;
+  /** Re-places a saved bracket as it opens, so a change to how brackets
+      are laid out (their headings' room, say) reaches maps saved before
+      it. Not an undo step: its matches can't be moved by hand, so the
+      layout is all their positions are. */
+  refitBracket(positions: ReadonlyMap<NodeId, Point>, page: Size): void;
   /** `null` clears the colour. */
   setBoxColor(id: NodeId, color: PaletteColor | null): void;
   /** Replaces a box's notes as they are typed. One stretch of typing in
@@ -1159,6 +1164,12 @@ export const useMapStore = create<MapState>()((set, get) => ({
       // last step or with none), the room made is not something to undo.
       if (s.history.past.at(-1)?.next !== s.map) return { map: next };
       return { map: next, history: history.amendLast(s.history, s.map, next) };
+    }),
+  refitBracket: (positions, page) =>
+    set((s) => {
+      if (s.map.kind !== "bracket" || s.needsTidy) return {};
+      const next = setPage(moveNodes(s.map, positions), page);
+      return next === s.map ? {} : { map: next };
     }),
   setBoxColor: (id, color) => set((s) => commit(s, setNodeColor(s.map, id, color))),
   setBoxNotes: (id, notes) => set((s) => commit(s, setNodeNotes(s.map, id, notes), notesKey(id))),
