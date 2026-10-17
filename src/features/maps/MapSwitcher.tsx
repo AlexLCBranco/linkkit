@@ -37,6 +37,8 @@ import { useGallery } from "../../store/gallery";
 import { SaveTemplateDialog } from "./SaveTemplateDialog";
 import { BackupMenuItems } from "./BackupMenuItems";
 import { exportAllMaps, restoreFrom } from "./backupFile";
+import { KindHelp } from "./KindHelp";
+import { NEW_MAP_HELP } from "./newMapHelp";
 import { MapSearch } from "./MapSearch";
 import styles from "./MapSwitcher.module.css";
 import { useNow } from "./useNow";
@@ -277,11 +279,22 @@ export function MapSwitcher() {
                 }}
               >
                 Map
+                <KindHelp text={NEW_MAP_HELP.map} />
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => (newTreeAfterClose.current = true)}>Map with tree rules</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => (newStepsAfterClose.current = true)}>Steps map</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => (newTreeAfterClose.current = true)}>
+                Map with tree rules
+                <KindHelp text={NEW_MAP_HELP.tree} />
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => (newStepsAfterClose.current = true)}>
+                Steps map
+                <KindHelp text={NEW_MAP_HELP.steps} />
+              </DropdownMenuItem>
               <DropdownMenuSub>
-                <DropdownMenuSubTrigger>Bracket</DropdownMenuSubTrigger>
+                {/* The "?" takes the free space, so the arrow sits right after it. */}
+                <DropdownMenuSubTrigger className="[&>svg:last-child]:ml-1">
+                  Bracket
+                  <KindHelp text={NEW_MAP_HELP.bracket} />
+                </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>
                   {BRACKET_SIZES.map((size) => (
                     <DropdownMenuItem key={size} onSelect={() => (newBracketAfterClose.current = size)}>
@@ -291,9 +304,15 @@ export function MapSwitcher() {
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => setTemplates(true)}>From a template…</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setTemplates(true)}>
+                From a template…
+                <KindHelp text={NEW_MAP_HELP.template} />
+              </DropdownMenuItem>
               {boardkitHere && (
-                <DropdownMenuItem onSelect={() => setBoardChoices(boardChoices())}>From a Boardkit board…</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setBoardChoices(boardChoices())}>
+                  From a Boardkit board…
+                  <KindHelp text={NEW_MAP_HELP.boardkit} />
+                </DropdownMenuItem>
               )}
             </DropdownMenuSubContent>
           </DropdownMenuSub>

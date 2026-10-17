@@ -13,7 +13,7 @@ const switcher = (page: Page) => page.getByRole("button", { name: /^Switch map/ 
 async function newMap(page: Page, name: string) {
   await switcher(page).click();
   await page.getByRole("menuitem", { name: "+ New", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Map", exact: true }).click();
+  await page.getByRole("menuitem", { name: /^Map(?! with)/ }).click();
   const field = page.getByRole("textbox", { name: "Map name" });
   await expect(field).toBeFocused();
   await field.fill(name);
@@ -23,6 +23,26 @@ async function newMap(page: Page, name: string) {
 
 test("map menu: recent 8, All maps, search, This map ▸ Rename and Delete", async ({ page }) => {
   await page.goto("/linkkit/");
+
+  // Each "+ New ▸" item has a "?": hovering shows what that kind is;
+  // clicking it shows the same and makes no map.
+  await switcher(page).click();
+  await page.getByRole("menuitem", { name: "+ New", exact: true }).click();
+  const help = page.getByRole("menuitem", { name: "Steps map" }).getByRole("button", { name: "What is this?" });
+  await help.hover();
+  await expect(page.getByRole("tooltip")).toContainText("A process in order");
+  await page.getByRole("menuitem", { name: "Bracket" }).getByRole("button", { name: "What is this?" }).click();
+  await expect(page.getByRole("tooltip")).toContainText("knockout tournament");
+  await expect(page.getByRole("menuitem", { name: "Bracket" })).toBeVisible();
+  // Escape closes the description first, then the menu.
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("tooltip")).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  // A new bracket would open its first slot for typing.
+  await expect(page.getByRole("textbox", { name: "Player name" })).toHaveCount(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("linkkit:registry")!).maps.length)).toBe(1);
+
   const names = Array.from({ length: 9 }, (_, i) => `ZZ menu ${i + 1}`);
   for (const name of names) await newMap(page, name);
 

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-17, v0.0.88 (the map menu is regrouped: the 8 newest maps, "All maps ▸", a search box past 8 maps, then "+ New ▸", "This map ▸" and "Backup ▸"; every numbered step below is done, waiting for the owner’s next plan)_
+_Last updated: 2026-10-17, v0.0.89 (each "+ New ▸" item has a small "?" that says what that kind of map is; every numbered step below is done, waiting for the owner’s next plan)_
 
 ## What it is
 
@@ -134,7 +134,11 @@ in"). Loops and arrows into the start are refused in both. Code:
   Boardkit board…), "This map ▸" (Rename, Duplicate, Save as a template…,
   Link / Unlink Boardkit…, Delete) and "Backup ▸" (Export all maps, the
   backup status and actions, Restore all maps from a file…; it carries the
-  button’s orange dot when backups need the user). Older notes below
+  button’s orange dot when backups need the user). Each "+ New ▸" item
+  ends with a small "?" (v0.0.89, owner’s ask): hover or click it and a
+  one- or two-sentence description of that kind shows beside the menu;
+  clicking it never makes the map (`KindHelp.tsx`, wording in
+  `newMapHelp.ts`). Older notes below
   still use the old item names ("+ New map with tree rules", "Delete this
   map", …): same actions, now in these submenus. Code:
   `domain/mapMenu.ts`, `MapSwitcher.tsx`, `MapSearch.tsx`; Playwright:

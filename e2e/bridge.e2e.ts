@@ -111,7 +111,11 @@ async function renameBox(lk: Page, id: string, name: string) {
     ("+ New", "This map", "Backup"). */
 async function mapMenu(lk: Page, ...path: string[]) {
   await lk.getByRole("button", { name: /^Switch map/ }).click();
-  for (const item of path) await lk.getByRole("menuitem", { name: item, exact: true }).click();
+  // By how the name starts: a "+ New" item's name ends with its "?" button.
+  for (const item of path) {
+    const start = new RegExp(`^${item.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
+    await lk.getByRole("menuitem", { name: start }).click();
+  }
 }
 
 // --------------------------------------------------------------- Boardkit

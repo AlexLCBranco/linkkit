@@ -1,0 +1,27 @@
+/* The "?" at the end of a "+ New ▸" item: quiet until hovered. */
+.help {
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  padding-left: var(--space-3);
+  color: var(--text-muted);
+  cursor: help;
+}
+
+.help:hover {
+  color: var(--text-primary);
+}
+
+/* The description beside the menu, above it in the stack. */
+.tip {
+  max-width: 240px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-md);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-normal);
+  z-index: var(--z-popover);
+}
