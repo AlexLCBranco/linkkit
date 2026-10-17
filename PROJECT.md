@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-16, v0.0.81 (hovering a bracket match lights the path that led to it; every numbered step below is done, waiting for the owner's next plan)_
+_Last updated: 2026-10-16, v0.0.82 (a bracket's round headings sit one paper dot below the top of the page, not three; every numbered step below is done, waiting for the owner's next plan)_
 
 ## What it is
 
@@ -985,14 +985,17 @@ in"). Loops and arrows into the start are refused in both. Code:
   Left-right, no right-click menu, arrows can't be picked; Tidy up,
   arrow length, Align, zoom, rename, duplicate, trash, backups and image
   export work as for other maps (the image shows the players, round
-  names and Champion box). The status line names a selected match "Ann v
+  names and Champion box). The round headings sit one paper dot (24px)
+  below the top of the page (owner, 2026-10-16), not the usual 64px
+  page margin (`BRACKET_DECOR.pageTop`). The status line names a selected match "Ann v
   Bob". The shortcuts dialog has a "Bracket" section. Check:
   `domain/bracketLayout.test.ts` (no overlaps for every size, centred
   between feeders, final on the right, headings and Champion box),
   `domain/bracket.test.ts` (row keys, where they start, match names),
   `store/mapStore.test.ts` (new bracket, typing flow, paste, cascade and
   its Undo, a double-click's pick taken back), the keyboard and shortcut
-  table tests, and `e2e/bracket.e2e.ts` (Playwright: create 8, paste 8
+  table tests, `features/map/layoutConfig.test.ts` (one dot over the
+  headings), and `e2e/bracket.e2e.ts` (Playwright: create 8, paste 8
   names, play to a champion, change a round-1 result, Undo, reload; and
   the row keys)
 - A bracket's matches stay where Tidy up put them when the window is

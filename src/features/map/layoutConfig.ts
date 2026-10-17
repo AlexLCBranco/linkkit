@@ -48,11 +48,18 @@ export const TREE_ROW_GAP = 64;
 
 /** A bracket's extras round its matches: how far the round headings and
     the Champion box keep from them, a heading's height, and the Champion
-    box's width (`--champion-width` in tokens.css). */
-export const BRACKET_DECOR = { gap: 16, headingHeight: 20, championWidth: 140 };
+    box's width (`--champion-width` in tokens.css). `pageTop` is the clear
+    space over the headings (owner: one paper dot, `--page-dot-gap`), in
+    place of the page's usual top margin. */
+export const BRACKET_DECOR = { gap: 16, headingHeight: 20, championWidth: 140, pageTop: 24 };
+
+/** Clear space around a tidied map on the page (the prototype's numbers). */
+export const PAGE_MARGIN = { x: 54, y: 64 };
 
 const BRACKET_ROOM = {
-  above: BRACKET_DECOR.gap + BRACKET_DECOR.headingHeight,
+  // Less than the headings need when the page margin is wider than
+  // `pageTop`: the margin then makes up the rest.
+  above: BRACKET_DECOR.gap + BRACKET_DECOR.headingHeight + BRACKET_DECOR.pageTop - PAGE_MARGIN.y,
   right: BRACKET_DECOR.gap + BRACKET_DECOR.championWidth,
 };
 
@@ -63,9 +70,6 @@ export const ARROW_WHEEL_STEP = 8;
 
 /** Wheel turns this close together make one undo step. */
 export const ARROW_WHEEL_PAUSE_MS = 600;
-
-/** Clear space around a tidied map on the page (the prototype's numbers). */
-export const PAGE_MARGIN = { x: 54, y: 64 };
 
 /** Arrowhead shape and the gap between an arrow's ends and the boxes. */
 export const ARROW: ArrowOptions = { gap: 5, headLength: 9, headWidth: 9 };
