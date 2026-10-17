@@ -28,6 +28,8 @@ import { BoxContextMenu } from "./BoxContextMenu";
 import { BoxView, type BoxFlowNode } from "./BoxView";
 import { BracketDecor } from "./BracketDecor";
 import { MatchBox, type MatchFlowNode } from "./MatchBox";
+import { PinnedGhost, type GhostFlowNode } from "./PinnedGhost";
+import { PinnedLayer } from "./PinnedLayer";
 import { BRACKET_FIXED } from "../../domain/rules";
 import { ConnectPreview } from "./ConnectPreview";
 import { DropPreview } from "./DropPreview";
@@ -35,7 +37,6 @@ import { HintBubble } from "./HintBubble";
 import { RelinkPreview } from "./RelinkPreview";
 import { useHint } from "../../store/hint";
 import {
-  BRACKET_DECOR,
   BRACKET_PIN_ABOVE,
   DRAG_THRESHOLD,
   LABEL_FALLBACK_SIZE,
@@ -58,7 +59,7 @@ import { useMapShortcuts } from "./useMapShortcuts";
 
 // Defined once at module level: React Flow warns (and re-mounts every
 // node) if these objects change identity between renders.
-const nodeTypes = { box: BoxView, match: MatchBox };
+const nodeTypes = { box: BoxView, match: MatchBox, ghost: PinnedGhost };
 const edgeTypes = { link: LinkEdgeView };
 /** A node's position is its centre, matching how the map stores boxes. */
 const CENTER_ORIGIN: NodeOrigin = [0.5, 0.5];
@@ -266,22 +267,24 @@ function MapCanvasInner() {
   useLayoutEffect(() => {
     if (pinnedFrom > 0 && viewRef.current) setScrollTop(viewRef.current.scrollTop);
   }, [pinnedFrom]);
-  // Where each pinned match is drawn down the page (null: nothing pinned):
-  // fixed in the middle of the screen, in page units.
+  // Where each pinned match is drawn down the screen (null: nothing
+  // pinned): fixed in its middle, in page units from the screen's top edge.
+  // They are drawn in a layer that stays still (`PinnedLayer`); on the
+  // page they stand `viewTop` further down, for the arrows that reach them.
   const viewTop = drawn ? (scrollTop - drawn.y) / drawn.zoom : 0;
   const viewHeight = drawn && screen ? screen.height / drawn.zoom : 0;
   const pins = useMemo(() => {
     if (pinnedFrom === 0) return null;
-    const view = { top: viewTop, height: viewHeight };
+    const view = { top: 0, height: viewHeight };
     const found = pinnedRounds(map, sizes, MAP_LAYOUT.fallbackSize, pinnedFrom, view, BRACKET_PIN_ABOVE, MAP_LAYOUT.columnGap);
     return found.size > 0 ? found : null;
-  }, [map, sizes, pinnedFrom, viewTop, viewHeight]);
-  // Their headings stay at the top of the screen, where round 1's sit
-  // before any scrolling.
-  const pinnedDecor = useMemo(
-    () => (pins ? { from: pinnedFrom, headingBottom: viewTop + BRACKET_PIN_ABOVE - BRACKET_DECOR.gap } : null),
-    [pins, pinnedFrom, viewTop],
-  );
+  }, [map, sizes, pinnedFrom, viewHeight]);
+  // The page's React Flow measures a pinned match's stand-in, not the
+  // match: its sizes come from the pinned layer.
+  const pinsRef = useRef(pins);
+  useLayoutEffect(() => {
+    pinsRef.current = pins;
+  }, [pins]);
   const drawnBefore = useRef<ZoomedPage | null>(null);
   useLayoutEffect(() => {
     const before = drawnBefore.current;
@@ -529,19 +532,26 @@ function MapCanvasInner() {
     startGlide(from, shownNow(useMapStore.getState().map).nodes);
   }, [placeRequest, allMeasured, screen, needsTidy, sizes, startGlide]);
 
+  const placedAt = useCallback((id: NodeId): Point => glide.shown?.get(id) ?? map.nodes[id], [glide.shown, map.nodes]);
   const at = useCallback(
     (id: NodeId): Point => {
-      const placed = glide.shown?.get(id) ?? map.nodes[id];
       const pinnedY = pins?.get(id);
-      return pinnedY === undefined ? placed : { x: placed.x, y: pinnedY };
+      return pinnedY === undefined ? placedAt(id) : { x: placedAt(id).x, y: viewTop + pinnedY };
     },
-    [glide.shown, map.nodes, pins],
+    [placedAt, pins, viewTop],
   );
 
   const nodeType = map.kind === "bracket" ? "match" : "box";
-  const nodes = useMemo<(BoxFlowNode | MatchFlowNode)[]>(
-    () => nodeIds.map((id) => boxFlowNode(id, at(id), sizes.get(id), nodeType)),
-    [nodeIds, at, sizes, nodeType],
+  // A pinned match stands on the page as an empty stand-in (PinnedGhost);
+  // the match itself is drawn in the pinned layer.
+  const nodes = useMemo<(BoxFlowNode | MatchFlowNode | GhostFlowNode)[]>(
+    () =>
+      nodeIds.map((id) => {
+        if (!pins?.has(id)) return boxFlowNode(id, at(id), sizes.get(id), nodeType);
+        const size = sizes.get(id) ?? null;
+        return { id, type: "ghost", position: at(id), data: { size }, measured: size ?? undefined };
+      }),
+    [nodeIds, at, sizes, nodeType, pins],
   );
 
   const onLabelSize = useCallback((id: LinkId, size: Size | null) => {
@@ -634,9 +644,10 @@ function MapCanvasInner() {
     [geometries, boxes, labelSizes, map],
   );
 
+  // The arrows between two pinned matches are drawn in the pinned layer.
   const edges = useMemo<LinkFlowEdge[]>(
     () =>
-      (Object.keys(map.links) as LinkId[]).map((id) => {
+      (Object.keys(map.links) as LinkId[]).filter((id) => !(pins?.has(map.links[id].from) && pins.has(map.links[id].to))).map((id) => {
         const link = map.links[id];
         return {
           id,
@@ -646,16 +657,50 @@ function MapCanvasInner() {
           data: { geometry: geometries.get(id) ?? null, labelAt: labelSpots.get(id) ?? null, onLabelSize },
         };
       }),
-    [map.links, geometries, labelSpots, onLabelSize],
+    [map.links, geometries, labelSpots, onLabelSize, pins],
   );
 
-  const onNodesChange = useCallback((changes: NodeChange<BoxFlowNode | MatchFlowNode>[]) => {
-    // Only measured sizes are read back.
+  // The pinned layer's matches, arrows and boxes, in screen-high page
+  // units (0: the screen's top edge), which no scrolling changes.
+  const pinnedBoxes = useMemo(() => {
+    const out = new Map<NodeId, Box>();
+    for (const [id, y] of pins ?? []) {
+      const size = sizes.get(id);
+      if (size) out.set(id, { center: { x: placedAt(id).x, y }, size });
+    }
+    return out;
+  }, [pins, sizes, placedAt]);
+  const pinnedNodes = useMemo(
+    () => [...(pins ?? [])].map(([id, y]) => boxFlowNode(id, { x: placedAt(id).x, y }, sizes.get(id), "match") as MatchFlowNode),
+    [pins, sizes, placedAt],
+  );
+  const pinnedEdges = useMemo<LinkFlowEdge[]>(() => {
+    if (!pins) return [];
+    const links = Object.values(map.links).filter((l) => pins.has(l.from) && pins.has(l.to));
+    const routes = arrowRoutes(links, pinnedBoxes, map.arrowStyle, map.direction, ROUTES, new Map());
+    return links.map((l) => ({
+      id: l.id,
+      source: l.from,
+      target: l.to,
+      type: "link",
+      data: { geometry: routes.get(l.id) ?? null, labelAt: null, onLabelSize },
+    }));
+  }, [pins, pinnedBoxes, map, onLabelSize]);
+  // The page's own extras leave out the pinned rounds' (drawn in the layer).
+  const pageDecorBoxes = useMemo(
+    () => (pins ? new Map([...boxes].filter(([id]) => !pins.has(id))) : boxes),
+    [boxes, pins],
+  );
+
+  // Only measured sizes are read back: from the page, but a pinned match's
+  // from the pinned layer (its stand-in on the page is only a placeholder).
+  const readSizes = useCallback((changes: NodeChange[], fromLayer: boolean) => {
     setSizes((prev) => {
       let next: Map<NodeId, Size> | null = null;
       for (const change of changes) {
         if (change.type !== "dimensions" || !change.dimensions) continue;
         const id = change.id as NodeId;
+        if (!fromLayer && pinsRef.current?.has(id)) continue;
         const { width, height } = change.dimensions;
         const old = prev.get(id);
         if (old && old.width === width && old.height === height) continue;
@@ -665,6 +710,8 @@ function MapCanvasInner() {
       return next ?? prev;
     });
   }, []);
+  const onNodesChange = useCallback((changes: NodeChange<BoxFlowNode | MatchFlowNode | GhostFlowNode>[]) => readSizes(changes, false), [readSizes]);
+  const onPinnedNodesChange = useCallback((changes: NodeChange<MatchFlowNode>[]) => readSizes(changes, true), [readSizes]);
 
   return (
     <BoxContextMenu>
@@ -679,7 +726,9 @@ function MapCanvasInner() {
       >
         <div
           className={styles.page}
-          style={drawn ? { width: drawn.width, height: drawn.height } : FILL}
+          // Whole pixels tall, so the pinned layer (held to the screen's bottom
+          // edge from the page's) lines up exactly.
+          style={drawn ? { width: drawn.width, height: Math.ceil(drawn.height) } : FILL}
           onDoubleClick={onPageDoubleClick}
           onPointerDown={onPagePointerDown}
           data-marquee={marquee ? true : undefined}
@@ -732,7 +781,7 @@ function MapCanvasInner() {
             <RelinkPreview boxes={boxes} />
             <DropPreview />
             <HintBubble />
-            <BracketDecor boxes={boxes} pinned={pinnedDecor} />
+            <BracketDecor boxes={pageDecorBoxes} pinned={null} />
             {marquee && (
               <div
                 className={styles.marquee}
@@ -741,6 +790,20 @@ function MapCanvasInner() {
               />
             )}
           </div>
+          {pins && drawn && screen && (
+            <PinnedLayer
+              nodes={pinnedNodes}
+              edges={pinnedEdges}
+              boxes={pinnedBoxes}
+              from={pinnedFrom}
+              height={screen.height}
+              x={drawn.x}
+              zoom={drawn.zoom}
+              nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              onNodesChange={onPinnedNodesChange}
+            />
+          )}
         </div>
       </div>
     </BoxContextMenu>

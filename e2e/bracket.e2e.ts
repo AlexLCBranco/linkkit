@@ -236,7 +236,7 @@ test("bracket rounds: hiding the first rounds closes up the rest, survives a rel
   await expect(rows(page)).toHaveCount(0);
 });
 
-test("bracket pinned rounds: the later rounds follow the scroll, survive a reload, and let go", async ({ page }) => {
+test("bracket pinned rounds: the later rounds stay still while the rest scrolls, survive a reload, and let go", async ({ page }) => {
   await page.goto("/linkkit/");
   await page.getByRole("button", { name: /Switch map/ }).click();
   await page.getByRole("menuitem", { name: "+ New" }).click();
@@ -280,11 +280,28 @@ test("bracket pinned rounds: the later rounds follow the scroll, survive a reloa
   expect((await heading.boundingBox())!.y).toBeCloseTo(headingY, 0);
   expect(Math.abs(await middle())).toBeLessThan(8);
 
+  // Not even for a frame: read in the same moment as the scroll, before
+  // any script could react to it, the pinned rows have not moved while
+  // round 1 has.
+  const moved = await view.evaluate((v) => {
+    const pinned = v.querySelector("[data-pinned-layer] [data-player-row]")!;
+    const first = v.querySelector("[data-player-row]")!;
+    const before = [pinned.getBoundingClientRect().y, first.getBoundingClientRect().y];
+    v.scrollTop -= 300;
+    return [pinned.getBoundingClientRect().y - before[0], first.getBoundingClientRect().y - before[1]];
+  });
+  expect(moved[0]).toBeCloseTo(0, 0); // within half a pixel
+  expect(moved[1]).toBeCloseTo(300, 0);
+
+  // The pinned rounds are drawn once, in the layer: 7 matches, 14 rows.
+  await expect(page.locator("[data-pinned-layer] [data-player-row]")).toHaveCount(14);
+
   // A reload keeps the choice.
   await page.reload();
   await expect(rows(page)).toHaveCount(62);
   await scrollTo(600);
-  await expect.poll(() => yOf(48)).toBeCloseTo(quarters, 0);
+  // Within a pixel: text measures a fraction differently after a reload.
+  await expect.poll(async () => Math.abs((await yOf(48)) - quarters)).toBeLessThan(1);
 
   // Off: the quarterfinals scroll with the rest again.
   await scrollTo(0);

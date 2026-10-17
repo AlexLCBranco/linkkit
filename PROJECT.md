@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-17, v0.0.93 (a bracket's later rounds stay fixed mid-screen while the early ones scroll; every numbered step below is done, waiting for the owner’s next plan)_
+_Last updated: 2026-10-17, v0.0.94 (a bracket's pinned later rounds never move while the early ones scroll; every numbered step below is done, waiting for the owner’s next plan)_
 
 ## What it is
 
@@ -1090,7 +1090,14 @@ in"). Loops and arrows into the start are refused in both. Code:
   bracket.tennis (v0.0.93, owner's follow-up the same day: "always on
   the middle of the screen fixed"; v0.0.92 had them follow the scroll
   from the bracket's top and stop at its bottom). A block taller than the
-  screen starts right under the headings. The button shows a pin
+  screen starts right under the headings. Since v0.0.94 (owner, same day:
+  "the pinned side can't move at all while scrolling") the pinned rounds,
+  their arrows, headings and Champion box are drawn in their own layer
+  (`PinnedLayer`, its own React Flow) that the browser holds still with
+  CSS `position: sticky`, so they don't lag even one frame; v0.0.93
+  moved them back after each scroll, which shook. On the page each pinned
+  match leaves an empty stand-in (`PinnedGhost`) for the arrows from the
+  last scrolling round, which are the only thing redrawn as it scrolls. The button shows a pin
   while it is on. A drawing only: the saved places never change, and
   the image export shows the bracket unpinned. A view choice like hidden
   rounds (decided while building): per bracket, remembered in this
@@ -1098,7 +1105,8 @@ in"). Loops and arrows into the start are refused in both. Code:
   place: `pinnedRounds` in `domain/bracketLayout.ts` (headings:
   `bracketDecor`'s `pinnedFrom`). Check: `domain/bracketLayout.test.ts`,
   `store/viewStore.test.ts`, and `e2e/bracket.e2e.ts` ("bracket pinned
-  rounds": pin, centred, scroll, reload, off).
+  rounds": pin, centred, unmoved in the very frame of a scroll, reload,
+  off).
 
 ## What's next
 

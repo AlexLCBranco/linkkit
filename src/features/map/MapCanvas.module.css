@@ -76,3 +76,21 @@
 .page[data-marquee] {
   user-select: none;
 }
+
+/* A bracket's pinned later rounds (PinnedLayer): a layer the screen's
+   height whose own place is the page's bottom edge, held to the screen's
+   bottom edge (so it covers the screen exactly) by the browser as the
+   page scrolls up and down. Only its matches take the mouse: clicks
+   anywhere else reach the page under it. */
+.pinned {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--z-sticky);
+  width: 100%;
+  pointer-events: none;
+}
+
+.pinned :global(.react-flow__pane),
+.pinned :global(.react-flow__edge) {
+  pointer-events: none;
+}
