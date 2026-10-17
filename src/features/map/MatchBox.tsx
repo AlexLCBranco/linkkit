@@ -8,6 +8,7 @@ import { pressed } from "../../domain/shortcuts";
 import type { NodeId } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { selectNodeHighlight } from "../../store/selectors";
+import { shownNow } from "../../store/viewStore";
 import boxStyles from "./BoxView.module.css";
 import styles from "./MatchBox.module.css";
 import { BOX_ID_ATTRIBUTE, focusPlayerRow, PLAYER_ROW_ATTRIBUTE } from "./pageMarkers";
@@ -146,7 +147,7 @@ function PlayerRow({ match, slot, typed }: PlayerRowProps) {
     e.preventDefault();
     // Not the map's own keys.
     e.stopPropagation();
-    const to = rowAfterKey(useMapStore.getState().map, { match, slot }, e.key as RowKey);
+    const to = rowAfterKey(shownNow(useMapStore.getState().map), { match, slot }, e.key as RowKey);
     if (to) focusPlayerRow(to);
   };
 

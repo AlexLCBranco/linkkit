@@ -36,7 +36,7 @@ test("bracket: paste names, play to a champion, cascade, undo, reload", async ({
   const field = page.getByRole("textbox", { name: "Player name" });
   await expect(field).toBeFocused();
   await expect(page.getByText("Quarterfinals")).toBeVisible();
-  await expect(page.getByText("Semifinals")).toBeVisible();
+  await expect(page.getByText("Semifinals", { exact: true })).toBeVisible();
   await expect(page.getByText("Final", { exact: true })).toBeVisible();
   // 14 rows, less the one being typed in.
   await expect(rows(page)).toHaveCount(13);
@@ -179,6 +179,55 @@ test("bracket keys: Enter and ↓ go down, ← → land on a match's top row, fo
   await expect.poll(() => focusedRow(page)).toBe(-1);
   await page.keyboard.press("ArrowDown");
   await expect.poll(() => focusedRow(page)).toBe(0);
+
+  // Clean up: the bracket goes (to the trash of this throwaway profile).
+  await page.getByRole("button", { name: /Switch map/ }).click();
+  await page.getByRole("menuitem", { name: "This map" }).click();
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
+  await expect(rows(page)).toHaveCount(0);
+});
+
+test("bracket rounds: hiding the first rounds closes up the rest, survives a reload, and comes back", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/linkkit/");
+  await page.getByRole("button", { name: /Switch map/ }).click();
+  await page.getByRole("menuitem", { name: "+ New" }).click();
+  await page.getByRole("menuitem", { name: "Bracket" }).click();
+  await page.getByRole("menuitem", { name: "8 players", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Player name" })).toBeFocused();
+  await page.evaluate((text) => navigator.clipboard.writeText(text), NAMES.join("\n"));
+  await page.keyboard.press("Control+V");
+  await page.keyboard.press("Escape");
+  for (const name of ["Ann", "Cat", "Eve", "Gus"]) await rows(page).getByText(name, { exact: true }).first().click();
+  await expect.poll(() => rowTexts(page)).toEqual([...NAMES, "Ann", "Cat", "Eve", "Gus", "—", "—"]);
+  const firstMatchLeft = async () => (await rows(page).first().boundingBox())!.x;
+  const leftBefore = await firstMatchLeft();
+
+  // Rounds ▸ Semifinals: the quarterfinals go, the semifinals take their
+  // place on the left.
+  await page.getByRole("button", { name: "Rounds shown" }).click();
+  await page.getByRole("menuitemradio", { name: "Semifinals" }).click();
+  await expect.poll(() => rowTexts(page)).toEqual(["Ann", "Cat", "Eve", "Gus", "—", "—"]);
+  await expect(page.getByText("Quarterfinals")).toHaveCount(0);
+  await expect(page.getByText("Semifinals", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Rounds shown" })).toHaveText("From Semifinals");
+  await expect.poll(firstMatchLeft).toBeCloseTo(leftBefore, 0);
+
+  // Still played as usual: Ann beats Cat, and moves on.
+  await rows(page).first().click();
+  await expect.poll(() => rowTexts(page)).toEqual(["Ann", "Cat", "Eve", "Gus", "Ann", "—"]);
+
+  // A reload keeps the choice.
+  await page.waitForTimeout(1_500); // the save is debounced
+  await page.reload();
+  await expect.poll(() => rowTexts(page)).toEqual(["Ann", "Cat", "Eve", "Gus", "Ann", "—"]);
+
+  // Back to every round: the quarterfinals return with their results.
+  await page.getByRole("button", { name: "Rounds shown" }).click();
+  await page.getByRole("menuitemradio", { name: /Quarterfinals/ }).click();
+  await expect.poll(() => rowTexts(page)).toEqual([...NAMES, "Ann", "Cat", "Eve", "Gus", "Ann", "—"]);
+  await expect(page.getByRole("button", { name: "Rounds shown" })).toHaveText("Rounds");
+  expect(await winners(page)).toBe("W.W.W.W.W.....");
 
   // Clean up: the bracket goes (to the trash of this throwaway profile).
   await page.getByRole("button", { name: /Switch map/ }).click();

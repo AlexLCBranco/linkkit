@@ -38,3 +38,23 @@ describe("zoom per map", () => {
     expect(useViewStore.getState().zooms).toEqual({});
   });
 });
+
+describe("hidden rounds per bracket", () => {
+  it("keeps each bracket's choice apart, across a reload, and forgets one showing every round", async () => {
+    const { useViewStore, roundsHiddenOf } = await freshStore();
+    useViewStore.getState().setHiddenRounds("a", 2);
+    useViewStore.getState().setHiddenRounds("b", 1);
+    useViewStore.getState().setHiddenRounds("b", 0);
+    const after = await freshStore();
+    const { hiddenRounds } = after.useViewStore.getState();
+    expect(roundsHiddenOf(hiddenRounds, "a")).toBe(2);
+    expect(roundsHiddenOf(hiddenRounds, "b")).toBe(0);
+    expect(JSON.parse(localStorage.getItem("linkkit:hiddenRounds")!)).toEqual({ a: 2 });
+  });
+
+  it("ignores a damaged saved value", async () => {
+    localStorage.setItem("linkkit:hiddenRounds", '{"a":-1,"b":"two","c":2}');
+    const { useViewStore } = await freshStore();
+    expect(useViewStore.getState().hiddenRounds).toEqual({ c: 2 });
+  });
+});

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-17, v0.0.90 (the Steps kind is now called "Process" on screen; every numbered step below is done, waiting for the owner’s next plan)_
+_Last updated: 2026-10-17, v0.0.91 (brackets can hide their first rounds; every numbered step below is done, waiting for the owner’s next plan)_
 
 ## What it is
 
@@ -1063,6 +1063,22 @@ in"). Loops and arrows into the start are refused in both. Code:
   template "Process", and " · process" in the template gallery. Inside
   the code and in saved maps the kind stays `steps`, so existing maps and
   backups load unchanged. Check: `e2e/mapMenu.e2e.ts`.
+- **A bracket can hide its first rounds** (v0.0.91, owner's request
+  2026-10-17: "a button where I can hide rounds to make the view of the
+  bracket cleaner", as on bracket sites). A "Rounds" button in the header
+  (brackets only) opens "Show rounds from": Round 1 (all) … Final. Picking
+  a later round takes the earlier ones off the page and the rest close up
+  to the left, the first round shown standing where round 1 was; the
+  button then reads "From Quarterfinals" and looks pressed. The final
+  always shows. Results in hidden rounds stay as they were, and come back
+  with them. It is a view choice, like zoom (decided while building): per
+  bracket, remembered in this browser (`linkkit:hiddenRounds`), no undo
+  step, not in backups; the image export still shows every round. Row
+  keys stay on the rounds shown. One place: `shownMap(map, hiddenRounds)`
+  in `domain/shown.ts`, the same rule that takes hidden cut branches off
+  a tree. Check: `domain/shown.test.ts`, `domain/bracketLayout.test.ts`,
+  `domain/bracket.test.ts` (row keys), `store/viewStore.test.ts`, and
+  `e2e/bracket.e2e.ts` ("bracket rounds": hide, play, reload, show all).
 
 ## What's next
 

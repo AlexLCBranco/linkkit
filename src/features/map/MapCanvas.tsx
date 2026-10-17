@@ -20,9 +20,9 @@ import { shownMap } from "../../domain/shown";
 import { boxesIn, marqueeSelection, rectBetween, type Rect } from "../../domain/marquee";
 import { alignFor, boxBounds, clampToPage, keepOnPage, pageSize, placeBlockBeside, placeOnPage } from "../../domain/page";
 import { scrollAfterZoom, ZOOM_MAX, ZOOM_MIN, zoomPage, type ZoomedPage } from "../../domain/zoom";
-import { hasTreeShape, type ArrowLength, type LayoutDirection, type LinkId, type LinkMap, type MapId, type NodeId, type Point, type Size } from "../../domain/types";
+import { hasTreeShape, type ArrowLength, type LayoutDirection, type LinkId, type LinkMap, type NodeId, type Point, type Size } from "../../domain/types";
 import { namingNewBox, selectionOf, useMapStore } from "../../store/mapStore";
-import { useViewStore, zoomOf } from "../../store/viewStore";
+import { roundsHiddenOf, shownNow, useViewStore, zoomOf } from "../../store/viewStore";
 import { BoxContextMenu } from "./BoxContextMenu";
 import { BoxView, type BoxFlowNode } from "./BoxView";
 import { BracketDecor } from "./BracketDecor";
@@ -125,8 +125,11 @@ function tidyOptions(map: LinkMap, labelSizes: ReadonlyMap<LinkId, Size>, arrowL
  */
 function MapCanvasInner() {
   // The map as it shows: with "hide cut" on, boxes that look cut are not
-  // drawn, measured or laid out (they keep their saved places).
-  const map = useMapStore((s) => shownMap(s.map));
+  // drawn, measured or laid out (they keep their saved places); nor are a
+  // bracket's hidden rounds.
+  const mapId = useMapStore((s) => s.map.id);
+  const roundsHidden = useViewStore((s) => roundsHiddenOf(s.hiddenRounds, mapId));
+  const map = useMapStore((s) => shownMap(s.map, roundsHidden));
   const needsTidy = useMapStore((s) => s.needsTidy);
   const placeAll = useMapStore((s) => s.placeAll);
   const select = useMapStore((s) => s.select);
@@ -191,15 +194,18 @@ function MapCanvasInner() {
   }, [needsTidy, allMeasured, screen, map, sizes, placeAll]);
 
   // A saved bracket is laid out afresh once each time it opens, so a
-  // change to how brackets are laid out reaches it (`refitBracket`).
-  const refitted = useRef<MapId | null>(null);
+  // change to how brackets are laid out reaches it (`refitBracket`), and
+  // again when rounds are hidden or shown (once the ones coming back are
+  // measured), so what is left closes up.
+  const refitted = useRef<string | null>(null);
   useEffect(() => {
-    if (map.kind !== "bracket" || needsTidy || !allMeasured || !screen || refitted.current === map.id) return;
-    refitted.current = map.id;
+    const key = `${map.id}:${roundsHidden}`;
+    if (map.kind !== "bracket" || needsTidy || !allMeasured || !screen || refitted.current === key) return;
+    refitted.current = key;
     const options = tidyOptions(map, labelSizesRef.current, map.arrowLength, map.direction);
     const placed = placeOnPage(layoutMap(map, sizes, options), screen, PAGE_MARGIN, alignFor(map.kind, useViewStore.getState().alignment));
     useMapStore.getState().refitBracket(placed.positions, placed.page);
-  }, [needsTidy, allMeasured, screen, map, sizes]);
+  }, [needsTidy, allMeasured, screen, map, sizes, roundsHidden]);
 
   // A box that grew past the screen's edge (renamed, or newly named) moves
   // back onto it, unless other boxes already make the page bigger there.
@@ -334,7 +340,7 @@ function MapCanvasInner() {
   const startGlide = glide.start;
   useEffect(() => {
     const centres = (m: typeof map) => new Map<NodeId, Point>(Object.values(m.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
-    const glideFrom = (from: Map<NodeId, Point>) => startGlide(from, shownMap(useMapStore.getState().map).nodes);
+    const glideFrom = (from: Map<NodeId, Point>) => startGlide(from, shownNow(useMapStore.getState().map).nodes);
     // Tidy up, in the direction and arrow length asked for (switching
     // either is a tidy with the new setting, saved together with it).
     const offTidy = useMapStore.subscribe((s, prev) => {
@@ -342,7 +348,7 @@ function MapCanvasInner() {
       const screen = screenRef.current;
       if (!screen) return;
       const { direction, arrowLength, gesture } = s.tidyRequest;
-      const shown = shownMap(s.map);
+      const shown = shownNow(s.map);
       const layout = layoutMap(shown, sizesRef.current, tidyOptions(shown, labelSizesRef.current, arrowLength, direction), direction);
       const placed = placeOnPage(layout, screen, PAGE_MARGIN, alignFor(shown.kind, useViewStore.getState().alignment));
       const from = centres(shown);
@@ -355,7 +361,7 @@ function MapCanvasInner() {
       const s = useMapStore.getState();
       const screen = screenRef.current;
       if (v.applied === prev.applied || s.needsTidy || !screen) return;
-      const shown = shownMap(s.map);
+      const shown = shownNow(s.map);
       const from = centres(shown);
       const bounds = boxBounds(shown, sizesRef.current, MAP_LAYOUT.fallbackSize);
       const placed = placeOnPage({ positions: from, bounds }, screen, PAGE_MARGIN, alignFor(shown.kind, v.alignment));
@@ -377,13 +383,13 @@ function MapCanvasInner() {
   const settleTree = useCallback(
     (sizes: ReadonlyMap<NodeId, Size>, screen: Size) => {
       const s = useMapStore.getState();
-      const shown = shownMap(s.map);
+      const shown = shownNow(s.map);
       const options = tidyOptions(shown, labelSizesRef.current, shown.arrowLength, shown.direction);
       const layout = layoutMap(shown, sizes, options, shown.direction);
       const placed = placeOnPage(layout, screen, PAGE_MARGIN, alignFor(shown.kind, useViewStore.getState().alignment));
       const from = new Map<NodeId, Point>(Object.values(shown.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
       s.nudgeBoxes(placed.positions);
-      startGlide(from, shownMap(useMapStore.getState().map).nodes);
+      startGlide(from, shownNow(useMapStore.getState().map).nodes);
     },
     [startGlide],
   );
@@ -434,7 +440,7 @@ function MapCanvasInner() {
   // A tree box let go where it can't stay glides home (`cancelDrag`).
   const glideRequest = useMapStore((s) => s.glideRequest);
   useLayoutEffect(() => {
-    if (glideRequest) startGlide(glideRequest.from, shownMap(useMapStore.getState().map).nodes);
+    if (glideRequest) startGlide(glideRequest.from, shownNow(useMapStore.getState().map).nodes);
   }, [glideRequest, startGlide]);
 
   // Switching a tree's label style resizes its boxes (Treekit's are wider):
@@ -487,11 +493,11 @@ function MapCanvasInner() {
     };
     const layout = layoutMap(block, sizes, tidyOptions(block, labelSizesRef.current, s.map.arrowLength, s.map.direction));
     const box = (id: NodeId) => ({ center: s.map.nodes[id], size: sizes.get(id) ?? MAP_LAYOUT.fallbackSize });
-    const others = (Object.keys(shownMap(s.map).nodes) as NodeId[]).filter((id) => !ids.has(id) && id !== anchor.id).map(box);
+    const others = (Object.keys(shownNow(s.map).nodes) as NodeId[]).filter((id) => !ids.has(id) && id !== anchor.id).map(box);
     const positions = placeBlockBeside(layout, box(anchor.id), others, PASTE_BLOCK, s.map.direction);
     const from = new Map<NodeId, Point>([...ids].map((id) => [id, { x: s.map.nodes[id].x, y: s.map.nodes[id].y }]));
     s.nudgeBoxes(positions);
-    startGlide(from, shownMap(useMapStore.getState().map).nodes);
+    startGlide(from, shownNow(useMapStore.getState().map).nodes);
   }, [placeRequest, allMeasured, screen, needsTidy, sizes, startGlide]);
 
   const at = useCallback((id: NodeId): Point => glide.shown?.get(id) ?? map.nodes[id], [glide.shown, map.nodes]);

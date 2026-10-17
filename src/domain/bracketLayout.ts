@@ -36,7 +36,9 @@ export function layoutBracket(
 ): MapLayout {
   const { columnGap, rowGap, fallbackSize } = options;
   const sizeOf = (id: NodeId) => sizes.get(id) ?? fallbackSize;
-  const grid = matchGrid(map);
+  // The rounds still shown: with the first ones hidden (`shownMap`), the
+  // first round shown takes round 1's place, stacked from the top.
+  const grid = matchGrid(map).filter((column) => column);
   const positions = new Map<NodeId, Point>();
   if (grid.length === 0) return { positions, bounds: { left: 0, top: 0, right: 0, bottom: 0 }, loopLinks: new Set() };
 

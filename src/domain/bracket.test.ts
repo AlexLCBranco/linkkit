@@ -31,6 +31,7 @@ import { asLinkId, asMapId, asNodeId, asPlayerId } from "./ids";
 import { mergeMaps } from "./merge";
 import { linkHighlight, nodeHighlight, REACH_MEANINGS, reachOf } from "./reach";
 import { readMap, serializeMap } from "./persistence";
+import { shownMap } from "./shown";
 import {
   canAddNextStep,
   canDeleteBox,
@@ -414,6 +415,17 @@ describe("two tabs", () => {
     expect(repairBracket(merged)).toEqual({ map: merged, fixes: 0 });
     expect(names(merged, 2, 0)).toEqual(["Bob", "Cat"]);
     expect(m(merged, 2, 0).winner).toBeNull();
+  });
+});
+
+describe("row keys with the first rounds hidden", () => {
+  it("start on the first match shown, and left stops at the first round shown", () => {
+    const map = shownMap(eight(), 1);
+    expect(startRow(map, null)).toEqual({ match: at(eight(), 2, 0), slot: 0 });
+    // A selected match that is hidden: the first match shown instead.
+    expect(startRow(map, at(eight(), 1, 2))).toEqual({ match: at(eight(), 2, 0), slot: 0 });
+    expect(rowAfterKey(map, { match: at(eight(), 2, 1), slot: 1 }, "ArrowLeft")).toBeNull();
+    expect(rowAfterKey(map, { match: at(eight(), 2, 0), slot: 1 }, "ArrowDown")).toEqual({ match: at(eight(), 2, 1), slot: 0 });
   });
 });
 

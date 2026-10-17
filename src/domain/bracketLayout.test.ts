@@ -5,6 +5,7 @@ import { bracketDecor, layoutBracket } from "./bracketLayout";
 import type { Box } from "./geometry";
 import { asMapId } from "./ids";
 import { layoutMap, type MapLayout } from "./layout";
+import { shownMap } from "./shown";
 import type { NodeId, Size } from "./types";
 
 const options = { columnGap: 32, rowGap: 60, fallbackSize: { width: 160, height: 64 } };
@@ -127,5 +128,31 @@ describe("bracket headings and Champion box", () => {
     const decor = bracketDecor(map, only, 12);
     expect(decor.headings).toEqual([{ round: 1, text: "Semifinals", x: 5, bottom: 40 - 12 }]);
     expect(decor.champion).toBeNull();
+  });
+});
+
+describe("bracket layout with the first rounds hidden", () => {
+  it.each([1, 2, 3])("lays the first round shown out as round 1, after hiding %i of a 16-player bracket's", (hidden) => {
+    const full = bracket(16);
+    const shown = shownMap(full, hidden);
+    const layout = layoutBracket(shown, new Map(), options);
+    const grid = matchGrid(full).slice(hidden);
+    expect(layout.positions.size).toBe(grid.flat().length);
+    // The same as a fresh bracket that size: from the top left, no gaps.
+    const small = bracket((16 >> hidden) as (typeof BRACKET_SIZES)[number]);
+    const smallLayout = layoutBracket(small, new Map(), options);
+    const smallGrid = matchGrid(small);
+    grid.forEach((column, r) =>
+      column.forEach((id, i) => expect(layout.positions.get(id)).toEqual(smallLayout.positions.get(smallGrid[r][i]))),
+    );
+    expect(layout.bounds).toEqual(smallLayout.bounds);
+  });
+
+  it("heads only the rounds still shown", () => {
+    const full = bracket(8);
+    const layout = layoutBracket(shownMap(full, 1), new Map(), options);
+    const decor = bracketDecor(full, boxesOf(layout), 12);
+    expect(decor.headings.map((h) => h.text)).toEqual(["Semifinals", "Final"]);
+    expect(decor.champion).not.toBeNull();
   });
 });

@@ -1,3 +1,4 @@
+import { roundsFor } from "./bracket";
 import { parentsFirst } from "./graph";
 import { looksCut } from "./status";
 import type { Link, LinkId, LinkMap, MapNode, NodeId } from "./types";
@@ -14,12 +15,30 @@ import type { Link, LinkId, LinkMap, MapNode, NodeId } from "./types";
  * Off the page means not drawn, not laid out by Tidy up, not lit by the
  * highlight nor counted. Boxes keep their saved places for when they come
  * back. A connections map always shows everything.
+ *
+ * A bracket has its own: its first `hiddenRounds` rounds are off the page
+ * (the header's "Rounds" menu), so the rest reads cleaner. That one is a
+ * view choice, not part of the map: the caller passes it in.
  */
 
-let cached: { map: LinkMap; hidden: ReadonlySet<NodeId>; shown: LinkMap } | null = null;
+let cached: { map: LinkMap; rounds: number; hidden: ReadonlySet<NodeId>; shown: LinkMap } | null = null;
 
-function compute(map: LinkMap): { hidden: ReadonlySet<NodeId>; shown: LinkMap } {
+/** How many of a bracket's first rounds may be hidden at most: all but
+    the final, which always shows. 0 for any other map. */
+export const hidableRounds = (map: LinkMap): number =>
+  map.kind === "bracket" ? Math.max(0, roundsFor(Object.values(map.nodes).filter((n) => n.match).length + 1) - 1) : 0;
+
+/** `rounds` brought into range for this map (0 up to `hidableRounds`). */
+export const clampRounds = (map: LinkMap, rounds: number): number =>
+  Math.min(Math.max(0, Math.floor(rounds) || 0), hidableRounds(map));
+
+function compute(map: LinkMap, rounds: number): { hidden: ReadonlySet<NodeId>; shown: LinkMap } {
   const hidden = new Set<NodeId>();
+  if (map.kind === "bracket") {
+    const off = clampRounds(map, rounds);
+    for (const n of Object.values(map.nodes)) if (n.match && n.match.round <= off) hidden.add(n.id);
+    return without(map, hidden);
+  }
   if (map.kind !== "tree" || (!map.hideCut && map.collapsed.length === 0)) return { hidden, shown: map };
   const cut = map.hideCut ? looksCut(map) : new Set<NodeId>();
   const folded = new Set(map.collapsed);
@@ -31,6 +50,11 @@ function compute(map: LinkMap): { hidden: ReadonlySet<NodeId>; shown: LinkMap } 
     if ((cut.has(id) && ins.length > 0) || (ins.length > 0 && ins.every((p) => hidden.has(p) || folded.has(p)))) hidden.add(id);
   }
   for (const id of cut) if (!judged.has(id)) hidden.add(id);
+  return without(map, hidden);
+}
+
+/** `map` less the `hidden` boxes and every arrow touching them. */
+function without(map: LinkMap, hidden: ReadonlySet<NodeId>): { hidden: ReadonlySet<NodeId>; shown: LinkMap } {
   if (hidden.size === 0) return { hidden, shown: map };
   const nodes = Object.fromEntries(Object.values(map.nodes).filter((n) => !hidden.has(n.id)).map((n) => [n.id, n]));
   const links = Object.fromEntries(
@@ -44,8 +68,8 @@ function compute(map: LinkMap): { hidden: ReadonlySet<NodeId>; shown: LinkMap } 
   };
 }
 
-function shownOf(map: LinkMap) {
-  if (cached?.map !== map) cached = { map, ...compute(map) };
+function shownOf(map: LinkMap, rounds: number) {
+  if (cached?.map !== map || cached.rounds !== rounds) cached = { map, rounds, ...compute(map, rounds) };
   return cached;
 }
 
@@ -55,10 +79,10 @@ function shownOf(map: LinkMap) {
  * highlight walks. The same object when nothing is off the page, and the
  * same result for the same map, so it can be read freely while rendering.
  */
-export const shownMap = (map: LinkMap): LinkMap => shownOf(map).shown;
+export const shownMap = (map: LinkMap, hiddenRounds = 0): LinkMap => shownOf(map, hiddenRounds).shown;
 
 /** The boxes off the page (hidden cut, or folded away). */
-export const hiddenBoxes = (map: LinkMap): ReadonlySet<NodeId> => shownOf(map).hidden;
+export const hiddenBoxes = (map: LinkMap): ReadonlySet<NodeId> => shownOf(map, 0).hidden;
 
 /** How many boxes after `id` are off the page: the "+N" on a collapsed
     box. Walks forward through hidden boxes only. */

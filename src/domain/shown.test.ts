@@ -4,7 +4,9 @@ import { asNodeId } from "./ids";
 import { deleteNode, setCollapsed, setHideCut, setNodesStatus } from "./map";
 import { readMap, serializeMap } from "./persistence";
 import { canCollapse } from "./rules";
-import { hiddenAfter, hiddenBoxes, shownMap } from "./shown";
+import { createBracket, matchGrid } from "./bracket";
+import { asMapId } from "./ids";
+import { clampRounds, hidableRounds, hiddenAfter, hiddenBoxes, shownMap } from "./shown";
 import { build, buildTree, ids } from "./testMaps";
 import type { LinkMap } from "./types";
 
@@ -93,5 +95,40 @@ describe("saving collapse", () => {
     const read = readMap(saved, page);
     expect(read.status).toBe("repaired");
     expect(read.status !== "unreadable" && read.map.collapsed).toEqual(ids("buy"));
+  });
+});
+
+describe("a bracket's hidden rounds", () => {
+  const cup = createBracket(asMapId("cup"), "Cup", { width: 800, height: 600 }, 16).map;
+  const grid = matchGrid(cup);
+
+  it("takes the first rounds' matches off the page, with every arrow touching them", () => {
+    const shown = shownMap(cup, 2);
+    expect(Object.keys(shown.nodes).sort()).toEqual([...grid[2], ...grid[3]].sort());
+    for (const link of Object.values(shown.links)) {
+      expect(shown.nodes[link.from] && shown.nodes[link.to]).toBeTruthy();
+    }
+    // Each semifinal -> the final.
+    expect(Object.keys(shown.links)).toHaveLength(2);
+    // The saved map keeps every match and its place.
+    expect(Object.keys(cup.nodes)).toHaveLength(15);
+  });
+
+  it("always keeps the final, and hides nothing at 0", () => {
+    expect(hidableRounds(cup)).toBe(3);
+    expect(Object.keys(shownMap(cup, 9).nodes)).toEqual(grid[3]);
+    expect(shownMap(cup, 0)).toBe(cup);
+    expect(shownMap(cup, -2)).toBe(cup);
+    expect(clampRounds(cup, 9)).toBe(3);
+    expect(clampRounds(cup, 1.7)).toBe(1);
+  });
+
+  it("is the same object for the same map and count, so it can be read while rendering", () => {
+    expect(shownMap(cup, 1)).toBe(shownMap(cup, 1));
+  });
+
+  it("means nothing outside a bracket", () => {
+    expect(hidableRounds(job())).toBe(0);
+    expect(shownMap(job(), 2)).toEqual(shownMap(job()));
   });
 });

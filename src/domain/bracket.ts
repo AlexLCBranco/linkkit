@@ -392,10 +392,11 @@ export function rowAfterKey(map: LinkMap, from: RowSpot, key: RowKey): RowSpot |
 
 /** Where the row keys start when no row has keyboard focus yet (after
     typing a name, or a click on the page): the top row of `selected` if it
-    is a match, else the bracket's first slot. */
+    is a match, else the bracket's first slot (the first one shown when the
+    first rounds are hidden: pass the map as it shows). */
 export function startRow(map: LinkMap, selected: NodeId | null): RowSpot | null {
   if (selected && matchOf(map, selected)) return { match: selected, slot: 0 };
-  const first = matchGrid(map)[0]?.[0];
+  const first = matchGrid(map).find((column) => column)?.[0];
   return first ? { match: first, slot: 0 } : null;
 }
 

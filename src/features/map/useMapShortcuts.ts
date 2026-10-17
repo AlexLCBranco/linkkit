@@ -7,6 +7,7 @@ import { hasTreeShape, PALETTE_COLORS } from "../../domain/types";
 import type { NodeId } from "../../domain/types";
 import { selectionOf, useMapStore } from "../../store/mapStore";
 import { useShortcutsDialog } from "../../store/shortcutsDialog";
+import { shownNow } from "../../store/viewStore";
 import { BOX_ID_ATTRIBUTE, focusPlayerRow, MAP_VIEW_ATTRIBUTE } from "./pageMarkers";
 
 /** What the handler reads from a key press: a `KeyboardEvent` has it all,
@@ -104,7 +105,7 @@ export function onMapKey(e: KeyPress): void {
   // click on the page): start on the selected match's top row. A focused
   // row handles them itself (MatchBox).
   if (store.map.kind === "bracket" && is("moveRow") && !store.editing && onCanvas(e.target)) {
-    const start = startRow(store.map, focusedBox(e.target) ?? one);
+    const start = startRow(shownNow(store.map), focusedBox(e.target) ?? one);
     if (!start) return;
     e.preventDefault();
     focusPlayerRow(start);
