@@ -1,4 +1,4 @@
-import { Columns3 } from "lucide-react";
+import { Columns3, Pin } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -6,12 +6,16 @@ import {
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
 import { bracketSize, roundNames } from "../../domain/bracket";
 import { clampRounds } from "../../domain/shown";
 import { selectionOf, useMapStore } from "../../store/mapStore";
-import { roundsHiddenOf, useViewStore } from "../../store/viewStore";
+import { pinnedFromOf, roundsHiddenOf, useViewStore } from "../../store/viewStore";
 import styles from "./HideCutToggle.module.css";
 
 /**
@@ -21,10 +25,16 @@ import styles from "./HideCutToggle.module.css";
  * left. A view choice, like zoom: remembered per bracket in this browser,
  * no undo step, and the results in hidden rounds stay as they are.
  * Pressed while any round is hidden. Its look is "Hide cut"'s.
+ *
+ * "Keep on screen" pins the later rounds, as on bracket.tennis: from the
+ * round picked on, the matches pack together and follow the screen down
+ * while the early rounds scroll past (`pinnedRounds`). Also a view choice,
+ * per bracket; the button shows a pin while it is on.
  */
 export function RoundsMenu() {
   const map = useMapStore((s) => (s.map.kind === "bracket" ? s.map : null));
   const stored = useViewStore((s) => (map ? roundsHiddenOf(s.hiddenRounds, map.id) : 0));
+  const pinnedFrom = useViewStore((s) => (map ? pinnedFromOf(s.pinnedRounds, map.id) : 0));
   if (!map) return null;
 
   const names = roundNames(bracketSize(map));
@@ -36,6 +46,9 @@ export function RoundsMenu() {
     if (selectionOf(store).some((id) => (store.map.nodes[id]?.match?.round ?? Infinity) <= rounds)) store.select(null);
     useViewStore.getState().setHiddenRounds(map.id, rounds);
   };
+  // Only a round after the first one shown can be pinned.
+  const pinned = pinnedFrom > hidden + 1 && pinnedFrom <= names.length ? pinnedFrom : 0;
+  const Icon = pinned ? Pin : Columns3;
 
   return (
     <DropdownMenu>
@@ -43,11 +56,11 @@ export function RoundsMenu() {
         <button
           type="button"
           className={styles.toggle}
-          aria-pressed={hidden > 0}
+          aria-pressed={hidden > 0 || pinned > 0}
           aria-label="Rounds shown"
-          title="Hide the first rounds"
+          title="Hide the first rounds, or keep the later ones on screen"
         >
-          <Columns3 size={14} aria-hidden />
+          <Icon size={14} aria-hidden />
           {/* Short, so the header still fits the map's name. */}
           <span className={styles.word}>{hidden > 0 ? `From ${names[hidden]}` : "Rounds"}</span>
         </button>
@@ -61,6 +74,29 @@ export function RoundsMenu() {
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <Pin aria-hidden />
+            Keep on screen
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="min-w-44">
+            <DropdownMenuLabel>Later rounds follow the scroll</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={String(pinned)}
+              onValueChange={(value) => useViewStore.getState().setPinnedFrom(map.id, Number(value))}
+            >
+              <DropdownMenuRadioItem value="0">Off</DropdownMenuRadioItem>
+              {names.map((name, i) =>
+                i > hidden ? (
+                  <DropdownMenuRadioItem key={name} value={String(i + 1)}>
+                    {name} on
+                  </DropdownMenuRadioItem>
+                ) : null,
+              )}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
       </DropdownMenuContent>
     </DropdownMenu>
   );

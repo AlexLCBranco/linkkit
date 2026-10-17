@@ -58,3 +58,23 @@ describe("hidden rounds per bracket", () => {
     expect(useViewStore.getState().hiddenRounds).toEqual({ c: 2 });
   });
 });
+
+describe("pinned rounds per bracket", () => {
+  it("keeps each bracket's choice apart, across a reload, and forgets one turned off", async () => {
+    const { useViewStore } = await freshStore();
+    useViewStore.getState().setPinnedFrom("a", 4);
+    useViewStore.getState().setPinnedFrom("b", 3);
+    useViewStore.getState().setPinnedFrom("b", 0);
+    const after = await freshStore();
+    const { pinnedRounds } = after.useViewStore.getState();
+    expect(after.pinnedFromOf(pinnedRounds, "a")).toBe(4);
+    expect(after.pinnedFromOf(pinnedRounds, "b")).toBe(0);
+    expect(JSON.parse(localStorage.getItem("linkkit:pinnedRounds")!)).toEqual({ a: 4 });
+  });
+
+  it("ignores a damaged saved value, and round 1 (pinning everything)", async () => {
+    localStorage.setItem("linkkit:pinnedRounds", '{"a":1,"b":"two","c":3}');
+    const { useViewStore } = await freshStore();
+    expect(useViewStore.getState().pinnedRounds).toEqual({ c: 3 });
+  });
+});

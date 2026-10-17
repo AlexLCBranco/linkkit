@@ -14,12 +14,13 @@ import { BRACKET_DECOR } from "./layoutConfig";
  * … "Final"), and the Champion box right of the final, showing the
  * final's winner (a faint "—" until there is one). Placed from where the
  * matches are drawn, so they glide with them (`bracketDecor`). Nothing in
- * any other map.
+ * any other map. Rounds pinned from round `pinnedFrom` (0: none) carry their
+ * headings with them.
  */
-export function BracketDecor({ boxes }: { readonly boxes: ReadonlyMap<NodeId, Box> }) {
+export function BracketDecor({ boxes, pinnedFrom }: { readonly boxes: ReadonlyMap<NodeId, Box>; readonly pinnedFrom: number }) {
   const map = useMapStore((s) => (s.map.kind === "bracket" ? s.map : null));
   if (!map) return null;
-  const { headings, champion: spot } = bracketDecor(map, boxes, BRACKET_DECOR.gap);
+  const { headings, champion: spot } = bracketDecor(map, boxes, BRACKET_DECOR.gap, pinnedFrom);
   const name = playerName(map, champion(map));
   return (
     <>

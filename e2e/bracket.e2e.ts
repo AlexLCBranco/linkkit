@@ -235,3 +235,58 @@ test("bracket rounds: hiding the first rounds closes up the rest, survives a rel
   await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
   await expect(rows(page)).toHaveCount(0);
 });
+
+test("bracket pinned rounds: the later rounds follow the scroll, survive a reload, and let go", async ({ page }) => {
+  await page.goto("/linkkit/");
+  await page.getByRole("button", { name: /Switch map/ }).click();
+  await page.getByRole("menuitem", { name: "+ New" }).click();
+  await page.getByRole("menuitem", { name: "Bracket" }).click();
+  await page.getByRole("menuitem", { name: "32 players", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Player name" })).toBeFocused();
+  await page.keyboard.press("Escape");
+
+  const view = page.locator("[data-map-view]");
+  const scrollTo = (top: number) => view.evaluate((v, t) => v.scrollTo(0, t), top);
+  // Round 1's first row, and the quarterfinals' first (after round 1's 32
+  // rows and round 2's 16).
+  const yOf = async (n: number) => (await rows(page).nth(n).boundingBox())!.y;
+  const pin = async (item: string) => {
+    await page.getByRole("button", { name: "Rounds shown" }).click();
+    await page.getByRole("menuitem", { name: "Keep on screen" }).click();
+    await page.getByRole("menuitemradio", { name: item }).click();
+  };
+
+  await pin("Quarterfinals on");
+  await expect(page.getByRole("button", { name: "Rounds shown" })).toHaveAttribute("aria-pressed", "true");
+  const round1 = await yOf(0);
+  const quarters = await yOf(48);
+  const heading = page.getByText("Quarterfinals", { exact: true });
+  const headingY = (await heading.boundingBox())!.y;
+
+  // Scrolled down: round 1 goes up the screen, the quarterfinals and their
+  // heading stay put.
+  await scrollTo(600);
+  await expect.poll(() => yOf(0)).toBeCloseTo(round1 - 600, 0);
+  await expect.poll(() => yOf(48)).toBeCloseTo(quarters, 0);
+  expect((await heading.boundingBox())!.y).toBeCloseTo(headingY, 0);
+
+  // A reload keeps the choice.
+  await page.reload();
+  await expect(rows(page)).toHaveCount(62);
+  await scrollTo(600);
+  await expect.poll(() => yOf(48)).toBeCloseTo(quarters, 0);
+
+  // Off: the quarterfinals scroll with the rest again.
+  await scrollTo(0);
+  await pin("Off");
+  await expect(page.getByRole("button", { name: "Rounds shown" })).toHaveAttribute("aria-pressed", "false");
+  const unpinned = await yOf(48);
+  await scrollTo(600);
+  await expect.poll(() => yOf(48)).toBeCloseTo(unpinned - 600, 0);
+
+  // Clean up: the bracket goes (to the trash of this throwaway profile).
+  await page.getByRole("button", { name: /Switch map/ }).click();
+  await page.getByRole("menuitem", { name: "This map" }).click();
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
+  await expect(rows(page)).toHaveCount(0);
+});

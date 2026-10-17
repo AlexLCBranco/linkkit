@@ -65,6 +65,10 @@ const BRACKET_ROOM = {
   right: BRACKET_DECOR.gap + BRACKET_DECOR.championWidth,
 };
 
+/** A bracket's pinned later rounds keep this far below the screen's top
+    edge: room for their headings over them (`pinnedRounds`). */
+export const BRACKET_PIN_ABOVE = BRACKET_DECOR.gap + BRACKET_DECOR.headingHeight + BRACKET_DECOR.pageTop;
+
 /** One notch of the mouse wheel over the arrow length (deltaY 100 in most
     browsers) changes it by this many pixels. Trackpads send smaller
     deltas, so they change it smoothly. */

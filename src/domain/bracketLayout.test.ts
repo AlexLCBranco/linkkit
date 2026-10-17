@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { BRACKET_SIZES, createBracket, matchGrid, roundNames, setWinner, firstRoundSlots, renamePlayer } from "./bracket";
-import { bracketDecor, layoutBracket } from "./bracketLayout";
+import { bracketDecor, layoutBracket, pinnedRounds } from "./bracketLayout";
 import type { Box } from "./geometry";
 import { asMapId } from "./ids";
 import { layoutMap, type MapLayout } from "./layout";
@@ -154,5 +154,62 @@ describe("bracket layout with the first rounds hidden", () => {
     const decor = bracketDecor(full, boxesOf(layout), 12);
     expect(decor.headings.map((h) => h.text)).toEqual(["Semifinals", "Final"]);
     expect(decor.champion).not.toBeNull();
+  });
+});
+
+describe("pinned later rounds", () => {
+  const map = bracket(32);
+  const layout = layoutBracket(map, new Map(), options);
+  const grid = matchGrid(map);
+  const h = options.fallbackSize.height;
+  const top = Math.min(...grid[0].map((id) => layout.positions.get(id)!.y)) - h / 2;
+  const bottom = Math.max(...grid[0].map((id) => layout.positions.get(id)!.y)) + h / 2;
+  const pin = (from: number, viewTop: number, m = map) =>
+    pinnedRounds(m, layout.positions, new Map(), options.fallbackSize, from, viewTop, 40, options.columnGap);
+
+  it("packs the rounds from the one picked on, each still centred between its feeders, at the bracket's top", () => {
+    // Semifinals of 32; the screen's top where the headings fit over round 1.
+    const pins = pin(4, top - 40);
+    expect([...pins.keys()].sort()).toEqual([...grid[3], ...grid[4]].sort());
+    const qf = grid[3].map((id) => pins.get(id)!);
+    expect(qf[0] - h / 2).toBeCloseTo(top);
+    for (let i = 1; i < qf.length; i++) expect(qf[i] - qf[i - 1]).toBeCloseTo(h + options.columnGap);
+    expect(pins.get(grid[4][0])).toBeCloseTo((qf[0] + qf[1]) / 2);
+    // Earlier rounds keep their places: nothing for them.
+    for (const id of grid[2]) expect(pins.has(id)).toBe(false);
+  });
+
+  it("follows the screen down as the page scrolls, below room for the headings", () => {
+    const at0 = pin(4, top - 40).get(grid[3][0])!;
+    const scrolled = pin(4, 500).get(grid[3][0])!;
+    expect(scrolled - h / 2).toBeCloseTo(500 + 40);
+    expect(at0 - h / 2).toBeCloseTo(top);
+  });
+
+  it("stops at the bracket's bottom", () => {
+    const pins = pin(4, 1e6);
+    const last = Math.max(...[...pins.values()]) + h / 2;
+    expect(last).toBeCloseTo(bottom);
+  });
+
+  it("pins nothing from the first round shown or earlier, or past the final", () => {
+    expect(pin(1, 500).size).toBe(0);
+    expect(pin(5, 500).size).toBe(1); // the final alone
+    expect(pin(6, 500).size).toBe(0);
+    const shown = shownMap(map, 2); // rounds 1 and 2 hidden
+    expect(pin(3, 500, shown).size).toBe(0);
+    expect(pin(4, 500, shown).size).toBe(3);
+  });
+
+  it("puts the pinned rounds' headings over the pinned block, the others over round 1", () => {
+    const pins = pin(4, 500);
+    const boxes = new Map<NodeId, Box>(
+      [...layout.positions].map(([id, c]) => [id, { center: { x: c.x, y: pins.get(id) ?? c.y }, size: options.fallbackSize }]),
+    );
+    const { headings } = bracketDecor(map, boxes, 16, 4);
+    const bottoms = headings.map((x) => x.bottom);
+    expect(bottoms.slice(0, 3).every((b) => Math.abs(b - (top - 16)) < 0.01)).toBe(true);
+    expect(bottoms[3]).toBeCloseTo(500 + 40 - 16);
+    expect(bottoms[4]).toBeCloseTo(500 + 40 - 16);
   });
 });

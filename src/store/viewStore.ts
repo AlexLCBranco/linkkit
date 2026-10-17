@@ -11,6 +11,9 @@ const ZOOM_KEY = "linkkit:zoom";
 /** Each bracket's hidden first rounds, by map id: `{ "<id>": 2 }`. A
     bracket showing every round has no entry. */
 const ROUNDS_KEY = "linkkit:hiddenRounds";
+/** Each bracket's first pinned round, by map id: `{ "<id>": 4 }`. A
+    bracket with nothing pinned has no entry. */
+const PINNED_KEY = "linkkit:pinnedRounds";
 
 const isAlign = (v: unknown): v is Align => v === "start" || v === "center" || v === "end";
 
@@ -67,22 +70,27 @@ function saveNumber(key: string, record: Readonly<Record<string, number>>, id: s
  *
  * Hidden rounds are per map too (brackets only, the header's "Rounds"
  * menu): how many of the first rounds are off the page. Like zoom, a view
- * choice: no undo step, not in a backup.
+ * choice: no undo step, not in a backup. So is pinning the later rounds
+ * (the same menu): from which round on they follow the screen down.
  */
 export const useViewStore = create<{
   alignment: PageAlign;
   applied: number;
   zooms: Readonly<Record<string, number>>;
   hiddenRounds: Readonly<Record<string, number>>;
+  pinnedRounds: Readonly<Record<string, number>>;
   setAlign: (axis: "x" | "y", value: Align) => void;
   setZoom: (mapId: string, zoom: number) => void;
   /** Hides the first `rounds` rounds of bracket `mapId` (0: shows all). */
   setHiddenRounds: (mapId: string, rounds: number) => void;
+  /** Pins bracket `mapId`'s rounds from round `round` on (0: none). */
+  setPinnedFrom: (mapId: string, round: number) => void;
 }>()((set, get) => ({
   alignment: load(),
   applied: 0,
   zooms: loadNumbers(ZOOM_KEY, clampZoom),
   hiddenRounds: loadNumbers(ROUNDS_KEY, (n) => (n >= 1 ? Math.floor(n) : null)),
+  pinnedRounds: loadNumbers(PINNED_KEY, (n) => (n >= 2 ? Math.floor(n) : null)),
   setAlign: (axis, value) => {
     const alignment = { ...get().alignment, [axis]: value };
     try {
@@ -95,6 +103,10 @@ export const useViewStore = create<{
   setZoom: (mapId, zoom) => set({ zooms: saveNumber(ZOOM_KEY, get().zooms, mapId, clampZoom(zoom), 1) }),
   setHiddenRounds: (mapId, rounds) =>
     set({ hiddenRounds: saveNumber(ROUNDS_KEY, get().hiddenRounds, mapId, Math.max(0, Math.floor(rounds) || 0), 0) }),
+  setPinnedFrom: (mapId, round) => {
+    const from = Math.floor(round) || 0;
+    set({ pinnedRounds: saveNumber(PINNED_KEY, get().pinnedRounds, mapId, from >= 2 ? from : 0, 0) });
+  },
 }));
 
 /** The zoom a map is drawn at (100% unless chosen otherwise). */
@@ -103,6 +115,9 @@ export const zoomOf = (zooms: Readonly<Record<string, number>>, mapId: string): 
 /** How many of a bracket's first rounds are hidden (0: none). Pass it to
     `shownMap`, which also keeps it in range for the map. */
 export const roundsHiddenOf = (hiddenRounds: Readonly<Record<string, number>>, mapId: string): number => hiddenRounds[mapId] ?? 0;
+
+/** The round a bracket's pinned rounds start from (0: none pinned). */
+export const pinnedFromOf = (pinnedRounds: Readonly<Record<string, number>>, mapId: string): number => pinnedRounds[mapId] ?? 0;
 
 /** The map as it shows now, read outside rendering: with a bracket's
     hidden rounds off the page too (`shownMap`). */

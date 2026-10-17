@@ -22,7 +22,8 @@ import { alignFor, boxBounds, clampToPage, keepOnPage, pageSize, placeBlockBesid
 import { scrollAfterZoom, ZOOM_MAX, ZOOM_MIN, zoomPage, type ZoomedPage } from "../../domain/zoom";
 import { hasTreeShape, type ArrowLength, type LayoutDirection, type LinkId, type LinkMap, type NodeId, type Point, type Size } from "../../domain/types";
 import { namingNewBox, selectionOf, useMapStore } from "../../store/mapStore";
-import { roundsHiddenOf, shownNow, useViewStore, zoomOf } from "../../store/viewStore";
+import { pinnedFromOf, roundsHiddenOf, shownNow, useViewStore, zoomOf } from "../../store/viewStore";
+import { pinnedRounds } from "../../domain/bracketLayout";
 import { BoxContextMenu } from "./BoxContextMenu";
 import { BoxView, type BoxFlowNode } from "./BoxView";
 import { BracketDecor } from "./BracketDecor";
@@ -34,6 +35,7 @@ import { HintBubble } from "./HintBubble";
 import { RelinkPreview } from "./RelinkPreview";
 import { useHint } from "../../store/hint";
 import {
+  BRACKET_PIN_ABOVE,
   DRAG_THRESHOLD,
   LABEL_FALLBACK_SIZE,
   LABELS,
@@ -250,10 +252,28 @@ function MapCanvasInner() {
   // scroll is the one before the zoom (kept as it scrolls): by now the
   // browser may already have cut it short to fit a smaller page.
   const scrolled = useRef({ left: 0, top: 0 });
+  // A bracket's pinned later rounds follow the screen down (`pinnedRounds`),
+  // so only then does scrolling redraw the page.
+  const pinnedFrom = useViewStore((s) => (map.kind === "bracket" ? pinnedFromOf(s.pinnedRounds, map.id) : 0));
+  const [scrollTop, setScrollTop] = useState(0);
   const onScroll = useCallback(() => {
     const view = viewRef.current;
-    if (view) scrolled.current = { left: view.scrollLeft, top: view.scrollTop };
-  }, []);
+    if (!view) return;
+    scrolled.current = { left: view.scrollLeft, top: view.scrollTop };
+    if (pinnedFrom > 0) setScrollTop(view.scrollTop);
+  }, [pinnedFrom]);
+  useLayoutEffect(() => {
+    if (pinnedFrom > 0 && viewRef.current) setScrollTop(viewRef.current.scrollTop);
+  }, [pinnedFrom]);
+  // Where each pinned match is drawn down the page (null: nothing pinned):
+  // the block follows the screen's top edge, in page units.
+  const viewTop = drawn ? (scrollTop - drawn.y) / drawn.zoom : 0;
+  const pins = useMemo(() => {
+    if (pinnedFrom === 0) return null;
+    const centres = new Map<NodeId, Point>(Object.values(map.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
+    const found = pinnedRounds(map, centres, sizes, MAP_LAYOUT.fallbackSize, pinnedFrom, viewTop, BRACKET_PIN_ABOVE, MAP_LAYOUT.columnGap);
+    return found.size > 0 ? found : null;
+  }, [map, sizes, pinnedFrom, viewTop]);
   const drawnBefore = useRef<ZoomedPage | null>(null);
   useLayoutEffect(() => {
     const before = drawnBefore.current;
@@ -304,7 +324,8 @@ function MapCanvasInner() {
   // enough to show it. Not while a button is held (a box being dragged
   // past the edge, a marquee), nor for a group.
   const selectedId = useMapStore((s) => (s.group.length === 0 ? s.selected : null));
-  const selectedAt = selectedId ? map.nodes[selectedId] : undefined;
+  // A pinned match is always on screen: scrolling to it would chase it.
+  const selectedAt = selectedId && !pins?.has(selectedId) ? map.nodes[selectedId] : undefined;
   const selectedSize = selectedId ? sizes.get(selectedId) : undefined;
   const pressing = useRef(false);
   useEffect(() => {
@@ -500,7 +521,14 @@ function MapCanvasInner() {
     startGlide(from, shownNow(useMapStore.getState().map).nodes);
   }, [placeRequest, allMeasured, screen, needsTidy, sizes, startGlide]);
 
-  const at = useCallback((id: NodeId): Point => glide.shown?.get(id) ?? map.nodes[id], [glide.shown, map.nodes]);
+  const at = useCallback(
+    (id: NodeId): Point => {
+      const placed = glide.shown?.get(id) ?? map.nodes[id];
+      const pinnedY = pins?.get(id);
+      return pinnedY === undefined ? placed : { x: placed.x, y: pinnedY };
+    },
+    [glide.shown, map.nodes, pins],
+  );
 
   const nodeType = map.kind === "bracket" ? "match" : "box";
   const nodes = useMemo<(BoxFlowNode | MatchFlowNode)[]>(
@@ -696,7 +724,7 @@ function MapCanvasInner() {
             <RelinkPreview boxes={boxes} />
             <DropPreview />
             <HintBubble />
-            <BracketDecor boxes={boxes} />
+            <BracketDecor boxes={boxes} pinnedFrom={pins ? pinnedFrom : 0} />
             {marquee && (
               <div
                 className={styles.marquee}
