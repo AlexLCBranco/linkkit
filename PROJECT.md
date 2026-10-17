@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-16, v0.0.83 (a saved bracket is laid out afresh each time it opens, so brackets saved before v0.0.82 get the one-dot gap over their headings too; every numbered step below is done, waiting for the owner's next plan)_
+_Last updated: 2026-10-16, v0.0.84 (a bracket always sits flush to the top, so zooming out no longer opens a gap over its round headings; every numbered step below is done, waiting for the owner's next plan)_
 
 ## What it is
 
@@ -989,7 +989,10 @@ in"). Loops and arrows into the start are refused in both. Code:
   below the top of the page (owner, 2026-10-16), not the usual 64px
   page margin (`BRACKET_DECOR.pageTop`). A saved bracket is laid out
   afresh each time it opens (`refitBracket`, no undo step), so a layout
-  change reaches brackets saved before it. The status line names a selected match "Ann v
+  change reaches brackets saved before it. A bracket always sits flush
+  to the top at every zoom (owner, 2026-10-16: no extra space over the
+  headings), whatever Align's vertical choice; its Align panel shows
+  only the horizontal row (`alignFor` in `domain/page.ts`). The status line names a selected match "Ann v
   Bob". The shortcuts dialog has a "Bracket" section. Check:
   `domain/bracketLayout.test.ts` (no overlaps for every size, centred
   between feeders, final on the right, headings and Champion box),

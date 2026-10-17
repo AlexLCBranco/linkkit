@@ -10,6 +10,7 @@ import {
 import { Popover } from "radix-ui";
 
 import type { Align } from "../../domain/page";
+import { useMapStore } from "../../store/mapStore";
 import { useViewStore } from "../../store/viewStore";
 import styles from "./AlignPanel.module.css";
 
@@ -42,6 +43,9 @@ const ROWS: { axis: "x" | "y"; options: { value: Align; label: string; Icon: Luc
 export function AlignPanel() {
   const alignment = useViewStore((s) => s.alignment);
   const setAlign = useViewStore((s) => s.setAlign);
+  // A bracket always sits at the top (`alignFor`): no vertical row.
+  const isBracket = useMapStore((s) => s.map.kind === "bracket");
+  const rows = isBracket ? ROWS.filter((r) => r.axis === "x") : ROWS;
 
   return (
     <Popover.Root>
@@ -52,7 +56,7 @@ export function AlignPanel() {
       <Popover.Portal>
         <Popover.Content className={styles.panel} align="start" sideOffset={6}>
           <div className={styles.title}>Align</div>
-          {ROWS.map(({ axis, options }) => (
+          {rows.map(({ axis, options }) => (
             <div key={axis} className={styles.row} role="radiogroup" aria-label={axis === "x" ? "Horizontal" : "Vertical"}>
               {options.map(({ value, label, Icon }) => (
                 <button

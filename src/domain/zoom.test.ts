@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { CENTERED } from "./page";
+import { alignFor, CENTERED } from "./page";
 import { clampZoom, scrollAfterZoom, ZOOM_MAX, ZOOM_MIN, zoomedIn, zoomedOut, zoomPage } from "./zoom";
 
 describe("zoom steps", () => {
@@ -51,5 +51,16 @@ describe("scrolling after a zoom", () => {
   it("never asks for a scroll before the start", () => {
     const view = { left: 500, top: 300, width: 1000, height: 600 };
     expect(scrollAfterZoom(view, { x: 0, y: 0, zoom: 2 }, { x: 250, y: 150, zoom: 0.5 })).toEqual({ left: 0, top: 0 });
+  });
+});
+
+describe("a bracket zoomed out", () => {
+  it("stays flush to the top, whatever the vertical Align choice", () => {
+    const page = { width: 1400, height: 820 };
+    const screen = { width: 1900, height: 800 };
+    const drawn = zoomPage(page, screen, 0.9, alignFor("bracket", CENTERED));
+    expect(drawn.y).toBe(0);
+    // Other maps still centre.
+    expect(zoomPage(page, screen, 0.9, alignFor("connections", CENTERED)).y).toBeGreaterThan(0);
   });
 });

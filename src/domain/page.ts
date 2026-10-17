@@ -1,5 +1,5 @@
 import type { Bounds, MapLayout } from "./layout";
-import type { LayoutDirection, LinkMap, NodeId, Point, Size } from "./types";
+import type { LayoutDirection, LinkMap, MapKind, NodeId, Point, Size } from "./types";
 
 /**
  * The page: the sheet the boxes live on. It is the screen (the area the
@@ -101,6 +101,13 @@ export interface PageAlign {
 }
 
 export const CENTERED: PageAlign = { x: "center", y: "center" };
+
+/** The alignment a map of this kind really uses. A bracket always sits
+    flush to the top (owner, 2026-10-16), so its round headings stay one
+    dot under the toolbar at every zoom. */
+export function alignFor(kind: MapKind, align: PageAlign): PageAlign {
+  return kind === "bracket" ? { x: align.x, y: "start" } : align;
+}
 
 /** The outer edges of all the boxes, where they are now. */
 export function boxBounds(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, fallbackSize: Size): Bounds {

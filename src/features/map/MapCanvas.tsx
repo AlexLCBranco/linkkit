@@ -18,7 +18,7 @@ import { layoutMap } from "../../domain/layout";
 import { scrollToReveal } from "../../domain/navigation";
 import { shownMap } from "../../domain/shown";
 import { boxesIn, marqueeSelection, rectBetween, type Rect } from "../../domain/marquee";
-import { boxBounds, clampToPage, keepOnPage, pageSize, placeBlockBeside, placeOnPage } from "../../domain/page";
+import { alignFor, boxBounds, clampToPage, keepOnPage, pageSize, placeBlockBeside, placeOnPage } from "../../domain/page";
 import { scrollAfterZoom, ZOOM_MAX, ZOOM_MIN, zoomPage, type ZoomedPage } from "../../domain/zoom";
 import { hasTreeShape, type ArrowLength, type LayoutDirection, type LinkId, type LinkMap, type MapId, type NodeId, type Point, type Size } from "../../domain/types";
 import { namingNewBox, selectionOf, useMapStore } from "../../store/mapStore";
@@ -184,7 +184,7 @@ function MapCanvasInner() {
 
   useEffect(() => {
     if (!needsTidy || !allMeasured || !screen) return;
-    const align = useViewStore.getState().alignment;
+    const align = alignFor(map.kind, useViewStore.getState().alignment);
     const options = tidyOptions(map, labelSizesRef.current, map.arrowLength, map.direction);
     const placed = placeOnPage(layoutMap(map, sizes, options), screen, PAGE_MARGIN, align);
     placeAll(placed.positions, placed.page);
@@ -197,7 +197,7 @@ function MapCanvasInner() {
     if (map.kind !== "bracket" || needsTidy || !allMeasured || !screen || refitted.current === map.id) return;
     refitted.current = map.id;
     const options = tidyOptions(map, labelSizesRef.current, map.arrowLength, map.direction);
-    const placed = placeOnPage(layoutMap(map, sizes, options), screen, PAGE_MARGIN, useViewStore.getState().alignment);
+    const placed = placeOnPage(layoutMap(map, sizes, options), screen, PAGE_MARGIN, alignFor(map.kind, useViewStore.getState().alignment));
     useMapStore.getState().refitBracket(placed.positions, placed.page);
   }, [needsTidy, allMeasured, screen, map, sizes]);
 
@@ -232,7 +232,8 @@ function MapCanvasInner() {
   // The page as drawn at this map's zoom, and React Flow's camera to match:
   // never panned, only scaled and set where the zoomed page goes.
   const zoom = useViewStore((s) => zoomOf(s.zooms, map.id));
-  const alignment = useViewStore((s) => s.alignment);
+  const chosenAlignment = useViewStore((s) => s.alignment);
+  const alignment = useMemo(() => alignFor(map.kind, chosenAlignment), [map.kind, chosenAlignment]);
   const drawn = useMemo(
     () => (page && screen ? zoomPage(page, screen, zoom, alignment) : null),
     [page, screen, zoom, alignment],
@@ -343,7 +344,7 @@ function MapCanvasInner() {
       const { direction, arrowLength, gesture } = s.tidyRequest;
       const shown = shownMap(s.map);
       const layout = layoutMap(shown, sizesRef.current, tidyOptions(shown, labelSizesRef.current, arrowLength, direction), direction);
-      const placed = placeOnPage(layout, screen, PAGE_MARGIN, useViewStore.getState().alignment);
+      const placed = placeOnPage(layout, screen, PAGE_MARGIN, alignFor(shown.kind, useViewStore.getState().alignment));
       const from = centres(shown);
       s.placeAll(placed.positions, placed.page, { direction, arrowLength }, gesture);
       // Dragged or scrolled: the boxes follow the hand at once.
@@ -357,7 +358,7 @@ function MapCanvasInner() {
       const shown = shownMap(s.map);
       const from = centres(shown);
       const bounds = boxBounds(shown, sizesRef.current, MAP_LAYOUT.fallbackSize);
-      const placed = placeOnPage({ positions: from, bounds }, screen, PAGE_MARGIN, v.alignment);
+      const placed = placeOnPage({ positions: from, bounds }, screen, PAGE_MARGIN, alignFor(shown.kind, v.alignment));
       s.placeAll(placed.positions);
       glideFrom(from);
     });
@@ -379,7 +380,7 @@ function MapCanvasInner() {
       const shown = shownMap(s.map);
       const options = tidyOptions(shown, labelSizesRef.current, shown.arrowLength, shown.direction);
       const layout = layoutMap(shown, sizes, options, shown.direction);
-      const placed = placeOnPage(layout, screen, PAGE_MARGIN, useViewStore.getState().alignment);
+      const placed = placeOnPage(layout, screen, PAGE_MARGIN, alignFor(shown.kind, useViewStore.getState().alignment));
       const from = new Map<NodeId, Point>(Object.values(shown.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
       s.nudgeBoxes(placed.positions);
       startGlide(from, shownMap(useMapStore.getState().map).nodes);
