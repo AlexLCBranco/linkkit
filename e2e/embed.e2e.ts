@@ -174,3 +174,126 @@ async function switchTo(lk: Page, id: string) {
   await lk.getByRole("menuitem", { name: new RegExp(`^${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) }).click();
   await expect(lk.getByRole("button", { name: new RegExp(`^Switch map.*`) })).toBeVisible();
 }
+
+// ------------------------------------------------------------------ Boardkit
+
+const bkCard = (page: Page | Frame, id: string) => page.locator(`[data-card-id="${id}"]`);
+const bkCardTitle = (page: Page | Frame, id: string) => bkCard(page, id).getByRole("button", { name: "Card title", exact: true });
+
+const bkStoredNow = (page: Page) =>
+  page.evaluate(() =>
+    JSON.stringify(
+      Object.keys(localStorage)
+        .filter((k) => k.startsWith("boardkit:"))
+        .sort()
+        .map((k) => [k, localStorage.getItem(k)]),
+    ),
+  );
+
+const bkRegistry = (page: Page) =>
+  page.evaluate(() => JSON.parse(localStorage.getItem("boardkit:registry")!) as { activeBoardId: string; boards: { id: string; name: string }[] });
+
+/** Boardkit's backup files written since `since` (by the OPFS stand-in). */
+const bkBackupWrites = async (page: Page) => (await backupWrites(page)).filter((name) => name.startsWith("boardkit-backup"));
+
+test("Boardkit in a frame: one board, no chrome, editing works, nothing else changes", async ({ context }) => {
+  await context.addInitScript(fakeFolderPicker);
+  await context.addInitScript(countBackupWrites);
+  const bk = await context.newPage();
+  await bk.goto("/boardkit/");
+  const notNow = bk.getByRole("button", { name: "Not now" });
+  if (await notNow.isVisible({ timeout: 5_000 }).catch(() => false)) await notNow.click();
+  await expect(bk.getByRole("button", { name: "Switch board" })).toBeVisible();
+
+  // The first-visit board, and a copy of it, which becomes the active one.
+  const starter = (await bkRegistry(bk)).activeBoardId;
+  await bk.getByRole("button", { name: "Switch board" }).click();
+  await bk.getByRole("menuitem", { name: "Duplicate this board" }).click();
+  await expect.poll(async () => (await bkRegistry(bk)).boards.length).toBe(2);
+  await expect.poll(async () => (await bkRegistry(bk)).activeBoardId).not.toBe(starter);
+  const active = (await bkRegistry(bk)).activeBoardId;
+
+  // Automatic backup on, in the full app (the first copy: it holds the lock).
+  await bk.getByRole("button", { name: "Switch board" }).click();
+  await bk.getByRole("menuitem", { name: "Automatic backup…" }).click();
+  await expect.poll(async () => (await bkBackupWrites(bk)).length).toBeGreaterThan(0);
+
+  // The canvas: two frames of the starter board.
+  const canvas = await context.newPage();
+  await canvas.goto("/");
+  const one = await addFrame(canvas, "one", `/boardkit/?embed=1&id=${starter}`);
+  const two = await addFrame(canvas, "two", `/boardkit/?embed=1&id=${starter}`);
+  for (const f of [one, two]) {
+    await expect(f.locator("[data-card-id]").first()).toBeVisible();
+    // No header (board switcher, theme, trash) and no version badge; the
+    // board's own toolbar stays.
+    await expect(f.getByRole("button", { name: "Switch board" })).toHaveCount(0);
+    await expect(f.getByRole("button", { name: "Recently deleted lists and cards" })).toHaveCount(0);
+    await expect(f.getByRole("button", { name: "Undo" })).toBeVisible();
+  }
+  await expect.poll(() => posted(canvas)).toContainEqual({ app: "boardkit", id: starter, type: "stone:ready", status: "ok" });
+
+  // Edit a card in frame one: frame two shows it, the active board is unchanged.
+  const cardId = (await one.locator("[data-card-id]").first().getAttribute("data-card-id"))!;
+  const writesBefore = (await bkBackupWrites(bk)).length;
+  await bkCardTitle(one, cardId).click();
+  await expect(one.locator("textarea:focus, input:focus")).toHaveCount(1);
+  await canvas.keyboard.press("Control+a");
+  await canvas.keyboard.type("ZZ edited in a frame");
+  // Mid-typing, a flush says busy (the canvas must not unload the frame).
+  await send(canvas, "one", { type: "stone:flush" });
+  await expect.poll(async () => (await posted(canvas)).filter((m) => m.app === "boardkit" && m.type === "stone:flushed").at(-1)).toEqual({ app: "boardkit", id: starter, type: "stone:flushed", busy: true });
+  await canvas.keyboard.press("Enter");
+  await expect(one.locator("textarea:focus, input:focus")).toHaveCount(0);
+  await send(canvas, "one", { type: "stone:flush" });
+  await expect.poll(async () => (await posted(canvas)).filter((m) => m.app === "boardkit" && m.type === "stone:flushed").at(-1)).toEqual({ app: "boardkit", id: starter, type: "stone:flushed", busy: false });
+
+  await expect(bkCardTitle(two, cardId)).toHaveText("ZZ edited in a frame");
+  expect((await bkRegistry(bk)).activeBoardId).toBe(active);
+
+  // One backup for the change, though three copies of Boardkit are open
+  // (and the one writing has another board open).
+  await expect.poll(async () => (await bkBackupWrites(bk)).length, { timeout: 25_000 }).toBeGreaterThan(writesBefore);
+  await canvas.waitForTimeout(12_000);
+  expect((await bkBackupWrites(bk)).slice(writesBefore), "backup writes after one edit, with three copies open").toHaveLength(1);
+  const newest = await bk.evaluate(async () => {
+    const folder = await (await navigator.storage.getDirectory()).getDirectoryHandle("e2e-boardkit-backup");
+    const names: string[] = [];
+    for await (const entry of (folder as unknown as { values(): AsyncIterable<FileSystemHandle> }).values()) names.push(entry.name);
+    const name = names.filter((n) => n.endsWith(".json")).sort().at(-1)!;
+    return (await (await folder.getFileHandle(name)).getFile()).text();
+  });
+  expect(newest).toContain("ZZ edited in a frame");
+
+  // A board that isn't here: the frame says so and writes nothing.
+  const before = await bkStoredNow(bk);
+  const missing = await addFrame(canvas, "missing", "/boardkit/?embed=1&id=no-such-board");
+  await expect(missing.getByTestId("embed-gone")).toContainText("This board isn’t here");
+  await expect.poll(() => posted(canvas)).toContainEqual({ app: "boardkit", id: "no-such-board", type: "stone:ready", status: "missing" });
+  await canvas.waitForTimeout(1_000);
+  expect(await bkStoredNow(bk)).toBe(before);
+
+  // The damaged-board notice shows inside a frame. Frame two goes first, so
+  // nothing open saves the board over the damage.
+  await canvas.evaluate(() => document.getElementById("two")!.remove());
+  await one.evaluate(([id, cardId]) => {
+    const stored = JSON.parse(localStorage.getItem(`boardkit:board:${id}`)!);
+    stored.board.cards[cardId] = 42;
+    localStorage.setItem(`boardkit:board:${id}`, JSON.stringify(stored));
+  }, [starter, cardId]);
+  await canvas.evaluate(() => (document.getElementById("one") as HTMLIFrameElement).contentWindow!.location.reload());
+  const reloaded = (await (await canvas.locator("#one").elementHandle())!.contentFrame())!;
+  await expect(reloaded.getByRole("alert")).toContainText("Part of this board’s saved data was damaged");
+  expect((await bkRegistry(bk)).activeBoardId).toBe(active);
+
+  // Deleted in the app while framed: the frame says so, opens nothing else.
+  await bk.bringToFront();
+  await bk.getByRole("button", { name: "Switch board" }).click();
+  await bk.getByRole("menuitem", { name: "Untitled board", exact: true }).click();
+  await bk.getByRole("button", { name: "Switch board" }).click();
+  await bk.getByRole("menuitem", { name: "Delete this board…" }).click();
+  await bk.getByRole("alertdialog").getByRole("button", { name: "Delete board" }).click();
+  await expect(reloaded.getByTestId("embed-gone")).toContainText("This board was deleted");
+  await expect.poll(() => posted(canvas)).toContainEqual({ app: "boardkit", id: starter, type: "stone:status", status: "deleted" });
+  expect((await bkRegistry(bk)).boards.map((b) => b.id)).toEqual([active]);
+});
