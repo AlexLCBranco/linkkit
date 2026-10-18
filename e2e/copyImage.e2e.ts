@@ -71,3 +71,75 @@ test("Copy as image on a picked group copies just those boxes, at 4x", async ({ 
   expect(picked.width % 4).toBe(0);
   expect(picked.height % 4).toBe(0);
 });
+
+/** The PNG on the clipboard: its size. */
+const clipboardPng = (page: import("@playwright/test").Page) =>
+  page.evaluate(async () => {
+    const [item] = await navigator.clipboard.read();
+    const bitmap = await createImageBitmap(await item.getType("image/png"));
+    return { width: bitmap.width, height: bitmap.height };
+  });
+
+test("the selection bar's Copy image copies just the picked boxes", async ({ page }) => {
+  await page.goto("/linkkit/");
+  await page.getByRole("button", { name: "Copy image" }).click();
+  await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
+  const whole = await clipboardPng(page);
+
+  const boxes = page.locator(".react-flow__node");
+  await boxes.nth(0).click();
+  await boxes.nth(1).click({ modifiers: ["Shift"] });
+  const bar = page.getByRole("toolbar", { name: "Selected boxes" });
+  await bar.getByRole("button", { name: "Copy image" }).click();
+  await expect(bar.getByRole("button", { name: "Copied" })).toBeVisible();
+  const picked = await clipboardPng(page);
+  expect(picked.width * picked.height).toBeLessThan(whole.width * whole.height);
+  expect(picked.width % 4).toBe(0);
+  // Back to its word after a moment.
+  await expect(bar.getByRole("button", { name: "Copy image" })).toBeVisible({ timeout: 3_000 });
+});
+
+test("in a bracket, the selection bar copies just the picked matches", async ({ page, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("/linkkit/");
+  await page.getByRole("button", { name: /Switch map/ }).click();
+  await page.getByRole("menuitem", { name: "+ New" }).click();
+  await page.getByRole("menuitem", { name: "Bracket" }).click();
+  await page.getByRole("menuitem", { name: "8 players", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Player name" })).toBeFocused();
+  await page.keyboard.press("Escape");
+  const rows = page.locator("[data-player-row]");
+  await expect(rows).toHaveCount(14);
+  await page.mouse.move(5, 400);
+
+  // The whole bracket first, to compare with.
+  await page.getByRole("button", { name: "Copy image" }).click();
+  await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
+  const whole = await clipboardPng(page);
+
+  // A marquee down the semifinals' column picks both semifinals.
+  const semiTop = (await rows.nth(8).boundingBox())!;
+  const semiBottom = (await rows.nth(11).boundingBox())!;
+  const x = semiTop.x + semiTop.width / 2;
+  await page.mouse.move(x, semiTop.y - 20);
+  await page.mouse.down();
+  await page.mouse.move(x + 10, semiBottom.y + semiBottom.height + 20, { steps: 8 });
+  await page.mouse.up();
+  const bar = page.getByRole("toolbar", { name: "Selected boxes" });
+  await expect(bar.getByText("2 selected")).toBeVisible();
+  await bar.getByRole("button", { name: "Copy image" }).click();
+  await expect(bar.getByRole("button", { name: "Copied" })).toBeVisible();
+  const picked = await clipboardPng(page);
+
+  // One column of two matches: narrower and smaller than the bracket.
+  expect(picked.width).toBeLessThan(whole.width);
+  expect(picked.width * picked.height).toBeLessThan(whole.width * whole.height);
+  expect(picked.height % 4).toBe(0);
+
+  // Clean up: the bracket goes (to the trash of this throwaway profile).
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: /Switch map/ }).click();
+  await page.getByRole("menuitem", { name: "This map" }).click();
+  await page.getByRole("menuitem", { name: "Delete", exact: true }).click();
+  await expect(rows).toHaveCount(0);
+});

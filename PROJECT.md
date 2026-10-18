@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-17, v0.0.98 ("Copy as image" on a selection copies just the picked boxes as a sharp 4x picture; every numbered step below is done, waiting for the owner’s next plan)_
+_Last updated: 2026-10-17, v0.0.99 (the selection bar has a "Copy image" button that copies just the picked boxes or matches as a sharp 4x picture; every numbered step below is done, waiting for the owner’s next plan)_
 
 ## What it is
 
@@ -749,15 +749,21 @@ in"). Loops and arrows into the start are refused in both. Code:
   `features/export/copyPixelRatio.test.ts`, `e2e/copyImage.e2e.ts`
   (Playwright reads the clipboard back). The Claude browser pane blocks
   all clipboard writes, so it can't be tried there.
-- **Copy as image of a selection** (v0.0.98, Boardkit's per-list copy):
-  right-click a group of picked boxes, "Copy as image": the same 4x PNG,
+- **Copy as image of a selection** (v0.0.98, Boardkit's per-list copy;
+  the bar button v0.0.99, owner's request): "Copy image" in the
+  selection bar, next to "N selected" (its icon turns to a tick for a
+  moment, like the header's), or right-click a group of picked boxes,
+  "Copy as image": the same 4x PNG,
   but only the picked boxes and the arrows between them (arrows to boxes
   left out are dropped). Cut and the start look as on screen (judged on
-  the whole map). Brackets have no right-click menu, and a picked part of
-  a bracket would get no round headings or Champion anyway (they would be
-  worked out wrong from part of it). A message says "Copied N boxes as an
+  the whole map). In a bracket (no right-click menu there) the bar's
+  button copies the picked matches and the lines between them, without
+  round headings or Champion (worked out from part of a bracket they
+  would be wrong). A message says "Copied N boxes as an
   image." Code: `domain/map.ts` (`pickedMap`, tested in
-  `selection.test.ts`), `renderMapImage.ts`; e2e: `e2e/copyImage.e2e.ts`.
+  `selection.test.ts`), `renderMapImage.ts`, `useCopyImage.ts`,
+  `SelectionBar.tsx`; e2e: `e2e/copyImage.e2e.ts` (header, right-click,
+  bar, and a bracket's picked semifinals).
 - **Zoom** (v0.0.56, Treekit's zoom pill): bottom-left of the screen,
   "−  100%  +"; click the percentage to go back to 100%. 50% to 200% in
   10% steps, in every map (tree rules on or off). Zoom is a magnifying

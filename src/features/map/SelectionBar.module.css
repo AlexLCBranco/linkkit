@@ -32,6 +32,7 @@
 }
 
 .iconButton,
+.textButton,
 .colorTrigger {
   display: inline-flex;
   align-items: center;
@@ -49,7 +50,8 @@
     color var(--duration-fast) var(--ease-standard);
 }
 
-.colorTrigger {
+.colorTrigger,
+.textButton {
   padding: 0 var(--space-2);
 }
 
@@ -58,6 +60,7 @@
 }
 
 .iconButton:hover,
+.textButton:hover,
 .colorTrigger:hover,
 .colorTrigger[data-state="open"] {
   background: var(--surface-hover);

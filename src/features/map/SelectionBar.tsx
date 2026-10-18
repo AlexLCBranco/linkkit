@@ -5,13 +5,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { canDeleteBox, canPaste } from "../../domain/rules";
 import { useMapStore } from "../../store/mapStore";
 import { selectGroupColor } from "../../store/selectors";
+import { useCopyImage } from "../export/useCopyImage";
 import styles from "./SelectionBar.module.css";
 import { SwatchRow } from "./SwatchRow";
 
 /**
  * Actions for a marquee group, floating at the bottom of the map while two
  * or more boxes are picked (Treekit's selection bar, like Figma's): colour,
- * duplicate, copy, delete, each one undo step for the whole group, and ×
+ * copy as an image, duplicate, copy, delete, each one undo step for the whole group, and ×
  * to let go. The same things the keys and the right-click menu do, made
  * visible so they can be found without knowing them. In a tree, Duplicate
  * and Copy are left out (`canPaste`: a pasted box would be loose).
@@ -24,6 +25,7 @@ export function SelectionBar() {
   const color = useMapStore(selectGroupColor);
   const pastable = useMapStore((s) => canPaste(s.map));
   const deletable = useMapStore((s) => s.group.some((id) => canDeleteBox(s.map, id)));
+  const image = useCopyImage();
   if (count < 2) return null;
 
   const store = useMapStore.getState;
@@ -34,6 +36,17 @@ export function SelectionBar() {
   return (
     <div className={styles.bar} role="toolbar" aria-label="Selected boxes">
       <span className={styles.count}>{count} selected</span>
+      {/* Just the picked boxes (or matches) and the arrows between them,
+          as a 4x picture: the right-click "Copy as image", in plain sight. */}
+      <button
+        type="button"
+        className={styles.textButton}
+        title="Copy the selected boxes as an image (sharp enough to resize after pasting)"
+        onClick={() => void image.copy(group())}
+      >
+        <image.Icon size={16} aria-hidden />
+        {image.copied ? "Copied" : "Copy image"}
+      </button>
       <span className={styles.divider} aria-hidden />
 
       <DropdownMenu>

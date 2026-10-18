@@ -1,9 +1,5 @@
-import { Check, Copy, TriangleAlert } from "lucide-react";
-import { useState } from "react";
-
-import { useMapStore } from "../../store/mapStore";
 import styles from "../map/HeaderButton.module.css";
-import { copyPngToClipboard, renderMapPngForCopy } from "./renderMapImage";
+import { useCopyImage } from "./useCopyImage";
 
 /**
  * Copies the whole map to the clipboard as a picture (Boardkit's "Copy
@@ -12,15 +8,7 @@ import { copyPngToClipboard, renderMapPngForCopy } from "./renderMapImage";
  * going soft. The icon turns to a tick (or a warning) for a moment.
  */
 export function CopyImageButton() {
-  const [state, setState] = useState<"idle" | "copied" | "error">("idle");
-
-  async function copy() {
-    const copied = await copyPngToClipboard(renderMapPngForCopy(useMapStore.getState().map));
-    setState(copied ? "copied" : "error");
-    setTimeout(() => setState("idle"), 1500);
-  }
-
-  const Icon = state === "copied" ? Check : state === "error" ? TriangleAlert : Copy;
+  const { copy, copied, Icon } = useCopyImage();
   return (
     <button
       type="button"
@@ -29,7 +17,7 @@ export function CopyImageButton() {
       title="Copy the whole map as an image (sharp enough to resize after pasting)"
     >
       <Icon size={16} />
-      <span className={styles.word}>{state === "copied" ? "Copied" : "Copy image"}</span>
+      <span className={styles.word}>{copied ? "Copied" : "Copy image"}</span>
     </button>
   );
 }
