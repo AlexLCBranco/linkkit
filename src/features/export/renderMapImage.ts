@@ -9,6 +9,7 @@ import { champion, playerName } from "../../domain/bracket";
 import { bracketDecor } from "../../domain/bracketLayout";
 import { headPath, roundedPath } from "../../domain/arrows";
 import { imageLayout } from "../../domain/imageLayout";
+import { pickedMap } from "../../domain/map";
 import { arrowsInto } from "../../domain/rules";
 import { shownMap } from "../../domain/shown";
 import { looksCut } from "../../domain/status";
@@ -19,6 +20,7 @@ import matchStyles from "../map/MatchBox.module.css";
 import edgeStyles from "../map/LinkEdgeView.module.css";
 import { BRACKET_DECOR, LABELS, ROUTES } from "../map/layoutConfig";
 import { STATUS_META } from "../map/statusMeta";
+import { useSyncNotice } from "../../store/syncNotice";
 
 /** Empty space around the map, in CSS pixels (Treekit's). */
 const MARGIN = 40;
@@ -94,9 +96,16 @@ interface Scene {
 
 /** Builds the clean picture off-screen, hands it to `draw`, then clears
     it away again. */
-async function withScene<T>(source: LinkMap, draw: (scene: Scene) => Promise<T>): Promise<T> {
+async function withScene<T>(
+  source: LinkMap,
+  draw: (scene: Scene) => Promise<T>,
+  only: readonly NodeId[] | null = null,
+): Promise<T> {
   const isTree = source.kind === "tree";
-  const map = shownMap(source);
+  const shown = shownMap(source);
+  // A selection: just its boxes and the arrows between them. Cut and
+  // start are still judged on the whole map, so they look as on screen.
+  const map = only ? pickedMap(shown, only) : shown;
   const cut = looksCut(source);
   const nodeIds = Object.keys(map.nodes) as NodeId[];
   const linkIds = Object.keys(map.links) as LinkId[];
@@ -121,7 +130,7 @@ async function withScene<T>(source: LinkMap, draw: (scene: Scene) => Promise<T>)
         el.style.setProperty("--box-accent", `var(--palette-${node.color})`);
       }
       if (cut.has(id)) el.dataset.cut = "";
-      if (isTree && arrowsInto(map, id) === 0) el.dataset.start = "";
+      if (isTree && arrowsInto(shown, id) === 0) el.dataset.start = "";
       el.style.position = "absolute";
       if (node.match) {
         // A bracket's match: its two players (MatchBox's look).
@@ -178,7 +187,9 @@ async function withScene<T>(source: LinkMap, draw: (scene: Scene) => Promise<T>)
     //    works them out.
     const { routes: geometries, spots, shift, width: drawnWidth, height, boxes } = imageLayout(map, sizes, labelSizes, ROUTES, LABELS, MARGIN);
     // A bracket's Champion box stands right of the final: room for it.
-    const isBracket = map.kind === "bracket";
+    // Not for a selection of matches: its headings and Champion would be
+    // worked out from a part of the bracket.
+    const isBracket = map.kind === "bracket" && !only;
     const width = drawnWidth + (isBracket ? BRACKET_DECOR.gap + BRACKET_DECOR.championWidth : 0);
     const shiftX = shift.x;
     const shiftY = shift.y;
@@ -267,11 +278,30 @@ export function copyPixelRatio(width: number, height: number): number {
   return Math.min(4, MAX_CANVAS_SIDE / Math.max(width, height, 1));
 }
 
-/** The whole map as a high-resolution PNG, for the clipboard. */
-export function renderMapPngForCopy(source: LinkMap): Promise<Blob> {
-  return withScene(source, async ({ scene, ...size }) => {
-    const blob = await toBlob(scene, { ...size, pixelRatio: copyPixelRatio(size.width, size.height) });
-    if (!blob) throw new Error("toBlob returned null");
-    return blob;
-  });
+/** The whole map as a high-resolution PNG, for the clipboard; with
+    `only`, just those boxes and the arrows between them (a selection). */
+export function renderMapPngForCopy(source: LinkMap, only: readonly NodeId[] | null = null): Promise<Blob> {
+  return withScene(
+    source,
+    async ({ scene, ...size }) => {
+      const blob = await toBlob(scene, { ...size, pixelRatio: copyPixelRatio(size.width, size.height) });
+      if (!blob) throw new Error("toBlob returned null");
+      return blob;
+    },
+    only,
+  );
+}
+
+/** Puts a PNG (a promise of one, still being drawn) on the clipboard. The
+    promise goes in as it is, so Safari counts the write as part of the
+    click. Says so in the status line when the browser refuses. */
+export async function copyPngToClipboard(png: Promise<Blob>): Promise<boolean> {
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": png })]);
+    return true;
+  } catch (error) {
+    console.error("Copy image failed", error);
+    useSyncNotice.getState().say("Couldn't copy the image; use Export > Export PNG image instead.");
+    return false;
+  }
 }

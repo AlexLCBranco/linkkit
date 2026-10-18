@@ -1,5 +1,5 @@
 import { useReactFlow } from "@xyflow/react";
-import { ChevronsDownUp, ChevronsUpDown, ClipboardPaste, Copy, CopyPlus, GitFork, Merge, NotebookPen, Pencil, Plus, Scissors, Tag, Trash2 } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, ClipboardPaste, Copy, CopyPlus, GitFork, Image, Merge, NotebookPen, Pencil, Plus, Scissors, Tag, Trash2 } from "lucide-react";
 import { useRef, useState, type MouseEvent, type ReactElement } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -17,6 +17,8 @@ import { addNextOffer } from "../../domain/steps";
 import { hasTreeShape, type LinkId, type NodeId, type Point } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { selectGroupColor, selectGroupStatus, selectOffersJoin } from "../../store/selectors";
+import { useSyncNotice } from "../../store/syncNotice";
+import { copyPngToClipboard, renderMapPngForCopy } from "../export/renderMapImage";
 import { StatusRow } from "./StatusRow";
 import { SwatchRow } from "./SwatchRow";
 import { BOX_ID_ATTRIBUTE, LINK_ID_ATTRIBUTE } from "./pageMarkers";
@@ -287,6 +289,19 @@ function GroupMenuItems() {
     <>
       <ContextMenuLabel>{count} boxes</ContextMenuLabel>
       <CopyItems ids={group} cut />
+      {/* Boardkit's per-list "Copy as image": only the picked boxes and the
+          arrows between them, at 4x, for pasting into Excalidraw. */}
+      <ContextMenuItem
+        onSelect={() => {
+          const { map, group: picked } = useMapStore.getState();
+          void copyPngToClipboard(renderMapPngForCopy(map, picked)).then(
+            (copied) => copied && useSyncNotice.getState().say(`Copied ${picked.length} boxes as an image.`),
+          );
+        }}
+      >
+        <Image aria-hidden />
+        Copy as image
+      </ContextMenuItem>
       <CollapseItem ids={group} />
       {statusable && (
         <>

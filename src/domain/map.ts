@@ -244,6 +244,23 @@ export function copyFragment(map: LinkMap, ids: Iterable<NodeId>): MapFragment {
   };
 }
 
+/** The picked boxes and the arrows between them as a map of their own,
+    for "Copy as image" of a selection: everything else about the map
+    (kind, direction, arrow and label style, bracket players) is kept, and
+    a tree's sibling order and folds keep only the picked boxes. */
+export function pickedMap(map: LinkMap, ids: Iterable<NodeId>): LinkMap {
+  const { nodes, links } = copyFragment(map, ids);
+  const picked = new Set(nodes.map((n) => n.id));
+  const gone = new Set((Object.keys(map.nodes) as NodeId[]).filter((id) => !picked.has(id)));
+  return {
+    ...map,
+    nodes: Object.fromEntries(nodes.map((n) => [n.id, n])),
+    links: Object.fromEntries(links.map((l) => [l.id, l])),
+    order: withoutBoxes(map.order, gone),
+    collapsed: map.collapsed.filter((id) => picked.has(id)),
+  };
+}
+
 /** Where a fragment's boxes sit, as one point: the middle of their centres. */
 export function fragmentCenter(fragment: MapFragment): Point {
   const xs = fragment.nodes.map((n) => n.x);

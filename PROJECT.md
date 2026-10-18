@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-17, v0.0.97 (a "Copy image" button copies the whole map as a sharp 4x picture, for pasting into Excalidraw; every numbered step below is done, waiting for the owner’s next plan)_
+_Last updated: 2026-10-17, v0.0.98 ("Copy as image" on a selection copies just the picked boxes as a sharp 4x picture; every numbered step below is done, waiting for the owner’s next plan)_
 
 ## What it is
 
@@ -749,6 +749,15 @@ in"). Loops and arrows into the start are refused in both. Code:
   `features/export/copyPixelRatio.test.ts`, `e2e/copyImage.e2e.ts`
   (Playwright reads the clipboard back). The Claude browser pane blocks
   all clipboard writes, so it can't be tried there.
+- **Copy as image of a selection** (v0.0.98, Boardkit's per-list copy):
+  right-click a group of picked boxes, "Copy as image": the same 4x PNG,
+  but only the picked boxes and the arrows between them (arrows to boxes
+  left out are dropped). Cut and the start look as on screen (judged on
+  the whole map). Brackets have no right-click menu, and a picked part of
+  a bracket would get no round headings or Champion anyway (they would be
+  worked out wrong from part of it). A message says "Copied N boxes as an
+  image." Code: `domain/map.ts` (`pickedMap`, tested in
+  `selection.test.ts`), `renderMapImage.ts`; e2e: `e2e/copyImage.e2e.ts`.
 - **Zoom** (v0.0.56, Treekit's zoom pill): bottom-left of the screen,
   "−  100%  +"; click the percentage to go back to 100%. 50% to 200% in
   10% steps, in every map (tree rules on or off). Zoom is a magnifying
