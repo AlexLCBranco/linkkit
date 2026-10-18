@@ -1,4 +1,5 @@
 import { AddBoxButton } from "../features/map/AddBoxButton";
+import { CopyImageButton } from "../features/export/CopyImageButton";
 import { ExportMenu } from "../features/export/ExportMenu";
 import { AlignPanel } from "../features/map/AlignPanel";
 import { DeleteBranchDialog } from "../features/map/DeleteBranchDialog";
@@ -50,6 +51,7 @@ export function App() {
         <NumbersToggle />
         <div className={styles.spacer} />
         <ShortcutsDialog />
+        <CopyImageButton />
         <ExportMenu />
         <TrashPanel />
       </header>

@@ -1,4 +1,4 @@
-import { toPng, toSvg } from "html-to-image";
+import { toBlob, toPng, toSvg } from "html-to-image";
 import type { LucideIcon } from "lucide-react";
 import { createElement } from "react";
 import { flushSync } from "react-dom";
@@ -85,7 +85,16 @@ function bracketExtras(map: LinkMap, boxes: Parameters<typeof bracketDecor>[1], 
   return out;
 }
 
-export async function renderMapImage(source: LinkMap, format: ImageFormat): Promise<string> {
+interface Scene {
+  readonly scene: HTMLElement;
+  readonly width: number;
+  readonly height: number;
+  readonly backgroundColor: string;
+}
+
+/** Builds the clean picture off-screen, hands it to `draw`, then clears
+    it away again. */
+async function withScene<T>(source: LinkMap, draw: (scene: Scene) => Promise<T>): Promise<T> {
   const isTree = source.kind === "tree";
   const map = shownMap(source);
   const cut = looksCut(source);
@@ -233,15 +242,36 @@ export async function renderMapImage(source: LinkMap, format: ImageFormat): Prom
       }
     }
 
-    const options = {
-      width,
-      height,
-      backgroundColor: getComputedStyle(scene).backgroundColor,
-      // Twice the pixels, so text stays sharp when zoomed or printed.
-      pixelRatio: 2,
-    };
-    return format === "png" ? await toPng(scene, options) : await toSvg(scene, options);
+    return await draw({ scene, width, height, backgroundColor: getComputedStyle(scene).backgroundColor });
   } finally {
     stage.remove();
   }
+}
+
+export function renderMapImage(source: LinkMap, format: ImageFormat): Promise<string> {
+  return withScene(source, ({ scene, ...size }) => {
+    // Twice the pixels, so text stays sharp when zoomed or printed.
+    const options = { ...size, pixelRatio: 2 };
+    return format === "png" ? toPng(scene, options) : toSvg(scene, options);
+  });
+}
+
+/** Browsers cap a canvas side (Chrome: 16384px); past it the image comes
+    out blank. Boardkit's limit. */
+const MAX_CANVAS_SIDE = 16000;
+
+/** Pixels per CSS pixel for a copied image: 4, as in Boardkit, so a
+    picture pasted into Excalidraw (or similar) and resized there stays
+    sharp; less for a map so big that 4 would pass the canvas limit. */
+export function copyPixelRatio(width: number, height: number): number {
+  return Math.min(4, MAX_CANVAS_SIDE / Math.max(width, height, 1));
+}
+
+/** The whole map as a high-resolution PNG, for the clipboard. */
+export function renderMapPngForCopy(source: LinkMap): Promise<Blob> {
+  return withScene(source, async ({ scene, ...size }) => {
+    const blob = await toBlob(scene, { ...size, pixelRatio: copyPixelRatio(size.width, size.height) });
+    if (!blob) throw new Error("toBlob returned null");
+    return blob;
+  });
 }

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-17, v0.0.96 (hovering a player’s row in a bracket lights only that player’s path; every numbered step below is done, waiting for the owner’s next plan)_
+_Last updated: 2026-10-17, v0.0.97 (a "Copy image" button copies the whole map as a sharp 4x picture, for pasting into Excalidraw; every numbered step below is done, waiting for the owner’s next plan)_
 
 ## What it is
 
@@ -736,6 +736,19 @@ in"). Loops and arrows into the start are refused in both. Code:
   `features/export/` (`html-to-image`, as in Treekit); where the
   image puts things: `domain/imageLayout.ts` (tested: a moved box is
   drawn where it was moved, in any arrow or label style)
+- **Copy image** (v0.0.97, Boardkit's "Copy board as image", asked for
+  by the owner for pasting into Excalidraw): a "Copy image" button in
+  the header, left of Export, puts the whole map on the clipboard as a
+  PNG (the same clean picture as "Export PNG image", the whole map, not
+  just what is on screen) at 4x the pixels, so it can be resized after
+  pasting without going soft. A map too big for 4x gets fewer (browsers
+  cap a picture at about 16,000 pixels a side). The icon turns to a tick
+  ("Copied") for a moment; if the browser refuses, a message says to use
+  Export PNG instead. Keeps the paper background (unlike Boardkit, whose
+  lists copy transparent), so arrows stay visible on any canvas. Check:
+  `features/export/copyPixelRatio.test.ts`, `e2e/copyImage.e2e.ts`
+  (Playwright reads the clipboard back). The Claude browser pane blocks
+  all clipboard writes, so it can't be tried there.
 - **Zoom** (v0.0.56, Treekit's zoom pill): bottom-left of the screen,
   "−  100%  +"; click the percentage to go back to 100%. 50% to 200% in
   10% steps, in every map (tree rules on or off). Zoom is a magnifying
