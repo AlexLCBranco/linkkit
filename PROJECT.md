@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-18, v0.0.100 (a damaged map is held back from automatic backups with an on-screen warning; gauntlet canvas plan in gauntlet's PROJECT.md)_
+_Last updated: 2026-10-18, v0.0.101 (embed mode for the gauntlet canvas: `?embed=1&id=<map id>`; gauntlet canvas plan in gauntlet's GAUNTLET-PLAN.md)_
 
 ## What it is
 
@@ -215,6 +215,22 @@ in"). Loops and arrows into the start are refused in both. Code:
   original** saves the damaged text. A damaged map's original is now set
   aside once, not again on every read (every backup read every map, so
   storage filled with copies). Tested end to end: `e2e/held.e2e.ts`
+- Embed mode for the gauntlet canvas (phase 3, v0.0.101):
+  `/linkkit/?embed=1&id=<map id>` shows that one map with no header, map
+  menu or version badge, only a small floating toolbar (Add box, Tidy up,
+  Undo, Redo). Editing works as usual. A frame never changes which map
+  the app opens next (`linkkit:active`) and never switches to another map:
+  a map that isn't there, or is in the trash, shows "This map isn't here",
+  one deleted while shown says "This map was deleted", and neither saves
+  anything. Every warning banner still shows in a frame (the damaged-map
+  banner without its "Open it"), plus a "Resume backups" strip when
+  automatic backup is paused, since a frame has no menu. Only one copy of
+  Linkkit writes backups (a Web Lock), however many tabs and frames are
+  open, and it also backs up changes made in other tabs and frames. A
+  frame talks to the canvas by `postMessage` (`domain/embed.ts`): ready,
+  status, scroll reports, and "flush" (save now; answers `busy` while a
+  name or note is being typed, so the canvas never unloads it then).
+  Tested end to end: `e2e/embed.e2e.ts`
 - Two tabs of Linkkit (shared store step 3b2, v0.0.31) no longer
   overwrite each other. A change saved in one tab shows in the other at
   once, and each tab's own changes are kept: a box renamed in one tab

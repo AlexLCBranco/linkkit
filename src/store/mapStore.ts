@@ -108,6 +108,7 @@ import {
   type BoardChoice,
   type BoardErased,
 } from "../domain/bridge";
+import { embedded, setEmbedStatus } from "./embed";
 import { useHint } from "./hint";
 import { useLinkHold } from "./linkHold";
 import { boardExists, boardIdOfKey, hasBoardList, isBoardListKey, listBoards, loadBoard } from "./persistBoard";
@@ -617,6 +618,8 @@ export function mapsForExport(): LinkMap[] {
 /** The map that was open last (else the newest saved one), or the example
     if there is none. */
 function initialState(): Pick<MapState, "map" | "needsTidy" | "maps" | "starter" | "trashedMaps"> {
+  const embed = embedded();
+  if (embed) return embeddedState(embed.id as MapId);
   // Maps the list names but storage lost are reported, not just dropped.
   const registry = loadRegistry((missing) => useMissingMaps.getState().setMissing(missing.map((m) => m.name)));
   const id = loadActiveMapId();
@@ -635,6 +638,25 @@ function initialState(): Pick<MapState, "map" | "needsTidy" | "maps" | "starter"
     starter,
     trashedMaps: loadMapTrash(),
   };
+}
+
+/**
+ * A frame on the gauntlet canvas: the one map its address names, and
+ * nothing written while opening (not the map list, not the starter, not the
+ * map open last). A map that isn't there (or is in the trash) opens nothing:
+ * the frame says so, and the example below is only a placeholder that is
+ * never shown or saved (it waits for a tidy that never runs).
+ */
+function embeddedState(id: MapId): Pick<MapState, "map" | "needsTidy" | "maps" | "starter" | "trashedMaps"> {
+  const maps = loadRegistry();
+  const trashedMaps = loadMapTrash();
+  const map = maps.some((m) => m.id === id) ? loadMap(id, newPageSize()) : null;
+  if (!map) {
+    setEmbedStatus("missing");
+    return { map: exampleMap(newPageSize()), needsTidy: true, maps, starter: null, trashedMaps };
+  }
+  const starter = loadStarterId() === map.id ? map.id : null;
+  return { map, needsTidy: takeUnplaced(map.id), maps, starter, trashedMaps };
 }
 
 /** Any change to the starter example makes it the user's own map. */
@@ -1654,7 +1676,9 @@ export const useMapStore = create<MapState>()((set, get) => ({
       saveStarterId(null);
     }
     const newest = add[add.length - 1];
-    set((state) => ({ ...open(state, newest, maps), starter: null }));
+    // A frame stays on its own map; the restored ones are in the list.
+    if (embedded()) set({ maps, starter: null });
+    else set((state) => ({ ...open(state, newest, maps), starter: null }));
     return { added: add.length, alreadyHere };
   },
 
@@ -1779,6 +1803,12 @@ function leaveGoneMap(name: string, erased: boolean): void {
   // erased one is gone, and a save would bring it back.
   if (erased) cancelSave();
   else flushSave();
+  // A frame shows only its own map: it says the map is gone instead of
+  // opening another.
+  if (embedded()) {
+    setEmbedStatus("deleted");
+    return;
+  }
   const left = removeMap(s.maps, s.map.id);
   const { map: next, maps } = loadNewest(left);
   if (next) useMapStore.setState((state) => open(state, next, maps));

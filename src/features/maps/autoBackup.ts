@@ -47,6 +47,19 @@ let rerun = false;
 /** The maps as last written, so a change that changes nothing (a switch
     and back) doesn't spend one of the 20 slots on an identical file. */
 let lastWritten: string | null = null;
+/** Whether this copy of Linkkit writes the backups. With Linkkit open in
+    several tabs and canvas frames at once, only one does (a Web Lock), or
+    each would write its own file of the same maps and the 20 kept files
+    would cover minutes instead of days. The others still show the status,
+    and take over when the writer closes. */
+let writer = false;
+const WRITER_LOCK = "linkkit-auto-backup";
+/** Tells the other copies that the folder changed (chosen, resumed, off). */
+let channel: BroadcastChannel | null = null;
+
+/** Storage keys whose change is a change to what a backup holds: maps, the
+    list, the trash, templates, the held list, and a linked map's board. */
+const BACKED_UP_KEYS = ["linkkit:map:", "linkkit:registry", "linkkit:trash:", "linkkit:templates", "linkkit:held", "boardkit:board:"];
 
 const backup = () => useBackupStore.getState();
 
@@ -62,6 +75,20 @@ export function initAutoBackup(): void {
     return;
   }
   void restoreFolder();
+  claimWriter();
+  if (typeof BroadcastChannel !== "undefined") {
+    channel = new BroadcastChannel(WRITER_LOCK);
+    // Another copy chose a folder, resumed, or turned backups off.
+    channel.onmessage = () => {
+      lastWritten = null;
+      void restoreFolder().then(scheduleBackup);
+    };
+  }
+  // A change made in another tab or frame: the writer may not have that map
+  // open, so its own store wouldn't notice.
+  window.addEventListener("storage", (event) => {
+    if (event.key && BACKED_UP_KEYS.some((prefix) => event.key!.startsWith(prefix))) scheduleBackup();
+  });
   useMapStore.subscribe((state, previous) => {
     // An edit to the open map, or the list changing (new, delete, rename,
     // restore). Switching maps changes `map` too; the signature check below
@@ -77,6 +104,24 @@ export function initAutoBackup(): void {
     if (state.held !== previous.held) scheduleBackup();
   });
 }
+
+/** Waits for the writer's lock; holds it until this page closes. Without
+    Web Locks (older browsers) every copy writes, as before. */
+function claimWriter(): void {
+  const locks = (navigator as Navigator & { locks?: LockManager }).locks;
+  if (!locks) {
+    writer = true;
+    return;
+  }
+  void locks.request(WRITER_LOCK, () => {
+    writer = true;
+    // Taking over from a copy that closed: anything since its last file.
+    scheduleBackup();
+    return new Promise<never>(() => {});
+  });
+}
+
+const tellOthers = () => channel?.postMessage("folder");
 
 async function restoreFolder(): Promise<void> {
   try {
@@ -96,14 +141,14 @@ async function restoreFolder(): Promise<void> {
 /** Waits for a quiet moment. Deliberately no write on page close: the API
     is asynchronous and can't be relied on to finish there. */
 function scheduleBackup(): void {
-  if (backup().status !== "active") return;
+  if (!writer || backup().status !== "active") return;
   clearTimeout(timer);
   timer = setTimeout(() => void runBackup(), BACKUP_QUIET_MS);
 }
 
 /** Only ever one write in flight; a change during a write earns one more. */
 async function runBackup(): Promise<void> {
-  if (!folder || backup().status !== "active") return;
+  if (!writer || !folder || backup().status !== "active") return;
   if (running) {
     rerun = true;
     return;
@@ -234,6 +279,7 @@ export async function chooseBackupFolder(): Promise<void> {
     backup().setNote("This browser won't remember the folder, so it will need choosing again after a restart.");
   }
   backup().setAuto("active", chosen.name);
+  tellOthers();
   await runBackup();
 }
 
@@ -248,6 +294,7 @@ export async function resumeBackups(): Promise<void> {
     return;
   }
   backup().setAuto("active", folder.name);
+  tellOthers();
   // Anything changed while backups were paused was never written.
   lastWritten = null;
   await runBackup();
@@ -265,4 +312,5 @@ export async function turnOffAutoBackup(): Promise<void> {
     // Already off in memory; a stale handle is harmless, and the next
     // "Automatic backup…" replaces it.
   }
+  tellOthers();
 }

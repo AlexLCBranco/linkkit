@@ -38,3 +38,36 @@
 .spacer {
   flex: 1;
 }
+
+/* Embed mode: the few editing tools, floating top-left over the map. */
+.embedTools {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-sm);
+}
+
+.embedGone {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+  padding: var(--space-4);
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.embedGoneTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-weight: var(--weight-bold);
+}

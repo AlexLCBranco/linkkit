@@ -4,6 +4,7 @@ import type { HeldMap } from "../../domain/held";
 import { createMapId } from "../../domain/ids";
 import { releaseHeld, useBackupHold } from "../../store/backupHold";
 import { useBackupStore } from "../../store/backupStore";
+import { embedded } from "../../store/embed";
 import { useMapStore } from "../../store/mapStore";
 import { fileStem, downloadText } from "../export/download";
 import { findLastGoodCopy } from "./autoBackup";
@@ -88,7 +89,7 @@ function HeldRow({ entry, open }: { entry: HeldMap; open: boolean }) {
         <p className={styles.body}>{result ?? body}</p>
       </div>
       <div className={styles.actions}>
-        {entry.repaired && !open && listed && (
+        {entry.repaired && !open && listed && !embedded() && (
           <button type="button" className={styles.primary} onClick={() => useMapStore.getState().switchMap(entry.id)}>
             Open it
           </button>

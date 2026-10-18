@@ -6,6 +6,7 @@ import { readRegistry, removeMap, serializeRegistry, upsertMap, type Registry } 
 import { readMapTrash, serializeMapTrash, type MapTrash } from "../domain/trash";
 import type { LinkMap, MapId, NodeId, Size } from "../domain/types";
 import { markHeld } from "./backupHold";
+import { embedded } from "./embed";
 import { useLinkHold, type HoldReason } from "./linkHold";
 import { boardKey, createBoard, loadBoard, loadBoardName, removeBoard, writeBoard, writeBoardName } from "./persistBoard";
 import { useSaveHealth } from "./saveHealth";
@@ -577,6 +578,8 @@ export function loadActiveMapId(): MapId | null {
 }
 
 export function saveActiveMapId(id: MapId): void {
+  // A frame on the gauntlet canvas never changes which map the app opens.
+  if (embedded()) return;
   tryWrite(ACTIVE_KEY, id);
 }
 
