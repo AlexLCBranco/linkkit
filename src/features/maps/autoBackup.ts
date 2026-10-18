@@ -1,8 +1,11 @@
-import { BACKUP_QUIET_MS, backupFileName, backupsToDelete } from "../../domain/autoBackup";
+import { BACKUP_QUIET_MS, backupFileName, backupsNewestFirst, backupsToDelete } from "../../domain/autoBackup";
 import { serializeBackup } from "../../domain/backup";
+import { heldBackWarning, takeCopies, withHeldBack, type HeldMap } from "../../domain/held";
+import type { LinkMap, MapId } from "../../domain/types";
+import { useBackupHold } from "../../store/backupHold";
 import { useBackupStore } from "../../store/backupStore";
 import { idbDelete, idbGet, idbSet } from "../../store/idb";
-import { mapsForExport, useMapStore } from "../../store/mapStore";
+import { mapsForExport, newPageSize, useMapStore } from "../../store/mapStore";
 import { loadTemplates, useTemplates } from "../../store/templates";
 
 /**
@@ -18,9 +21,9 @@ import { loadTemplates, useTemplates } from "../../store/templates";
  * stop silently: every stop is a status the menu shows, with a dot on the
  * menu's button.
  *
- * Simpler than Boardkit's: Linkkit has no pictures to carry, and a damaged
- * map is repaired (or set aside) when the list loads, so there is no
- * unreadable map to hold back.
+ * A map found damaged is held back, as in Boardkit (`domain/held.ts`):
+ * each new file carries its last backed-up version forward, so its last
+ * good copy never rotates out, and every other map is backed up as usual.
  */
 
 /** The parts of the File System Access API used here; `lib.dom` does not
@@ -69,6 +72,10 @@ export function initAutoBackup(): void {
   useTemplates.subscribe((state, previous) => {
     if (state.saved !== previous.saved) scheduleBackup();
   });
+  // A map held back, or released (here or in another tab).
+  useBackupHold.subscribe((state, previous) => {
+    if (state.held !== previous.held) scheduleBackup();
+  });
 }
 
 async function restoreFolder(): Promise<void> {
@@ -116,7 +123,10 @@ async function runBackup(): Promise<void> {
 async function writeBackupFile(target: Folder): Promise<void> {
   // The open map as it is on screen, saved or not; the others as last
   // saved (or still waiting for a failed save, see `persistMap.ts`).
-  const maps = mapsForExport();
+  const held = useBackupHold.getState().held;
+  const copies = held.length > 0 ? await lastBackedUpCopies(target, held) : new Map<MapId, LinkMap>();
+  backup().setWarning(heldBackWarning(held, new Set(copies.keys())));
+  const maps = withHeldBack(mapsForExport(), held, copies);
   // Nothing to keep yet (the first visit's example before its first tidy):
   // an empty file would only push a good backup out of the last 20.
   if (maps.length === 0) return;
@@ -142,6 +152,45 @@ async function writeBackupFile(target: Folder): Promise<void> {
   lastWritten = signature;
   backup().markBackedUp(now.getTime());
   await rotate(target, name);
+}
+
+/** The newest backed-up version of each held map, from this app's files in
+    `target`, newest first. A file that fails to read is skipped. */
+export async function lastBackedUpCopies(target: Folder, held: readonly HeldMap[]): Promise<Map<MapId, LinkMap>> {
+  const found = new Map<MapId, LinkMap>();
+  const wanted = new Set(held.map((h) => h.id));
+  const names: string[] = [];
+  try {
+    for await (const entry of target.values()) {
+      if (entry.kind === "file") names.push(entry.name);
+    }
+  } catch {
+    return found;
+  }
+  for (const name of backupsNewestFirst(names)) {
+    if (found.size === wanted.size) break;
+    try {
+      const file = await (await target.getFileHandle(name)).getFile();
+      takeCopies(found, JSON.parse(await file.text()), wanted, newPageSize());
+    } catch {
+      // One unreadable file must not end the search.
+    }
+  }
+  return found;
+}
+
+/** "Restore last good version" on the banner: the held map's newest
+    backed-up copy, from the folder. `null` when there is no folder, the
+    browser refuses access, or no file has it. Must run from a click (the
+    browser may ask to allow the folder again). */
+export async function findLastGoodCopy(entry: HeldMap): Promise<LinkMap | null> {
+  if (!folder) return null;
+  try {
+    if ((await folder.requestPermission({ mode: "readwrite" })) !== "granted") return null;
+  } catch {
+    return null;
+  }
+  return (await lastBackedUpCopies(folder, [entry])).get(entry.id) ?? null;
 }
 
 /** Deletes automatic backups beyond the newest 20 -- only ever after a new

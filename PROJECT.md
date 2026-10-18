@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-17, v0.0.99 (the selection bar has a "Copy image" button that copies just the picked boxes or matches as a sharp 4x picture; every numbered step below is done, waiting for the owner’s next plan)_
+_Last updated: 2026-10-18, v0.0.100 (a damaged map is held back from automatic backups with an on-screen warning; gauntlet canvas plan in gauntlet's PROJECT.md)_
 
 ## What it is
 
@@ -202,6 +202,19 @@ in"). Loops and arrows into the start are refused in both. Code:
 - Saved automatically in the browser; a reload reopens the same map where
   it was. A damaged save is repaired and the original kept aside (the
   console says so only if that copy really was written)
+- A damaged map is held back from automatic backups (gauntlet canvas
+  phase 1, v0.0.100, Boardkit's rule): backups keep going, each new file
+  carries that map's last backed-up version forward (or its repair, if no
+  file has it yet; an unreadable one with no copy is left out), and every
+  other map is backed up as usual. A banner says so on screen, in every
+  tab and frame (the list is `linkkit:held`), and the Backup menu
+  repeats it. The hold ends only by choice: **Keep repaired version**,
+  **Restore last good version** (the newest backed-up copy comes back as
+  its own map, "… (last good version)", nothing overwritten), or
+  **Dismiss** for a map that couldn't be read at all. **Download
+  original** saves the damaged text. A damaged map's original is now set
+  aside once, not again on every read (every backup read every map, so
+  storage filled with copies). Tested end to end: `e2e/held.e2e.ts`
 - Two tabs of Linkkit (shared store step 3b2, v0.0.31) no longer
   overwrite each other. A change saved in one tab shows in the other at
   once, and each tab's own changes are kept: a box renamed in one tab

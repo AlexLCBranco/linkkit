@@ -31,9 +31,13 @@ interface BackupState {
   /** Something the menu should say about backups right now (the folder
       couldn't be remembered, or opened), or `null`. */
   readonly note: string | null;
+  /** What backups are doing about damaged maps (`domain/held.ts`), or
+      `null`. Shown in the map menu; the banner says it on the map. */
+  readonly warning: string | null;
   markBackedUp: (at: number) => void;
   setAuto: (status: AutoBackupStatus, folderName: string | null) => void;
   setNote: (note: string | null) => void;
+  setWarning: (warning: string | null) => void;
 }
 
 export const useBackupStore = create<BackupState>((set) => ({
@@ -41,6 +45,7 @@ export const useBackupStore = create<BackupState>((set) => ({
   status: "off",
   folderName: null,
   note: null,
+  warning: null,
   markBackedUp: (at) => {
     try {
       localStorage.setItem(STORAGE_KEY, String(at));
@@ -51,4 +56,5 @@ export const useBackupStore = create<BackupState>((set) => ({
   },
   setAuto: (status, folderName) => set({ status, folderName }),
   setNote: (note) => set({ note }),
+  setWarning: (warning) => set({ warning }),
 }));

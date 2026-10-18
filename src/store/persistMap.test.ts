@@ -16,6 +16,7 @@ import {
   saveActiveMapId,
   saveMap,
 } from "./persistMap";
+import { loadHeld } from "./backupHold";
 import { useSyncNotice } from "./syncNotice";
 import { useSaveHealth } from "./saveHealth";
 
@@ -50,11 +51,45 @@ describe("map storage", () => {
     expect(keys.filter((k) => k?.startsWith(`linkkit:damaged:${map.id}:`))).toHaveLength(1);
   });
 
+  it("sets the same damaged text aside once, however often it is read (every backup reads every map)", () => {
+    const map = build(["a"]);
+    const data = serializeMap(map) as unknown as { map: { name: number } };
+    data.map.name = 42;
+    localStorage.setItem(`linkkit:map:${map.id}`, JSON.stringify(data));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    // A different millisecond each read, as between real backups.
+    let now = 1_000;
+    vi.spyOn(Date, "now").mockImplementation(() => (now += 10_000));
+
+    for (let i = 0; i < 5; i++) loadMap(map.id, PAGE);
+    const keys = Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i));
+    expect(keys.filter((k) => k?.startsWith(`linkkit:damaged:${map.id}:`))).toHaveLength(1);
+  });
+
+  it("puts a damaged map on the held list once, with its listed name and where its original is", () => {
+    const map = { ...build(["a"]), name: "Rent" };
+    saveMap(map);
+    const data = serializeMap(map) as unknown as { map: { nodes: unknown } };
+    data.map.nodes = "broken";
+    localStorage.setItem(`linkkit:map:${map.id}`, JSON.stringify(data));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    loadMap(map.id, PAGE);
+    loadMap(map.id, PAGE);
+    const held = loadHeld();
+    expect(held).toHaveLength(1);
+    expect(held[0]).toMatchObject({ id: map.id, name: "Rent" });
+    expect(held[0].aside).toMatch(new RegExp(`^linkkit:damaged:${map.id}:`));
+    expect(localStorage.getItem(held[0].aside!)).toBe(JSON.stringify(data));
+  });
+
   it("keeps unreadable text aside too, and opens nothing", () => {
     localStorage.setItem("linkkit:map:x", "{not json");
     vi.spyOn(console, "warn").mockImplementation(() => {});
     expect(loadMap(asMapId("x"), PAGE)).toBeNull();
-    expect(localStorage.length).toBe(2);
+    // The map, its copy aside, and the held list naming it.
+    expect(localStorage.length).toBe(3);
+    expect(loadHeld()).toMatchObject([{ id: "x", name: "Damaged map", repaired: false }]);
   });
 
   it("lists every saved map, keeping names in step and forgetting deleted ones", () => {

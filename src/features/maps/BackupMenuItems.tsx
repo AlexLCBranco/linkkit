@@ -23,6 +23,7 @@ export function BackupMenuItems() {
   const folderName = useBackupStore((s) => s.folderName);
   const lastBackupAt = useBackupStore((s) => s.lastBackupAt);
   const note = useBackupStore((s) => s.note);
+  const warning = useBackupStore((s) => s.warning);
   // Read once as the menu opens (its content mounts then).
   const [openedAt] = useState(() => Date.now());
   const age = lastBackupAt === null ? null : formatBackupAge(lastBackupAt, openedAt);
@@ -51,6 +52,7 @@ export function BackupMenuItems() {
         </DropdownMenuItem>
       )}
       {note && <DropdownMenuLabel className="font-normal">{note}</DropdownMenuLabel>}
+      {warning && status === "active" && <DropdownMenuLabel className="font-normal text-[var(--palette-orange)]">{warning}</DropdownMenuLabel>}
       {supported && (
         <DropdownMenuItem onSelect={() => void chooseBackupFolder()}>
           {status === "off" ? "Automatic backup…" : "Back up to another folder…"}

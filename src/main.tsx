@@ -6,6 +6,7 @@ import { MovedNotice } from "./app/MovedNotice";
 import { movedTo } from "./domain/address";
 import { initAutoBackup } from "./features/maps/autoBackup";
 import { initAutoSave } from "./store/autoSave";
+import { initBackupHold } from "./store/backupHold";
 import { initOtherTabs } from "./store/mapStore";
 import "./styles/global.css";
 
@@ -18,6 +19,7 @@ const moved = movedTo(window.location.hostname);
 if (!moved) {
   initAutoSave();
   initOtherTabs();
+  initBackupHold();
   initAutoBackup();
 }
 

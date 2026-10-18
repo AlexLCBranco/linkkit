@@ -18,6 +18,7 @@ import { ZoomControls } from "../features/map/ZoomControls";
 import { MapSwitcher } from "../features/maps/MapSwitcher";
 import { NotesPanel } from "../features/notes/NotesPanel";
 import { LinkedChip } from "../features/maps/BoardLink";
+import { BackupHoldBanner } from "../features/maps/BackupHoldBanner";
 import { LinkHoldBanner } from "../features/maps/LinkHoldBanner";
 import { MissingMapsBanner } from "../features/maps/MissingMapsBanner";
 import { SaveFailedBanner } from "../features/maps/SaveFailedBanner";
@@ -58,6 +59,7 @@ export function App() {
       <SaveFailedBanner />
       <MissingMapsBanner />
       <LinkHoldBanner />
+      <BackupHoldBanner />
       <div className={styles.status} aria-live="polite">
         <ReachStatus />
       </div>

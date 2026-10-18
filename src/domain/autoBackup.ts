@@ -106,3 +106,9 @@ export function backupsToDelete(
   const ours = names.filter((name) => FILE_NAME.test(name) && name !== justWritten).sort();
   return ours.slice(0, Math.max(0, ours.length - (keep - 1)));
 }
+
+/** This app's automatic backups among `names`, newest first (the names
+    sort by time). */
+export function backupsNewestFirst(names: readonly string[]): string[] {
+  return names.filter((name) => FILE_NAME.test(name)).sort().reverse();
+}

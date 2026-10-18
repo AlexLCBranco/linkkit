@@ -5,6 +5,7 @@ import { readMap, revOf, serializeMap, serializeStored, type MapRead } from "../
 import { readRegistry, removeMap, serializeRegistry, upsertMap, type Registry } from "../domain/registry";
 import { readMapTrash, serializeMapTrash, type MapTrash } from "../domain/trash";
 import type { LinkMap, MapId, NodeId, Size } from "../domain/types";
+import { markHeld } from "./backupHold";
 import { useLinkHold, type HoldReason } from "./linkHold";
 import { boardKey, createBoard, loadBoard, loadBoardName, removeBoard, writeBoard, writeBoardName } from "./persistBoard";
 import { useSaveHealth } from "./saveHealth";
@@ -643,11 +644,24 @@ export function loadMap(id: MapId, fallbackPage: Size): LinkMap | null {
     if (read.status !== "unreadable") synced.set(id, { rev, map: read.status === "ok" ? read.map : null });
     if (read.status === "ok") return opened(read.map);
 
-    const asideKey = `${DAMAGED_KEY_PREFIX}${id}:${Date.now()}`;
+    // The same damaged text is set aside once, however often it is read
+    // (every backup reads every map).
+    const already = asideKeyHolding(id, raw);
+    const asideKey = already ?? `${DAMAGED_KEY_PREFIX}${id}:${Date.now()}`;
     // Say where the original is only if it really got there. With storage
     // full the copy fails, and the map's own key is all that is left (the
     // next save of a repaired map writes over it).
-    const keptAside = tryWrite(asideKey, raw, false);
+    const keptAside = already !== null || tryWrite(asideKey, raw, false);
+    // Held back from automatic backups until the user chooses (banner).
+    markHeld({
+      id,
+      name: listedName(id) ?? (read.status === "repaired" ? read.map.name : DAMAGED_MAP_NAME),
+      at: Date.now(),
+      aside: keptAside ? asideKey : null,
+      repaired: read.status === "repaired",
+    });
+    // Already reported when it was first set aside.
+    if (already !== null) return read.status === "repaired" ? opened(read.map) : null;
     const where = keptAside
       ? `The original is kept in localStorage under "${asideKey}".`
       : `The original could NOT be kept aside (storage is full or blocked); it is still under "${MAP_KEY_PREFIX}${id}" until this map is next saved.`;
@@ -657,6 +671,27 @@ export function loadMap(id: MapId, fallbackPage: Size): LinkMap | null {
         : `Linkkit: a saved map could not be read. ${where}`,
     );
     return read.status === "repaired" ? opened(read.map) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The `linkkit:damaged:<id>:…` key already holding exactly `raw`, if any. */
+function asideKeyHolding(id: MapId, raw: string): string | null {
+  const prefix = `${DAMAGED_KEY_PREFIX}${id}:`;
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith(prefix) && localStorage.getItem(key) === raw) return key;
+  }
+  return null;
+}
+
+/** A map's name as the stored list has it, without reconciling the list
+    (`loadRegistry` may write). */
+function listedName(id: MapId): string | null {
+  try {
+    const list = readRegistry(JSON.parse(localStorage.getItem(REGISTRY_KEY) ?? "null")) ?? [];
+    return list.find((m) => m.id === id)?.name ?? null;
   } catch {
     return null;
   }
