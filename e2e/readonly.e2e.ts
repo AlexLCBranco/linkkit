@@ -105,9 +105,8 @@ test("opening, reloading and reopening a bracket and a tree in three window size
   await rounds(0);
   expect(layoutOf((await stored(page, bracket))!)).toEqual(layoutOf(was[bracket]));
 
-  // Clean up: both maps go (to the trash of this throwaway profile). In
-  // the wide window: at 957 px the toolbar's "+" covers "Switch map".
-  await page.setViewportSize(WIDE);
+  // Clean up: both maps go (to the trash of this throwaway profile), from
+  // the 957 px window still open.
   for (const id of [bracket, tree]) {
     await open(page, id, "app");
     await page.getByRole("button", { name: /Switch map/ }).click();

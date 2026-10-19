@@ -5,7 +5,10 @@
   min-width: 0;
 }
 
+/* Alone on a row narrower than the name, the name gives way ("…"), never
+   the chevron. */
 .name {
+  min-width: 0;
   max-width: 280px;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
@@ -24,6 +27,7 @@ button.name:hover {
 }
 
 .trigger {
+  flex-shrink: 0;
   display: grid;
   place-items: center;
   width: 24px;

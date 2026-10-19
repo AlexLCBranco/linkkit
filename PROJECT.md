@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-19, v0.0.102 (opening a map is read-only: nothing moves or saves on open, at any window size; brackets lay out the same in every window; the app runs on gauntlet previews)_
+_Last updated: 2026-10-19, v0.0.103 (the header wraps onto a second row in a narrow window, so every button stays on screen and clickable)_
 
 ## What it is
 
@@ -43,6 +43,15 @@ browser folder standing in for the folder picker); it makes and removes its own
 "ZZ bridge test" map and board and checks every other record is untouched.
 
 ## What works now
+
+**The header fits any window from 481 px up (v0.0.103).** When the
+buttons don't fit on one row they wrap onto a second. Before, the header
+was one row needing about 1064 px: below that the map's name and its
+"Switch map" arrow shrank into a zero-width slot and were drawn under
+the "+" button (clicks on the arrow hit "+"), and the buttons on the
+right ran off the window. Tested end to end: `e2e/header.e2e.ts` (every
+header button on screen and clickable, and "Switch map" opens, at 481 to
+1400 px, in a plain map and in a tree with nothing selected).
 
 **Opening a map is read-only (owner, 2026-10-19).** Opening, reloading or
 reopening a map, in a window of any size or in a whiteboard frame, never
