@@ -43,3 +43,21 @@
 .templates:hover {
   color: var(--accent-hover);
 }
+
+/* "Tips ▸": opens and closes the hint (and the template link with it). */
+.tipsToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-right: var(--space-2);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-weight: var(--weight-medium);
+  vertical-align: middle;
+}
+
+.tipsToggle:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}

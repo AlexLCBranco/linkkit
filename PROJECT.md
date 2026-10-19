@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-19, v0.0.103 (the header wraps onto a second row in a narrow window, so every button stays on screen and clickable)_
+_Last updated: 2026-10-19, v0.0.104 (the tips under the header fold away behind a "Tips" toggle, closed below 700 px)_
 
 ## What it is
 
@@ -44,6 +44,19 @@ browser folder standing in for the folder picker); it makes and removes its own
 
 ## What works now
 
+**Tips fold away (v0.0.104, owner, 2026-10-19).** The hint under the
+header ("Click any box to see what it needs…", and "Start from a template
+or example…" when it shows) sits behind a small "Tips" toggle: open from
+700 px wide up, closed below, so on a narrow window the map starts right
+under the header. Once the user toggles it, that choice wins over the
+width, after a reload too: it is kept for the browser in
+`linkkit:ui-prefs` (`{ "tips": "open" | "closed" }`, `store/uiPrefs.ts`),
+a page preference that is never part of a map, a backup or an export;
+with storage blocked it lasts for the visit. The template link is inside
+the open tips. Tested end to end: `e2e/tips.e2e.ts` (481 px starts
+closed and the map starts higher, toggling opens it, a reload keeps the
+choice, no map byte changes; storage blocked still works).
+
 **The header fits any window from 481 px up (v0.0.103).** When the
 buttons don't fit on one row they wrap onto a second. Before, the header
 was one row needing about 1064 px: below that the map's name and its
@@ -51,7 +64,8 @@ was one row needing about 1064 px: below that the map's name and its
 the "+" button (clicks on the arrow hit "+"), and the buttons on the
 right ran off the window. Tested end to end: `e2e/header.e2e.ts` (every
 header button on screen and clickable, and "Switch map" opens, at 481 to
-1400 px, in a plain map and in a tree with nothing selected).
+1400 px, in a plain map, in a tree with nothing selected and in a tree
+with a box selected, so "+" is enabled).
 
 **Opening a map is read-only (owner, 2026-10-19).** Opening, reloading or
 reopening a map, in a window of any size or in a whiteboard frame, never
@@ -2325,6 +2339,23 @@ All bridge-mapping questions are decided.
 
 ## Open problems
 
+- **Fit to view on open: not built, waiting for the owner (2026-10-19).**
+  At 957 px 14 of the owner's 18 maps open with boxes past the window's
+  edge. The view is already remembered: each map's zoom in
+  `linkkit:zoom` (`store/viewStore.ts`, set only from the zoom pill; a map
+  at 100% has no entry), the align spot for every map in `linkkit:align`;
+  a frame's scroll is kept by the gauntlet canvas (`gauntlet:scroll`). The
+  pill stops at 50%, too little for 481 px. `e2e/fitview.e2e.ts` is
+  written and fails on v0.0.104 (11 of 19 boxes off screen at 957 x 910);
+  it is `test.fixme` until the fix.
+- **A linked map's stored copy keeps old names until its next edit**
+  (since v0.0.102). Looked into 2026-10-19: box names in the stored copy
+  are read only through `openLinked` (display, export, automatic backup,
+  frames all get the board's newest names). Only a map's own name could
+  lag, if its board were renamed in Boardkit: the map menu's list and
+  search, "Map from a Boardkit board…" (`boardLinks`) and the gauntlet
+  canvas (`linkkit:registry`) read the stored one. Nothing changed; the
+  owner decides.
 - Treekit's teal and orange box colours look like the needs / breaks
   highlights. Decided: keep all 8; a selected box's highlight hides box
   colours, and the highlight looks different (solid fill, coloured arrows,

@@ -1,9 +1,13 @@
+import { ChevronDown, ChevronRight, Lightbulb } from "lucide-react";
+import { useSyncExternalStore, type ReactNode } from "react";
+
 import { matchTitle } from "../../domain/bracket";
 import { REACH_MEANINGS, reachCounts } from "../../domain/reach";
 import type { MapKind } from "../../domain/types";
 import { useGallery } from "../../store/gallery";
 import { useMapStore } from "../../store/mapStore";
 import { selectFocus, selectReach } from "../../store/selectors";
+import { useUiPrefs } from "../../store/uiPrefs";
 import styles from "./ReachStatus.module.css";
 
 /** What the status line says while nothing is selected. */
@@ -60,14 +64,14 @@ export function ReachStatus() {
 
   if (!reach) {
     return (
-      <>
+      <Tips>
         <span className={styles.hint}>{linked ? LINKED_HINT : HINTS[kind]}</span>
         {offerTemplates && (
           <button type="button" className={styles.templates} onClick={() => useGallery.getState().setOpen(true)}>
             Start from a template or example…
           </button>
         )}
-      </>
+      </Tips>
     );
   }
   const counts = reachCounts(reach);
@@ -85,6 +89,46 @@ export function ReachStatus() {
           {words.orangeWords(counts.orange)}
         </span>
       )}
+    </>
+  );
+}
+
+/** From this window width up the tips start open; below it they start
+    closed, so a narrow window's map starts higher (owner, 2026-10-19). */
+const TIPS_OPEN_FROM = 700;
+const WIDE = `(min-width: ${TIPS_OPEN_FROM}px)`;
+
+function subscribeWide(onChange: () => void) {
+  const query = window.matchMedia(WIDE);
+  query.addEventListener("change", onChange);
+  return () => query.removeEventListener("change", onChange);
+}
+const isWide = () => window.matchMedia(WIDE).matches;
+
+/**
+ * The hint behind a small "Tips" toggle: open or closed as the user last
+ * chose (remembered for the browser, `uiPrefs`), else by the window's
+ * width. A view preference only: it never touches a map.
+ */
+function Tips({ children }: { children: ReactNode }) {
+  const choice = useUiPrefs((s) => s.tips);
+  const setTips = useUiPrefs((s) => s.setTips);
+  const wide = useSyncExternalStore(subscribeWide, isWide, () => true);
+  const open = choice ? choice === "open" : wide;
+  return (
+    <>
+      <button
+        type="button"
+        className={styles.tipsToggle}
+        aria-expanded={open}
+        title={open ? "Hide the tips" : "Show the tips"}
+        onClick={() => setTips(open ? "closed" : "open")}
+      >
+        <Lightbulb size={12} aria-hidden />
+        Tips
+        {open ? <ChevronDown size={12} aria-hidden /> : <ChevronRight size={12} aria-hidden />}
+      </button>
+      {open && children}
     </>
   );
 }

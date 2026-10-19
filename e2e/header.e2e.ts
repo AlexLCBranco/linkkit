@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { mapMenu, newTree } from "./helpers";
+import { box, mapMenu, newTree } from "./helpers";
 
 /**
  * Every header control is on screen and clickable in windows from just
@@ -44,7 +44,7 @@ async function switchMapOpens(page: Page, width: number) {
   await expect(page.getByRole("menu")).toHaveCount(0);
 }
 
-test("every header control is clickable from 481 px wide up, in a plain map and a tree", async ({ page }) => {
+test("every header control is clickable from 481 px wide up, in a plain map and a tree (nothing selected, then a box selected)", async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 910 });
   await page.goto("/linkkit/");
   await expect(page.locator("[data-ready]")).toBeVisible({ timeout: 15_000 });
@@ -68,6 +68,23 @@ test("every header control is clickable from 481 px wide up, in a plain map and 
     await page.setViewportSize({ width, height: 910 });
     await everyButtonClickable(page, width);
     await switchMapOpens(page, width);
+  }
+
+  // The same tree with its start box selected: "+" is enabled (opaque),
+  // and the header is as wide as it gets in a tree.
+  await page.setViewportSize({ width: 1400, height: 910 });
+  const addBox = page.locator("header").getByRole("button", { name: "Add box" });
+  await expect(addBox).toHaveAttribute("aria-disabled", "true");
+  const start = await page.locator("[data-box-id]").first().getAttribute("data-box-id");
+  await box(page, start!).click();
+  await expect(addBox).toHaveAttribute("aria-disabled", "false");
+  for (const width of WIDTHS) {
+    await page.setViewportSize({ width, height: 910 });
+    await expect(addBox, `"+" enabled at ${width} px`).toHaveAttribute("aria-disabled", "false");
+    await everyButtonClickable(page, width);
+    await switchMapOpens(page, width);
+    // Still selected after the menu closed: the next width checks the same case.
+    await expect(addBox, `"+" still enabled at ${width} px`).toHaveAttribute("aria-disabled", "false");
   }
 
   // Clean up, in the narrow window the old header failed in.
