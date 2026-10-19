@@ -18,7 +18,7 @@ import { layoutMap } from "../../domain/layout";
 import { scrollToReveal } from "../../domain/navigation";
 import { shownMap } from "../../domain/shown";
 import { boxesIn, marqueeSelection, rectBetween, type Rect } from "../../domain/marquee";
-import { alignFor, boxBounds, clampToPage, keepOnPage, pageSize, placeBlockBeside, placeOnPage } from "../../domain/page";
+import { alignFor, boxBounds, clampToPage, keepOnPage, layoutRoom, pageSize, placeBlockBeside, placeOnPage, resizedByEdit } from "../../domain/page";
 import { scrollAfterZoom, ZOOM_MAX, ZOOM_MIN, zoomPage, type ZoomedPage } from "../../domain/zoom";
 import { hasTreeShape, type ArrowLength, type LayoutDirection, type LinkId, type LinkMap, type NodeId, type Point, type Size } from "../../domain/types";
 import { namingNewBox, selectionOf, useMapStore } from "../../store/mapStore";
@@ -193,42 +193,43 @@ function MapCanvasInner() {
     if (!needsTidy || !allMeasured || !screen) return;
     const align = alignFor(map.kind, useViewStore.getState().alignment);
     const options = tidyOptions(map, labelSizesRef.current, map.arrowLength, map.direction);
-    const placed = placeOnPage(layoutMap(map, sizes, options), screen, PAGE_MARGIN, align);
+    const placed = placeOnPage(layoutMap(map, sizes, options), layoutRoom(map.kind, screen), PAGE_MARGIN, align);
     placeAll(placed.positions, placed.page);
   }, [needsTidy, allMeasured, screen, map, sizes, placeAll]);
 
-  // A saved bracket is laid out afresh once each time it opens, so a
-  // change to how brackets are laid out reaches it (`refitBracket`), and
-  // again when rounds are hidden or shown (once the ones coming back are
-  // measured), so what is left closes up.
-  const refitted = useRef<string | null>(null);
+  // Opening a map is read-only (owner, 2026-10-19): a bracket opens as it
+  // was saved. It is laid out again (`refitBracket`) only after a change
+  // while it is open (a name, a result, rounds hidden or shown), once what
+  // changed is measured, so what is left closes up. The layout is the same
+  // in any window (`layoutRoom`).
+  const bracketAtOpen = useRef<{ id: string; map: LinkMap } | null>(null);
   useEffect(() => {
-    const key = `${map.id}:${roundsHidden}`;
-    if (map.kind !== "bracket" || needsTidy || !allMeasured || !screen || refitted.current === key) return;
-    refitted.current = key;
+    if (map.kind !== "bracket" || needsTidy || !allMeasured || !screen) return;
+    if (bracketAtOpen.current?.id !== map.id) {
+      bracketAtOpen.current = { id: map.id, map };
+      return;
+    }
+    if (bracketAtOpen.current.map === map) return;
     const options = tidyOptions(map, labelSizesRef.current, map.arrowLength, map.direction);
-    const placed = placeOnPage(layoutMap(map, sizes, options), screen, PAGE_MARGIN, alignFor(map.kind, useViewStore.getState().alignment));
+    const placed = placeOnPage(layoutMap(map, sizes, options), layoutRoom(map.kind, screen), PAGE_MARGIN, alignFor(map.kind, useViewStore.getState().alignment));
     useMapStore.getState().refitBracket(placed.positions, placed.page);
-  }, [needsTidy, allMeasured, screen, map, sizes, roundsHidden]);
+  }, [needsTidy, allMeasured, screen, map, sizes]);
 
   // A box that grew past the screen's edge (renamed, or newly named) moves
   // back onto it, unless other boxes already make the page bigger there.
-  // Only boxes whose size changed: a smaller window moves nothing (the page
-  // scrolls instead). Not while waiting for the first tidy: those boxes are
-  // still stacked on one spot, about to be placed anyway.
-  const checkedSizes = useRef<ReadonlyMap<NodeId, Size>>(new Map());
+  // Only boxes the user changed or added (`resizedByEdit`): opening a map,
+  // in a window of any size, moves nothing (the page scrolls instead). Not
+  // while waiting for the first tidy: those boxes are still stacked on one
+  // spot, about to be placed anyway.
+  const checked = useRef<{ id: string; sizes: ReadonlyMap<NodeId, Size>; nodes: LinkMap["nodes"] } | null>(null);
   useEffect(() => {
     if (!screen) return;
-    const before = checkedSizes.current;
-    checkedSizes.current = sizes;
-    if (needsTidy) return;
-    const changed = [...sizes].filter(([id, s]) => {
-      const old = before.get(id);
-      return !old || old.width !== s.width || old.height !== s.height;
-    });
-    if (changed.length === 0) return;
     const { map } = useMapStore.getState();
-    const ids = changed.map(([id]) => id);
+    const before = checked.current?.id === map.id ? checked.current : { sizes: new Map<NodeId, Size>(), nodes: map.nodes };
+    checked.current = { id: map.id, sizes, nodes: map.nodes };
+    if (needsTidy) return;
+    const ids = resizedByEdit(before, { sizes, nodes: map.nodes });
+    if (ids.length === 0) return;
     const moves = keepOnPage(map, sizes, MAP_LAYOUT.fallbackSize, PAGE_INSETS, screen, ids);
     if (moves.size > 0) nudgeBoxes(moves);
   }, [needsTidy, screen, sizes, nudgeBoxes]);

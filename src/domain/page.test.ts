@@ -6,15 +6,18 @@ import { asMapId, asNodeId } from "./ids";
 import { layoutMap } from "./layout";
 import { moveNode } from "./map";
 import {
+  alignFor,
   boxBounds,
   clampGroupMove,
   clampToPage,
   defaultPageSize,
   freeSpot,
   keepOnPage,
+  layoutRoom,
   placeBlockBeside,
   pageSize,
   placeOnPage,
+  resizedByEdit,
   visibleCenter,
   type Align,
 } from "./page";
@@ -191,5 +194,46 @@ describe("placeBlockBeside", () => {
     const placed = placeBlockBeside(block, { center: { x: 100, y: 100 }, size }, [other], options);
     // Below is taken; to the right is free.
     expect(placed.get(asNodeId("n1"))).toEqual({ x: 230, y: 60 });
+  });
+});
+
+describe("opening a map moves nothing (owner, 2026-10-19)", () => {
+  const margin = { x: 40, y: 40 };
+  const cup = createBracket(asMapId("b"), "Cup", screen, 16).map;
+  const options = { columnGap: 32, rowGap: 60, fallbackSize: box };
+
+  it("lays a bracket out the same in every window: positions and page", () => {
+    const layout = layoutBracket(cup, noSizes, options);
+    const at = (s: Size) => placeOnPage(layout, layoutRoom(cup.kind, s), margin, alignFor(cup.kind, { x: "center", y: "center" }));
+    const wide = at({ width: 1915, height: 910 });
+    for (const s of [{ width: 957, height: 910 }, { width: 1366, height: 768 }, { width: 400, height: 300 }]) {
+      expect(at(s)).toEqual(wide);
+    }
+  });
+
+  it("other maps still lay out in the window's room", () => {
+    expect(layoutRoom("tree", screen)).toBe(screen);
+  });
+
+  const a = asNodeId("a");
+  const b = asNodeId("b");
+  const map = moveNode(moveNode(build(["a", "b"]), a, { x: 100, y: 100 }), b, { x: 300, y: 100 });
+  const sized = (w: number) => new Map<NodeId, Size>([[a, { width: w, height: 36 }], [b, box]]);
+
+  it("a box measured for the first time as its map opens is not moved", () => {
+    expect(resizedByEdit({ sizes: noSizes, nodes: map.nodes }, { sizes: sized(100), nodes: map.nodes })).toEqual([]);
+  });
+
+  it("a box resized without an edit (a late font) is not moved", () => {
+    expect(resizedByEdit({ sizes: sized(100), nodes: map.nodes }, { sizes: sized(120), nodes: map.nodes })).toEqual([]);
+  });
+
+  it("a box renamed, or added, and resized by it, may be moved", () => {
+    const renamed = { ...map.nodes, [a]: { ...map.nodes[a], name: "A longer name" } };
+    expect(resizedByEdit({ sizes: sized(100), nodes: map.nodes }, { sizes: sized(180), nodes: renamed })).toEqual([a]);
+    const c = asNodeId("c");
+    const added = { ...map.nodes, [c]: { ...map.nodes[a], id: c } };
+    const withC = new Map([...sized(100), [c, box]]);
+    expect(resizedByEdit({ sizes: sized(100), nodes: map.nodes }, { sizes: withC, nodes: added })).toEqual([c]);
   });
 });

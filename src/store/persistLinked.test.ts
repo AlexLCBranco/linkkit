@@ -72,17 +72,22 @@ beforeEach(() => {
 });
 
 describe("opening a linked tree", () => {
-  it("builds it from the board, with Linkkit's places, and refreshes the copy", () => {
+  it("builds it from the board, with Linkkit's places, writing nothing; the next edit's save refreshes the copy", () => {
     const changed = boardData();
     changed.cards.a = { ...changed.cards.a, title: "A2" };
     storeBoard(changed, 2);
+    const before = localStorage.getItem(MAP_KEY);
     const map = loadMap(MAP_ID, PAGE)!;
     expect(map.nodes[id("a")]).toMatchObject({ name: "A2", x: copy().nodes[id("a")].x });
     expect(map.linkedBoard).toBe("move");
     expect(takeUnplaced(MAP_ID)).toBe(false);
+    // Opening writes nothing (owner, 2026-10-19): not the copy, not Boardkit.
+    expect(localStorage.getItem(MAP_KEY)).toBe(before);
+    expect(storedBoard().rev).toBe(2);
+    saveMap(moveNode(map, id("b"), { x: 7, y: 8 }));
     expect(storedCopy()).toMatchObject({ version: 2, rev: 2 });
     expect(storedCopy().map.nodes[id("a")].name).toBe("A2");
-    // Opening writes nothing to Boardkit.
+    expect(storedCopy().map.nodes[id("b")]).toMatchObject({ x: 7, y: 8 });
     expect(storedBoard().rev).toBe(2);
   });
 

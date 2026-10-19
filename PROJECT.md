@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-18, v0.0.101 (embed mode for the gauntlet canvas: `?embed=1&id=<map id>`; gauntlet canvas plan in gauntlet's GAUNTLET-PLAN.md)_
+_Last updated: 2026-10-19, v0.0.102 (opening a map is read-only: nothing moves or saves on open, at any window size; brackets lay out the same in every window; the app runs on gauntlet previews)_
 
 ## What it is
 
@@ -43,6 +43,20 @@ browser folder standing in for the folder picker); it makes and removes its own
 "ZZ bridge test" map and board and checks every other record is untouched.
 
 ## What works now
+
+**Opening a map is read-only (owner, 2026-10-19).** Opening, reloading or
+reopening a map, in a window of any size or in a whiteboard frame, never
+moves a box or saves anything; only an edit does (drag, add, rename,
+Tidy up, ...). A smaller window shows part of the map and scrolls. A
+bracket opens as saved, and when an edit lays it out again it gets the
+same positions and page in every window (`layoutRoom`). A box is pulled
+back onto the page only after the user changed or added it
+(`resizedByEdit`), never because it was measured on open. A linked map
+shows its board's newest names on open, and stores them with the next
+edit's save. Tests: `page.test.ts`, `persistLinked.test.ts`,
+`e2e/readonly.e2e.ts`, and gauntlet's real-data test (the owner's 18
+maps, byte for byte). The app also runs on previews of the gauntlet site
+(`isPreviewAddress`, as in Boardkit), without automatic folder backups.
 
 **Two parents (the rule, in one place).** With tree rules on, a box may
 have two (or more) parents: "Rent" and "Buy" can both lead to "Live near

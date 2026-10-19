@@ -1,3 +1,4 @@
+import { isPreviewAddress } from "../../domain/address";
 import { BACKUP_QUIET_MS, backupFileName, backupsNewestFirst, backupsToDelete } from "../../domain/autoBackup";
 import { serializeBackup } from "../../domain/backup";
 import { heldBackWarning, takeCopies, withHeldBack, type HeldMap } from "../../domain/held";
@@ -70,7 +71,8 @@ export function isAutoBackupSupported(): boolean {
 /** Called once from `main.tsx`: restores the saved folder and starts
     watching for changes. */
 export function initAutoBackup(): void {
-  if (!isAutoBackupSupported()) {
+  // Off on a preview of the gauntlet site (see `isPreviewAddress`).
+  if (!isAutoBackupSupported() || isPreviewAddress(window.location.hostname)) {
     backup().setAuto("unsupported", null);
     return;
   }

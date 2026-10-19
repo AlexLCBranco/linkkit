@@ -707,8 +707,10 @@ const opened = (map: LinkMap): LinkMap => (isLinked(map) ? openLinked(map) : map
 /**
  * A linked map as it opens, from Linkkit's stored `copy`: the tree its
  * board makes. Boxes made in Boardkit since are tidied in before it shows
- * (`takeUnplaced`); otherwise, when Boardkit changed anything, the copy is
- * refreshed at once. A deleted board leaves the copy as an ordinary tree,
+ * (`takeUnplaced`); otherwise it shows what Boardkit holds now (a card
+ * renamed there, say), but opening writes nothing (owner, 2026-10-19): the
+ * stored copy catches up with the next save of an edit (`saveLinked`
+ * compares with it). A deleted board leaves the copy as an ordinary tree,
  * stored as one; a board Linkkit can't write opens the copy read-only.
  */
 function openLinked(copy: LinkMap & { readonly linkedBoard: string }): LinkMap {
@@ -721,6 +723,5 @@ function openLinked(copy: LinkMap & { readonly linkedBoard: string }): LinkMap {
   useLinkHold.getState().release(copy.id);
   synced.set(copy.id, { rev: now.rev, map: now.map, board: { rev: now.record.rev, name: now.name } });
   if (now.unplaced.length > 0) unplacedOnLoad.add(copy.id);
-  else if (!sameMap(now.map, copy)) saveMap(now.map);
   return now.map;
 }

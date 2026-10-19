@@ -154,6 +154,37 @@ export function placeOnPage(
 }
 
 /**
+ * The room a tidy lays a map out in: the screen, except for a bracket,
+ * which is laid out from its top-left corner in just the room it needs, so
+ * the same bracket gets the same positions and page in any window (a
+ * smaller window shows part of it, and scrolls).
+ */
+export function layoutRoom(kind: MapKind, screen: Size): Size {
+  return kind === "bracket" ? { width: 0, height: 0 } : screen;
+}
+
+/**
+ * The boxes `keepOnPage` may move: those whose measured size changed since
+ * the last check AND that were changed (a new node object: renamed,
+ * restyled, ...) or added since then. Boxes measured for the first time as
+ * a map opens, or resized by a late font, move nothing, in a window of any
+ * size: the page scrolls instead.
+ */
+export function resizedByEdit(
+  before: { readonly sizes: ReadonlyMap<NodeId, Size>; readonly nodes: LinkMap["nodes"] },
+  now: { readonly sizes: ReadonlyMap<NodeId, Size>; readonly nodes: LinkMap["nodes"] },
+): NodeId[] {
+  const ids: NodeId[] = [];
+  for (const [id, size] of now.sizes) {
+    const old = before.sizes.get(id);
+    if (old && old.width === size.width && old.height === size.height) continue;
+    if (before.nodes[id] !== undefined && before.nodes[id] === now.nodes[id]) continue;
+    ids.push(id);
+  }
+  return ids;
+}
+
+/**
  * Of the boxes in `ids` (those that just changed size: renamed, or new),
  * the ones that now stick out past the page, and where to move each so it
  * fits again. Each gets the room the screen and the other boxes make (see
