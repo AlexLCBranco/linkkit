@@ -6,7 +6,8 @@ import { CENTERED, type Align, type PageAlign } from "../domain/page";
 import { clampZoom } from "../domain/zoom";
 
 const KEY = "linkkit:align";
-/** Each map's zoom, by map id: `{ "<id>": 1.5 }`. A map at 100% has no entry. */
+/** Each map's zoom chosen with the pill, by map id: `{ "<id>": 1.5 }`,
+    100% included. A map never zoomed has no entry (it opens fitted). */
 const ZOOM_KEY = "linkkit:zoom";
 /** Each bracket's hidden first rounds, by map id: `{ "<id>": 2 }`. A
     bracket showing every round has no entry. */
@@ -71,8 +72,8 @@ function saveNumber(key: string, record: Readonly<Record<string, number>>, id: s
  * A map with no zoom of its own opens fitted to the window (owner,
  * 2026-10-19): `fits` holds that zoom for this visit only, never stored
  * (not in `linkkit:zoom`, not with the map). The pill wins: using it on a
- * map stores its own zoom as before (100%: no entry) and the map is not
- * fitted again this visit (`zoomChosen`).
+ * map stores its own zoom, 100% too (owner, 2026-10-19: an explicit 100%
+ * sticks), and the map is never fitted again.
  *
  * Hidden rounds are per map too (brackets only, the header's "Rounds"
  * menu): how many of the first rounds are off the page. Like zoom, a view
@@ -85,8 +86,6 @@ export const useViewStore = create<{
   zooms: Readonly<Record<string, number>>;
   /** This visit's fit-to-window zoom of maps with no zoom of their own. */
   fits: Readonly<Record<string, number>>;
-  /** Maps whose zoom the user set with the pill this visit. */
-  zoomChosen: ReadonlySet<string>;
   hiddenRounds: Readonly<Record<string, number>>;
   pinnedRounds: Readonly<Record<string, number>>;
   setAlign: (axis: "x" | "y", value: Align) => void;
@@ -102,7 +101,6 @@ export const useViewStore = create<{
   applied: 0,
   zooms: loadNumbers(ZOOM_KEY, clampZoom),
   fits: {},
-  zoomChosen: new Set(),
   hiddenRounds: loadNumbers(ROUNDS_KEY, (n) => (n >= 1 ? Math.floor(n) : null)),
   pinnedRounds: loadNumbers(PINNED_KEY, (n) => (n >= 2 ? Math.floor(n) : null)),
   setAlign: (axis, value) => {
@@ -117,9 +115,9 @@ export const useViewStore = create<{
   setZoom: (mapId, zoom) => {
     const { [mapId]: _fit, ...fits } = get().fits;
     set({
-      zooms: saveNumber(ZOOM_KEY, get().zooms, mapId, clampZoom(zoom), 1),
+      // Every value stored, 100% too (`NaN` never equals one): a choice.
+      zooms: saveNumber(ZOOM_KEY, get().zooms, mapId, clampZoom(zoom), Number.NaN),
       fits,
-      zoomChosen: new Set(get().zoomChosen).add(mapId),
     });
   },
   setFit: (mapId, zoom) => set({ fits: { ...get().fits, [mapId]: zoom } }),
@@ -136,10 +134,9 @@ export const useViewStore = create<{
 export const zoomOf = (s: { zooms: Readonly<Record<string, number>>; fits: Readonly<Record<string, number>> }, mapId: string): number =>
   s.zooms[mapId] ?? s.fits[mapId] ?? 1;
 
-/** Whether map `mapId` opens fitted to the window: it has no zoom of its
-    own, and the pill wasn't used on it this visit. */
-export const fitsOnOpen = (s: { zooms: Readonly<Record<string, number>>; zoomChosen: ReadonlySet<string> }, mapId: string): boolean =>
-  s.zooms[mapId] === undefined && !s.zoomChosen.has(mapId);
+/** Whether map `mapId` opens fitted to the window: the pill was never
+    used on it. */
+export const fitsOnOpen = (s: { zooms: Readonly<Record<string, number>> }, mapId: string): boolean => s.zooms[mapId] === undefined;
 
 /** How many of a bracket's first rounds are hidden (0: none). Pass it to
     `shownMap`, which also keeps it in range for the map. */

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-19, v0.0.105 (a map opens zoomed to fit the window, for that visit only, when it has no zoom of its own)_
+_Last updated: 2026-10-19, v0.0.106 (a zoom picked with the pill, 100% included, is kept, and that map is no longer fitted on open)_
 
 ## What it is
 
@@ -49,19 +49,19 @@ zoom of its own opens at the zoom that shows every box in the window (never
 above 100%, and below the pill's 50% when a narrow window needs it, down
 to 10%), scrolled to its boxes. View only: no box moves and nothing is
 stored; the fit lasts for the visit (`fits` in `store/viewStore.ts`, never
-in `linkkit:zoom`). The pill wins: using it stores the map's own zoom as
-before, and a map whose zoom was set with the pill (even back to 100%) is
-not fitted again that visit. A map made this visit (new, duplicated, from a template or a board,
+in `linkkit:zoom`). The pill wins: a zoom picked with it is stored for that map,
+100% included (v0.0.106, owner: an explicit 100% sticks), and that map is
+never fitted again; maps never zoomed keep being fitted. Storing happens
+only on that click, never on open. A map made this visit (new, duplicated, from a template or a board,
 restored) shows at 100%, where its names are typed, and is fitted from
 the next visit on (`savedBeforeThisVisit`). It fits once per opening: resizing the
 window or editing never refits. In a whiteboard frame the canvas's
-remembered scroll comes after the fit and wins. Since 100% has no entry
-in `linkkit:zoom`, a map put back to 100% is fitted again on the next
-visit. Code: `fitZoom`, `scrollToContent` (`domain/zoom.ts`), MapCanvas.
+remembered scroll comes after the fit and wins. Code: `fitZoom`, `scrollToContent` (`domain/zoom.ts`), MapCanvas.
 Tested: `zoom.test.ts`, `viewStore.test.ts`, `e2e/fitview.e2e.ts` (19-box
 tree at 957x910 and 481x910: every box inside the canvas, stored map
-byte-identical, fit not stored, the pill wins after a reload; failed on
-v0.0.104).
+byte-identical, fit not stored; the fitted map put back to 100% with the
+pill reopens at 100% and the click changed only `linkkit:zoom`, which
+failed on v0.0.105; the rest failed on v0.0.104).
 
 **Tips fold away (v0.0.104, owner, 2026-10-19).** The hint under the
 header ("Click any box to see what it needs…", and "Start from a template
@@ -2359,13 +2359,19 @@ All bridge-mapping questions are decided.
 ## Open problems
 
 - **A linked map's stored copy keeps old names until its next edit**
-  (since v0.0.102). Looked into 2026-10-19: box names in the stored copy
-  are read only through `openLinked` (display, export, automatic backup,
-  frames all get the board's newest names). Only a map's own name could
-  lag, if its board were renamed in Boardkit: the map menu's list and
-  search, "Map from a Boardkit board…" (`boardLinks`) and the gauntlet
-  canvas (`linkkit:registry`) read the stored one. Nothing changed; the
-  owner decides.
+  (since v0.0.102; looked into again 2026-10-19, nothing changed yet). The
+  owner's "Party" case is a renamed CARD (stored box "Snacks", board card
+  now renamed); its board is still "Party". Box names in the stored copy
+  are read only through `openLinked`, so everything shows the board's
+  newest card names. A renamed BOARD does go stale (checked with a
+  throwaway unit test): the open map shows the new name, but these show
+  the stored old one until the map's next edit: Linkkit's map list and
+  search (`loadRegistry`; `switchMap` doesn't refresh the list entry),
+  "Map from a Boardkit board…" ("Linked to 'X'", `boardLinks`), the
+  gauntlet canvas's widget names, Overview and add list
+  (`src/domain/sources.ts`), and Boardkit's delete-board dialog
+  (`findLinkedMap`). Proposed fix, waiting for the owner: those readers
+  take a linked map's name from Boardkit's board list, read-only.
 - Treekit's teal and orange box colours look like the needs / breaks
   highlights. Decided: keep all 8; a selected box's highlight hides box
   colours, and the highlight looks different (solid fill, coloured arrows,

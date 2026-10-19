@@ -83,14 +83,30 @@ test("a map bigger than the window opens with every box on screen, and opening w
   const shown = async () => Number((await pill.innerText()).replace("%", ""));
   expect(await shown()).toBeLessThan(50);
 
-  // The pill wins: its zoom is stored, and a reload opens at it, not fitted.
-  await page.getByRole("button", { name: "Zoom in" }).click();
-  await expect(pill).toHaveText("50%");
-  expect(JSON.parse((await page.evaluate(() => localStorage.getItem("linkkit:zoom")))!)).toEqual({ [id]: 0.5 });
+  // An explicit 100% sticks (owner, 2026-10-19): the fitted map put back to
+  // 100% with the pill reopens at 100%, and that click stored only the zoom.
+  const everything = () =>
+    page.evaluate(() => Object.fromEntries(Object.keys(localStorage).filter((k) => k.startsWith("linkkit:")).map((k) => [k, localStorage.getItem(k)])));
+  const beforeClick = await everything();
+  await pill.click();
+  await expect(pill).toHaveText("100%");
+  await page.reload();
+  await expect(page.locator("[data-ready]")).toBeVisible({ timeout: 15_000 });
+  await page.waitForTimeout(1_500);
+  await expect(pill).toHaveText("100%");
+  const afterReload = await everything();
+  expect(JSON.parse(afterReload["linkkit:zoom"]!)).toEqual({ [id]: 1 });
+  expect({ ...afterReload, "linkkit:zoom": null }, "only the zoom entry changed").toEqual({ ...beforeClick, "linkkit:zoom": null });
+
+  // Any other pill zoom is stored too, and a reload in another window opens
+  // at it, not fitted.
+  await page.getByRole("button", { name: "Zoom out" }).click();
+  await expect(pill).toHaveText("90%");
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem("linkkit:zoom")))!)).toEqual({ [id]: 0.9 });
   await page.setViewportSize(OPEN_IN[0]);
   await page.reload();
   await expect(page.locator("[data-ready]")).toBeVisible({ timeout: 15_000 });
-  await expect(pill).toHaveText("50%");
+  await expect(pill).toHaveText("90%");
   expect(await stored(page, id)).toBe(was);
 
   // Clean up (to this throwaway profile's trash).

@@ -24,12 +24,12 @@ describe("zoom per map", () => {
     expect(zoomOf(state, "c")).toBe(1);
   });
 
-  it("forgets a map put back to 100%, and keeps zooms in range", async () => {
+  it("keeps a map put back to 100% (an explicit choice), and keeps zooms in range", async () => {
     const { useViewStore } = await freshStore();
     useViewStore.getState().setZoom("a", 1.5);
     useViewStore.getState().setZoom("a", 1);
     useViewStore.getState().setZoom("b", 9);
-    expect(JSON.parse(localStorage.getItem("linkkit:zoom")!)).toEqual({ b: 2 });
+    expect(JSON.parse(localStorage.getItem("linkkit:zoom")!)).toEqual({ a: 1, b: 2 });
   });
 
   it("ignores a damaged saved value", async () => {
@@ -57,7 +57,7 @@ describe("fit to the window on open", () => {
     expect(after.fitsOnOpen(after.useViewStore.getState(), "a")).toBe(true);
   });
 
-  it("the pill wins: its zoom is stored, and even 100% stops fitting for this visit", async () => {
+  it("the pill wins: its zoom is stored, 100% too, and the map is not fitted again, even after a reload", async () => {
     const { useViewStore, zoomOf, fitsOnOpen } = await freshStore();
     const s = () => useViewStore.getState();
     s().setFit("a", 0.37);
@@ -68,7 +68,10 @@ describe("fit to the window on open", () => {
     s().setZoom("b", 1);
     expect(zoomOf(s(), "b")).toBe(1);
     expect(fitsOnOpen(s(), "b")).toBe(false);
-    expect(JSON.parse(localStorage.getItem("linkkit:zoom")!)).toEqual({ a: 0.5 });
+    expect(JSON.parse(localStorage.getItem("linkkit:zoom")!)).toEqual({ a: 0.5, b: 1 });
+    const after = await freshStore();
+    expect(after.fitsOnOpen(after.useViewStore.getState(), "b")).toBe(false);
+    expect(after.zoomOf(after.useViewStore.getState(), "b")).toBe(1);
   });
 });
 
