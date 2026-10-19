@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-19, v0.0.104 (the tips under the header fold away behind a "Tips" toggle, closed below 700 px)_
+_Last updated: 2026-10-19, v0.0.105 (a map opens zoomed to fit the window, for that visit only, when it has no zoom of its own)_
 
 ## What it is
 
@@ -24,7 +24,7 @@ project, and Linkkit stays its own repo. Behaviour reference:
 ## Stack
 
 Vite, React 19, TypeScript (strict), Zustand, React Flow (`@xyflow/react`)
-as the renderer (camera locked: no pan; zoom only from the pill; the page scrolls
+as the renderer (camera locked: no pan; zoom from the pill, or fitted to the window on open; the page scrolls
 natively), a small hand-written layout (no layout library), CSS Modules +
 design tokens (copied from Treekit) for the page, Tailwind v4 + shadcn/ui
 (Radix) for menus and dialogs, lucide icons, html-to-image (PNG / SVG export, as in
@@ -43,6 +43,25 @@ browser folder standing in for the folder picker); it makes and removes its own
 "ZZ bridge test" map and board and checks every other record is untouched.
 
 ## What works now
+
+**Fit to view on open (v0.0.105, owner, 2026-10-19).** A saved map with no
+zoom of its own opens at the zoom that shows every box in the window (never
+above 100%, and below the pill's 50% when a narrow window needs it, down
+to 10%), scrolled to its boxes. View only: no box moves and nothing is
+stored; the fit lasts for the visit (`fits` in `store/viewStore.ts`, never
+in `linkkit:zoom`). The pill wins: using it stores the map's own zoom as
+before, and a map whose zoom was set with the pill (even back to 100%) is
+not fitted again that visit. A map made this visit (new, duplicated, from a template or a board,
+restored) shows at 100%, where its names are typed, and is fitted from
+the next visit on (`savedBeforeThisVisit`). It fits once per opening: resizing the
+window or editing never refits. In a whiteboard frame the canvas's
+remembered scroll comes after the fit and wins. Since 100% has no entry
+in `linkkit:zoom`, a map put back to 100% is fitted again on the next
+visit. Code: `fitZoom`, `scrollToContent` (`domain/zoom.ts`), MapCanvas.
+Tested: `zoom.test.ts`, `viewStore.test.ts`, `e2e/fitview.e2e.ts` (19-box
+tree at 957x910 and 481x910: every box inside the canvas, stored map
+byte-identical, fit not stored, the pill wins after a reload; failed on
+v0.0.104).
 
 **Tips fold away (v0.0.104, owner, 2026-10-19).** The hint under the
 header ("Click any box to see what it needs…", and "Start from a template
@@ -2339,15 +2358,6 @@ All bridge-mapping questions are decided.
 
 ## Open problems
 
-- **Fit to view on open: not built, waiting for the owner (2026-10-19).**
-  At 957 px 14 of the owner's 18 maps open with boxes past the window's
-  edge. The view is already remembered: each map's zoom in
-  `linkkit:zoom` (`store/viewStore.ts`, set only from the zoom pill; a map
-  at 100% has no entry), the align spot for every map in `linkkit:align`;
-  a frame's scroll is kept by the gauntlet canvas (`gauntlet:scroll`). The
-  pill stops at 50%, too little for 481 px. `e2e/fitview.e2e.ts` is
-  written and fails on v0.0.104 (11 of 19 boxes off screen at 957 x 910);
-  it is `test.fixme` until the fix.
 - **A linked map's stored copy keeps old names until its next edit**
   (since v0.0.102). Looked into 2026-10-19: box names in the stored copy
   are read only through `openLinked` (display, export, automatic backup,

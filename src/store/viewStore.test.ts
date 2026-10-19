@@ -18,10 +18,10 @@ describe("zoom per map", () => {
     useViewStore.getState().setZoom("a", 1.5);
     useViewStore.getState().setZoom("b", 0.5);
     const after = await freshStore();
-    const { zooms } = after.useViewStore.getState();
-    expect(zoomOf(zooms, "a")).toBe(1.5);
-    expect(zoomOf(zooms, "b")).toBe(0.5);
-    expect(zoomOf(zooms, "c")).toBe(1);
+    const state = after.useViewStore.getState();
+    expect(zoomOf(state, "a")).toBe(1.5);
+    expect(zoomOf(state, "b")).toBe(0.5);
+    expect(zoomOf(state, "c")).toBe(1);
   });
 
   it("forgets a map put back to 100%, and keeps zooms in range", async () => {
@@ -36,6 +36,39 @@ describe("zoom per map", () => {
     localStorage.setItem("linkkit:zoom", '{"a":"big","b":0.7');
     const { useViewStore } = await freshStore();
     expect(useViewStore.getState().zooms).toEqual({});
+  });
+});
+
+describe("fit to the window on open", () => {
+  it("shows a fit zoom for this visit only, never stored, and the map's own zoom wins", async () => {
+    localStorage.setItem("linkkit:zoom", JSON.stringify({ own: 1.2 }));
+    const { useViewStore, zoomOf, fitsOnOpen } = await freshStore();
+    const s = () => useViewStore.getState();
+    expect(fitsOnOpen(s(), "a")).toBe(true);
+    expect(fitsOnOpen(s(), "own")).toBe(false);
+    s().setFit("a", 0.37);
+    s().setFit("own", 0.4);
+    expect(zoomOf(s(), "a")).toBe(0.37);
+    expect(zoomOf(s(), "own")).toBe(1.2);
+    expect(JSON.parse(localStorage.getItem("linkkit:zoom")!)).toEqual({ own: 1.2 });
+    // Gone after a reload: the next visit fits again.
+    const after = await freshStore();
+    expect(zoomOf(after.useViewStore.getState(), "a")).toBe(1);
+    expect(after.fitsOnOpen(after.useViewStore.getState(), "a")).toBe(true);
+  });
+
+  it("the pill wins: its zoom is stored, and even 100% stops fitting for this visit", async () => {
+    const { useViewStore, zoomOf, fitsOnOpen } = await freshStore();
+    const s = () => useViewStore.getState();
+    s().setFit("a", 0.37);
+    s().setZoom("a", 0.5);
+    expect(zoomOf(s(), "a")).toBe(0.5);
+    expect(JSON.parse(localStorage.getItem("linkkit:zoom")!)).toEqual({ a: 0.5 });
+    s().setFit("b", 0.3);
+    s().setZoom("b", 1);
+    expect(zoomOf(s(), "b")).toBe(1);
+    expect(fitsOnOpen(s(), "b")).toBe(false);
+    expect(JSON.parse(localStorage.getItem("linkkit:zoom")!)).toEqual({ a: 0.5 });
   });
 });
 

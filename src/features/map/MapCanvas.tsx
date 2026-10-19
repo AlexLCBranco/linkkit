@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useReducer,
   useMemo,
   useRef,
   useState,
@@ -19,10 +20,11 @@ import { scrollToReveal } from "../../domain/navigation";
 import { shownMap } from "../../domain/shown";
 import { boxesIn, marqueeSelection, rectBetween, type Rect } from "../../domain/marquee";
 import { alignFor, boxBounds, clampToPage, keepOnPage, layoutRoom, pageSize, placeBlockBeside, placeOnPage, resizedByEdit } from "../../domain/page";
-import { scrollAfterZoom, ZOOM_MAX, ZOOM_MIN, zoomPage, type ZoomedPage } from "../../domain/zoom";
+import { fitZoom, scrollAfterZoom, scrollToContent, ZOOM_MAX, ZOOM_MIN, zoomPage, type ZoomedPage } from "../../domain/zoom";
+import type { Bounds } from "../../domain/layout";
 import { hasTreeShape, type ArrowLength, type LayoutDirection, type LinkId, type LinkMap, type NodeId, type Point, type Size } from "../../domain/types";
-import { namingNewBox, selectionOf, useMapStore } from "../../store/mapStore";
-import { pinnedFromOf, roundsHiddenOf, shownNow, useViewStore, zoomOf } from "../../store/viewStore";
+import { namingNewBox, savedBeforeThisVisit, selectionOf, useMapStore } from "../../store/mapStore";
+import { fitsOnOpen, pinnedFromOf, roundsHiddenOf, shownNow, useViewStore, zoomOf } from "../../store/viewStore";
 import { pinnedRounds } from "../../domain/bracketLayout";
 import { BoxContextMenu } from "./BoxContextMenu";
 import { BoxView, type BoxFlowNode } from "./BoxView";
@@ -242,7 +244,7 @@ function MapCanvasInner() {
 
   // The page as drawn at this map's zoom, and React Flow's camera to match:
   // never panned, only scaled and set where the zoomed page goes.
-  const zoom = useViewStore((s) => zoomOf(s.zooms, map.id));
+  const zoom = useViewStore((s) => zoomOf(s, map.id));
   const chosenAlignment = useViewStore((s) => s.alignment);
   const alignment = useMemo(() => alignFor(map.kind, chosenAlignment), [map.kind, chosenAlignment]);
   const drawn = useMemo(
@@ -286,17 +288,54 @@ function MapCanvasInner() {
   useLayoutEffect(() => {
     pinsRef.current = pins;
   }, [pins]);
+  // Fit to view on open (owner, 2026-10-19): once the boxes are measured,
+  // a saved map (not one made this visit) with no zoom of its own is shown at the zoom that fits every box
+  // in the window (never above 100%; for this visit only, `setFit`) and
+  // scrolled to them. View only: no box moves, nothing is saved. Once per
+  // opening: resizing the window or editing later never refits, so a view
+  // the user scrolled or zoomed stays theirs. The page counts as ready
+  // (`data-ready`) only after this, so a frame's remembered scroll
+  // (gauntlet canvas) comes after it and wins.
+  // A one-way flag: set once, when the fit is decided.
+  const [fitted, markFitted] = useReducer(() => true, false);
+  const fitting = useRef<{ content: Bounds; zoom: number } | null>(null);
+  useLayoutEffect(() => {
+    if (fitted || needsTidy || !allMeasured || !screen) return;
+    const view = useViewStore.getState();
+    if (nodeIds.length > 0 && fitsOnOpen(view, map.id) && savedBeforeThisVisit(map.id)) {
+      const content = boxBounds(map, sizes, MAP_LAYOUT.fallbackSize);
+      const fit = fitZoom(content, screen, REVEAL_MARGIN);
+      fitting.current = { content, zoom: fit };
+      if (fit !== zoomOf(view, map.id)) view.setFit(map.id, fit);
+    }
+    markFitted();
+  }, [fitted, needsTidy, allMeasured, screen, map, sizes, nodeIds.length]);
+
   const drawnBefore = useRef<ZoomedPage | null>(null);
   useLayoutEffect(() => {
     const before = drawnBefore.current;
     drawnBefore.current = drawn;
     const view = viewRef.current;
+    const fit = fitting.current;
+    if (view && drawn && fit && drawn.zoom === fit.zoom) {
+      fitting.current = null;
+      // Only when some box is off screen as it is (scrolled to the top-left).
+      const { content } = fit;
+      const shows =
+        content.left * drawn.zoom + drawn.x - view.scrollLeft >= 0 &&
+        content.top * drawn.zoom + drawn.y - view.scrollTop >= 0 &&
+        content.right * drawn.zoom + drawn.x - view.scrollLeft <= view.clientWidth &&
+        content.bottom * drawn.zoom + drawn.y - view.scrollTop <= view.clientHeight;
+      if (!shows) view.scrollTo(scrollToContent(content, drawn, REVEAL_MARGIN));
+      scrolled.current = { left: view.scrollLeft, top: view.scrollTop };
+      return;
+    }
     if (!view || !before || !drawn || before.zoom === drawn.zoom) return;
     const { left, top } = scrolled.current;
     const to = scrollAfterZoom({ left, top, width: view.clientWidth, height: view.clientHeight }, before, drawn);
     view.scrollTo(to);
     scrolled.current = { left: view.scrollLeft, top: view.scrollTop };
-  }, [drawn]);
+  }, [drawn, fitted]);
 
   // Read by handlers outside rendering (Tidy up, double-click), which need
   // the sizes and the page at that moment without re-subscribing on every
@@ -719,7 +758,7 @@ function MapCanvasInner() {
       <div
         ref={viewRef}
         className={styles.canvas}
-        data-ready={needsTidy ? undefined : true}
+        data-ready={needsTidy || !fitted ? undefined : true}
         // Box names and arrow labels in the map's label style (CSS only).
         data-label-style={map.labelStyle}
         onScroll={onScroll}

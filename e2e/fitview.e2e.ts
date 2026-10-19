@@ -40,10 +40,8 @@ async function boxesOffScreen(page: Page) {
   });
 }
 
-// NOT BUILT YET: fit to view waits for the owner's answer on the zoom that
-// is already remembered per map (`linkkit:zoom`). Fails on v0.0.104 (11 of
-// 19 boxes off screen at 957 x 910); un-fixme it with the fix.
-test.fixme("a map bigger than the window opens with every box on screen, and opening writes nothing", async ({ page }) => {
+// Failed on v0.0.104 (11 of 19 boxes off screen at 957 x 910).
+test("a map bigger than the window opens with every box on screen, and opening writes nothing", async ({ page }) => {
   await page.setViewportSize(MAKE);
   await page.goto("/linkkit/");
   await expect(page.locator("[data-ready]")).toBeVisible({ timeout: 15_000 });
@@ -77,6 +75,23 @@ test.fixme("a map bigger than the window opens with every box on screen, and ope
     expect(await boxesOffScreen(page), `boxes off screen at ${size.width}x${size.height}`).toEqual([]);
     expect(await stored(page, id), `stored map after opening at ${size.width}x${size.height}`).toBe(was);
   }
+
+  // The fit is never stored: no zoom of its own for this map. At 481 px it
+  // is below the pill's 50%.
+  expect(await page.evaluate(() => localStorage.getItem("linkkit:zoom"))).toBeNull();
+  const pill = page.getByRole("button", { name: "Reset zoom to 100%" });
+  const shown = async () => Number((await pill.innerText()).replace("%", ""));
+  expect(await shown()).toBeLessThan(50);
+
+  // The pill wins: its zoom is stored, and a reload opens at it, not fitted.
+  await page.getByRole("button", { name: "Zoom in" }).click();
+  await expect(pill).toHaveText("50%");
+  expect(JSON.parse((await page.evaluate(() => localStorage.getItem("linkkit:zoom")))!)).toEqual({ [id]: 0.5 });
+  await page.setViewportSize(OPEN_IN[0]);
+  await page.reload();
+  await expect(page.locator("[data-ready]")).toBeVisible({ timeout: 15_000 });
+  await expect(pill).toHaveText("50%");
+  expect(await stored(page, id)).toBe(was);
 
   // Clean up (to this throwaway profile's trash).
   await mapMenu(page, "This map", "Delete");

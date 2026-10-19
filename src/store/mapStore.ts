@@ -1755,6 +1755,13 @@ export const useMapStore = create<MapState>()((set, get) => ({
     }),
 }));
 
+/** The maps this visit started with (the saved list as Linkkit opened). A
+    map made since (new, duplicated, from a template or a board, restored)
+    was never opened from storage: it shows at 100%, not fitted to the
+    window (fit to view is for opening a saved map, `MapCanvas`). */
+const atStart: ReadonlySet<string> = new Set(useMapStore.getState().maps.map((m) => m.id));
+export const savedBeforeThisVisit = (id: string): boolean => atStart.has(id);
+
 /*
  * Other tabs. Two tabs of Linkkit may have the same map open. Each saves
  * the whole map, so without this the last save would silently undo the

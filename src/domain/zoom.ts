@@ -1,3 +1,4 @@
+import type { Bounds } from "./layout";
 import type { PageAlign } from "./page";
 import type { Size } from "./types";
 
@@ -68,5 +69,39 @@ export function scrollAfterZoom(
   return {
     left: Math.max(0, midX * after.zoom + after.x - view.width / 2),
     top: Math.max(0, midY * after.zoom + after.y - view.height / 2),
+  };
+}
+
+/** The smallest zoom fitting a map to the window may use: below the pill's
+    50%, so a wide map fits a narrow window too. */
+export const FIT_ZOOM_MIN = 0.1;
+
+/**
+ * The zoom that shows every box at once (fit to view on open, owner,
+ * 2026-10-19): `content` (the boxes' outer edges, in page units) with
+ * `margin` screen pixels round it. Never above 100%: a map that fits as it
+ * is stays at 100%. Rounded down to whole percents, so it really fits.
+ */
+export function fitZoom(content: Bounds, screen: Size, margin: number): number {
+  const width = content.right - content.left;
+  const height = content.bottom - content.top;
+  const fit = Math.min(
+    1,
+    width > 0 ? (screen.width - 2 * margin) / width : 1,
+    height > 0 ? (screen.height - 2 * margin) / height : 1,
+  );
+  return Math.max(FIT_ZOOM_MIN, Math.floor(fit * 100) / 100);
+}
+
+/**
+ * Where to scroll so `content` starts `margin` in from the screen's
+ * top-left corner, on the page as drawn (`drawn`). The browser stops the
+ * scroll at the page's ends, so on an axis where everything fits this
+ * ends up 0.
+ */
+export function scrollToContent(content: Bounds, drawn: Pick<ZoomedPage, "x" | "y" | "zoom">, margin: number): { left: number; top: number } {
+  return {
+    left: Math.max(0, Math.floor(content.left * drawn.zoom + drawn.x - margin)),
+    top: Math.max(0, Math.floor(content.top * drawn.zoom + drawn.y - margin)),
   };
 }

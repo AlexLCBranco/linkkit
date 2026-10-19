@@ -299,6 +299,11 @@ test("bracket pinned rounds: the later rounds stay still while the rest scrolls,
   // A reload keeps the choice.
   await page.reload();
   await expect(rows(page)).toHaveCount(62);
+  await expect(page.getByRole("button", { name: "Rounds shown" })).toHaveAttribute("aria-pressed", "true");
+  // A saved map opens fitted to the window (v0.0.105): back to 100%, where
+  // the positions above were measured.
+  await page.getByRole("button", { name: "Reset zoom to 100%" }).click();
+  await expect(page.getByRole("button", { name: "Reset zoom to 100%" })).toHaveText("100%");
   await scrollTo(600);
   // Within a pixel: text measures a fraction differently after a reload.
   await expect.poll(async () => Math.abs((await yOf(48)) - quarters)).toBeLessThan(1);

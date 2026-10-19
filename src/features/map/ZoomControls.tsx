@@ -14,7 +14,7 @@ import styles from "./ZoomControls.module.css";
  */
 export function ZoomControls() {
   const mapId = useMapStore((s) => s.map.id);
-  const zoom = useViewStore((s) => zoomOf(s.zooms, mapId));
+  const zoom = useViewStore((s) => zoomOf(s, mapId));
   const setZoom = useViewStore((s) => s.setZoom);
 
   return (
