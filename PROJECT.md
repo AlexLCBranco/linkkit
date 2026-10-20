@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-19, v0.0.106 (a zoom picked with the pill, 100% included, is kept, and that map is no longer fitted on open)_
+_Last updated: 2026-10-19, v0.0.107 (a board renamed in Boardkit shows its new name wherever its linked map is named; opening a map from the map menu no longer saves it)_
 
 ## What it is
 
@@ -43,6 +43,32 @@ browser folder standing in for the folder picker); it makes and removes its own
 "ZZ bridge test" map and board and checks every other record is untouched.
 
 ## What works now
+
+**A renamed board's name shows everywhere (v0.0.107, owner, 2026-10-19).**
+A linked map is named after its board, but opening writes nothing, so
+Linkkit's copy and its map list keep an old board name until the map's
+next edit. Everywhere a stored name would show, a linked map now takes its
+board's name from Boardkit's list (`boardkit:registry`), read only: the
+map menu's list, "All maps" and "Find a map…" (`loadRegistry`; the list
+also follows a rename made in a Boardkit tab at once), the list entry after
+switching to it (`switchMap`), and "Linked to …" in "Map from a Boardkit
+board…" (`boardLinks`). Writes of the list start from the stored names
+(`storedRegistry`), so a board name is stored only with an edit. The same
+fix is in the gauntlet canvas (widget names, Overview, "Add a stone":
+`src/domain/sources.ts`) and in Boardkit (v0.0.98, the delete-board
+question: `store/linkedMap.ts`).
+**Opening a map from the map menu saves nothing (v0.0.107).** Before,
+autosave saved whichever map was opened (`autoSave.ts`): a linked map
+whose board had changed in Boardkit was written (the owner's "Party"), and
+so was one only tidied up by reading (the owner's "Process", two empty
+lists dropped). Now switching maps stores only which map is open
+(`linkkit:active`). Tests: `persistLinked.test.ts`, `mapStore.test.ts`
+(one with autosave on), `e2e/boardname.e2e.ts` (renamed in Boardkit: list,
+reload, "Linked to", switching, the canvas's list and Boardkit's question
+all show the new name, Linkkit's stored maps and list unchanged), and
+gauntlet's real-data test now also opens each of the owner's 18 maps from
+the map menu and checks the map list byte for byte (it failed on the old
+autosave). Map menu items carry `data-map-id` for that test.
 
 **Fit to view on open (v0.0.105, owner, 2026-10-19).** A saved map with no
 zoom of its own opens at the zoom that shows every box in the window (never
@@ -2358,20 +2384,6 @@ All bridge-mapping questions are decided.
 
 ## Open problems
 
-- **A linked map's stored copy keeps old names until its next edit**
-  (since v0.0.102; looked into again 2026-10-19, nothing changed yet). The
-  owner's "Party" case is a renamed CARD (stored box "Snacks", board card
-  now renamed); its board is still "Party". Box names in the stored copy
-  are read only through `openLinked`, so everything shows the board's
-  newest card names. A renamed BOARD does go stale (checked with a
-  throwaway unit test): the open map shows the new name, but these show
-  the stored old one until the map's next edit: Linkkit's map list and
-  search (`loadRegistry`; `switchMap` doesn't refresh the list entry),
-  "Map from a Boardkit board…" ("Linked to 'X'", `boardLinks`), the
-  gauntlet canvas's widget names, Overview and add list
-  (`src/domain/sources.ts`), and Boardkit's delete-board dialog
-  (`findLinkedMap`). Proposed fix, waiting for the owner: those readers
-  take a linked map's name from Boardkit's board list, read-only.
 - Treekit's teal and orange box colours look like the needs / breaks
   highlights. Decided: keep all 8; a selected box's highlight hides box
   colours, and the highlight looks different (solid fill, coloured arrows,

@@ -11,6 +11,10 @@ import { useMapStore, type MapState } from "./mapStore";
  * example, before its boxes are measured): its boxes are all stacked on one
  * spot, and a reload in that moment must start over and tidy again, not
  * reopen the stack. The tidy itself is a change, so it saves.
+ *
+ * Opening another map (from the map menu, or after a delete) saves nothing:
+ * opening a map never writes it (owner, 2026-10-19). A map made new is
+ * stored where it is made (`createStored`).
  */
 /** The save-failed banner's "Try again", after the user has made room:
     makes every failed write again (maps that aren't open too, with the text
@@ -38,6 +42,11 @@ export function initAutoSave(): void {
     if (state.needsTidy || waitsForName(state)) return;
     const named = waitsForName(prev);
     if (state.map === prev.map && state.needsTidy === prev.needsTidy && !named) return;
+    if (state.map.id !== prev.map.id && state.needsTidy === prev.needsTidy) {
+      // Only which map is open (not map data) is remembered.
+      saveActiveMapId(state.map.id);
+      return;
+    }
     // The map is read when the save runs, not now, so one write covers a
     // whole burst of edits.
     scheduleSave(() => useMapStore.getState().map);

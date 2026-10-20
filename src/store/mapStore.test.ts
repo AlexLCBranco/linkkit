@@ -1030,6 +1030,61 @@ describe("a linked tree in the store", () => {
     return { useMapStore, useSyncNotice, useLinkHold };
   }
 
+  it("lists a linked map under its board's name now, after a rename in Boardkit, writing nothing", async () => {
+    const { useMapStore } = await linkedStore();
+    useMapStore.getState().newMap();
+    const other = useMapStore.getState().map.id;
+    const mapsName = () => useMapStore.getState().maps.find((m) => m.id === "m1")?.name;
+    expect(mapsName()).toBe("Move?");
+    // Renamed in Boardkit while this map isn't open.
+    localStorage.setItem("boardkit:registry", JSON.stringify({ version: 1, boards: [{ id: "move", name: "Relocate" }], activeBoardId: "move" }));
+    const { flushSave } = await import("./saveQueue");
+    flushSave();
+    const everything = () => JSON.stringify(Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)!).sort().map((k) => [k, localStorage.getItem(k)]));
+    const before = everything();
+    useMapStore.getState().switchMap(asMapId("m1"));
+    expect(useMapStore.getState().map.name).toBe("Relocate");
+    expect(mapsName()).toBe("Relocate");
+    // Only which map is open is remembered.
+    expect(everything().replace(/"linkkit:active","[^"]*"/, "")).toBe(before.replace(/"linkkit:active","[^"]*"/, ""));
+    // A reload with the other map open lists it under the new name too.
+    localStorage.setItem("linkkit:active", other);
+    const reloaded = await freshStore();
+    expect(reloaded.getState().map.id).toBe(other);
+    expect(reloaded.getState().maps.find((m) => m.id === "m1")?.name).toBe("Relocate");
+  });
+
+  it("saves nothing when another map is opened from the map menu, even a linked one whose board changed (autosave on)", async () => {
+    const { useMapStore } = await linkedStore();
+    const { initAutoSave } = await import("./autoSave");
+    initAutoSave();
+    useMapStore.getState().newMap();
+    const { flushSave } = await import("./saveQueue");
+    flushSave();
+    // Renamed in Boardkit while another map is open.
+    localStorage.setItem("boardkit:registry", JSON.stringify({ version: 1, boards: [{ id: "move", name: "Relocate" }], activeBoardId: "move" }));
+    const mapData = () =>
+      JSON.stringify(Object.fromEntries(Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)!).filter((k) => k.startsWith("linkkit:map:") || k === "linkkit:registry").sort().map((k) => [k, localStorage.getItem(k)])));
+    const before = mapData();
+    useMapStore.getState().switchMap(asMapId("m1"));
+    expect(useMapStore.getState().map.name).toBe("Relocate");
+    flushSave();
+    expect(mapData()).toBe(before);
+    // Only which map is open is remembered.
+    expect(localStorage.getItem("linkkit:active")).toBe("m1");
+    // An ordinary map opened back: nothing written either.
+    const other = useMapStore.getState().maps.find((m) => m.id !== "m1")!.id;
+    useMapStore.getState().switchMap(other);
+    flushSave();
+    expect(mapData()).toBe(before);
+    // An edit still saves (and stores the board's name with it).
+    useMapStore.getState().switchMap(asMapId("m1"));
+    useMapStore.getState().setBoxColor(asNodeId("a"), "red");
+    flushSave();
+    expect(mapData()).not.toBe(before);
+    expect(JSON.parse(localStorage.getItem("linkkit:registry")!).maps.find((m: { id: string }) => m.id === "m1").name).toBe("Relocate");
+  });
+
   it("opens from the board and refuses a step under a card, saying why", async () => {
     const { useMapStore } = await linkedStore();
     expect(useMapStore.getState().map.linkedBoard).toBe("move");

@@ -152,7 +152,8 @@ export function MapSwitcher() {
   const [query, setQuery] = useState("");
   const list = mapMenuList(rows, query);
   const mapRow = (m: { id: MapId; name: string }) => (
-    <DropdownMenuItem key={m.id} onSelect={() => switchMap(m.id)}>
+    // `data-map-id`: names can repeat, so tests pick a map by its id.
+    <DropdownMenuItem key={m.id} onSelect={() => switchMap(m.id)} data-map-id={m.id}>
       <span className={styles.check}>{m.id === mapId ? "✓" : ""}</span>
       {m.name}
     </DropdownMenuItem>

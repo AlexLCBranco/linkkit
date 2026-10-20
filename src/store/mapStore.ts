@@ -1639,7 +1639,9 @@ export const useMapStore = create<MapState>()((set, get) => ({
       set((s) => ({ maps: removeMap(s.maps, id) }));
       return;
     }
-    set((s) => open(s, map, s.maps));
+    // Listed under the name it shows (a linked map's board may have been
+    // renamed in Boardkit since the list was read); in memory only.
+    set((s) => open(s, map, upsertMap(s.maps, { id: map.id, name: map.name })));
   },
   renameMap: (name) =>
     set((s) => {
@@ -1885,6 +1887,9 @@ export function initOtherTabs(): void {
       pullMap(id, event.newValue === null);
       return;
     }
+    // Boardkit's list holds the boards' names: a linked map listed here
+    // shows its board's (`loadRegistry`), so the list is read again.
+    if (isBoardListKey(event.key)) pullLists();
     // Boardkit (on the shared site) saved the open linked tree's board, or
     // its list, which holds the board's name.
     const { map } = useMapStore.getState();

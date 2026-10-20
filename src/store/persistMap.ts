@@ -92,6 +92,13 @@ function writeRegistry(registry: Registry): void {
  * removes its content before its list entry, which is not a loss.)
  */
 export function loadRegistry(onMissing?: (missing: Registry) => void): Registry {
+  return withBoardNames(storedRegistry(onMissing));
+}
+
+/** The list as stored (reconciled as above), with each map under the name
+    Linkkit stored: what a write of the list starts from, so a linked map's
+    board name (`withBoardNames`) is never written just because it shows. */
+function storedRegistry(onMissing?: (missing: Registry) => void): Registry {
   try {
     const raw = localStorage.getItem(REGISTRY_KEY);
     let registry: Registry = [];
@@ -123,6 +130,36 @@ export function loadRegistry(onMissing?: (missing: Registry) => void): Registry 
   } catch {
     return [];
   }
+}
+
+/**
+ * A linked map is named after its board (`withStartName`), and Boardkit
+ * renames a board in its own list only: Linkkit's stored copy (and its
+ * list entry) keep the old name until the map's next edit, since opening
+ * writes nothing (owner, 2026-10-19). So wherever a stored name shows, a
+ * linked map's comes from Boardkit's list instead. Read only.
+ */
+function boardNameOf(id: MapId | string, stored: string): string {
+  const raw = localStorage.getItem(MAP_KEY_PREFIX + id);
+  // Most maps aren't linked: no need to parse them.
+  if (raw === null || !raw.includes('"linkedBoard"')) return stored;
+  try {
+    const board = (JSON.parse(raw) as { map?: { linkedBoard?: unknown } }).map?.linkedBoard;
+    return typeof board === "string" ? loadBoardName(board)?.trim() || stored : stored;
+  } catch {
+    return stored;
+  }
+}
+
+/** The list with each linked map named as its board is now (`boardNameOf`);
+    the same list when nothing differs. */
+function withBoardNames(registry: Registry): Registry {
+  let out = registry;
+  for (const entry of registry) {
+    const name = boardNameOf(entry.id, entry.name);
+    if (name !== entry.name) out = upsertMap(out, { id: entry.id, name });
+  }
+  return out;
 }
 
 /**
@@ -364,7 +401,7 @@ export function linkStoredMap(linked: LinkMap & { readonly linkedBoard: string }
   }
   synced.set(linked.id, { rev, map: linked, board: { rev: 1, name } });
   unsaved.delete(linked.id);
-  writeRegistry(upsertMap(loadRegistry(), { id: linked.id, name: linked.name }));
+  writeRegistry(upsertMap(storedRegistry(), { id: linked.id, name: linked.name }));
   return true;
 }
 
@@ -398,7 +435,7 @@ export function saveMap(toSave: LinkMap): void {
     const written = saveLinked(map);
     if (!sameMap(written, map)) for (const listener of mergedListeners) listener(map.id, map, written);
     if (isLinked(written)) {
-      if (!unsaved.has(map.id)) writeRegistry(upsertMap(loadRegistry(), { id: map.id, name: written.name }));
+      if (!unsaved.has(map.id)) writeRegistry(upsertMap(storedRegistry(), { id: map.id, name: written.name }));
       return;
     }
     // Its board was deleted in Boardkit: an ordinary tree from now on.
@@ -429,7 +466,7 @@ export function saveMap(toSave: LinkMap): void {
     return;
   }
   unsaved.delete(map.id);
-  writeRegistry(upsertMap(loadRegistry(), { id: map.id, name: written.name }));
+  writeRegistry(upsertMap(storedRegistry(), { id: map.id, name: written.name }));
 }
 
 /** What another tab's save means for the map this tab has open. */
@@ -506,7 +543,7 @@ export function deleteStoredMap(id: MapId): void {
   unsaved.delete(id);
   synced.delete(id);
   useSaveHealth.getState().forget(MAP_KEY_PREFIX + id);
-  writeRegistry(removeMap(loadRegistry(), id));
+  writeRegistry(removeMap(storedRegistry(), id));
 }
 
 /** Takes a map off the list, keeping its stored record (it went to the
@@ -514,7 +551,7 @@ export function deleteStoredMap(id: MapId): void {
     to save, the map comes back on the next visit rather than being lost. */
 export function unlistStoredMap(id: MapId): void {
   unsaved.delete(id);
-  writeRegistry(removeMap(loadRegistry(), id));
+  writeRegistry(removeMap(storedRegistry(), id));
 }
 
 /** The deleted maps, oldest first. One whose record is gone is dropped. */
@@ -559,7 +596,9 @@ export function boardLinks(): Record<string, LinkedTo> {
       if (typeof map !== "object" || map === null) continue;
       const { linkedBoard, name } = map as { linkedBoard?: unknown; name?: unknown };
       if (typeof linkedBoard !== "string") continue;
-      const entry = { name: typeof name === "string" ? name : "", trashed: trashed.has(id) };
+      const stored = typeof name === "string" ? name : "";
+      // The board's name now (it may have been renamed in Boardkit).
+      const entry = { name: loadBoardName(linkedBoard)?.trim() || stored, trashed: trashed.has(id) };
       // A live map wins over one in the trash, for the reason shown.
       if (!links[linkedBoard] || links[linkedBoard].trashed) links[linkedBoard] = entry;
     }

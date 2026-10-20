@@ -8,7 +8,7 @@ import { createTree, moveToParent } from "../domain/tree";
 import type { LinkMap } from "../domain/types";
 import { useLinkHold } from "./linkHold";
 import { memoryStorage } from "./memoryStorage";
-import { boardLinks, catchUpMap, linkStoredMap, loadMap, loadMapTrash, onMapMerged, saveMap, takeUnplaced } from "./persistMap";
+import { boardLinks, catchUpMap, linkStoredMap, loadMap, loadMapTrash, loadRegistry, onMapMerged, saveMap, takeUnplaced } from "./persistMap";
 import { listBoards } from "./persistBoard";
 import { useSaveHealth } from "./saveHealth";
 import { useSyncNotice } from "./syncNotice";
@@ -119,6 +119,32 @@ describe("opening a linked tree", () => {
     saveMap(renameNode(map, id("a"), "Changed"));
     expect(localStorage.getItem(BOARD_KEY)).toBe(before);
     expect(storedCopy().rev).toBe(1);
+  });
+});
+
+describe("a board renamed in Boardkit (the stored copy keeps the old name)", () => {
+  const renameBoard = (name: string) =>
+    localStorage.setItem(LIST_KEY, JSON.stringify({ version: 1, boards: [{ id: "move", name }], activeBoardId: "move" }));
+  const everything = () => JSON.stringify(Object.fromEntries(Array.from({ length: localStorage.length }, (_, i) => localStorage.key(i)!).sort().map((k) => [k, localStorage.getItem(k)])));
+
+  it("shows the board's name now in the map list and in 'Linked to', writing nothing", () => {
+    localStorage.setItem("linkkit:registry", JSON.stringify({ version: 1, maps: [{ id: "m1", name: "Move?" }] }));
+    renameBoard("Relocate");
+    const before = everything();
+    expect(loadRegistry()).toEqual([{ id: "m1", name: "Relocate" }]);
+    expect(boardLinks()).toEqual({ move: { name: "Relocate", trashed: false } });
+    // The open map agrees.
+    expect(loadMap(MAP_ID, PAGE)!.name).toBe("Relocate");
+    expect(everything()).toBe(before);
+  });
+
+  it("keeps Linkkit's name where Boardkit's list doesn't have the board (or names it blank)", () => {
+    localStorage.setItem("linkkit:registry", JSON.stringify({ version: 1, maps: [{ id: "m1", name: "Move?" }] }));
+    localStorage.setItem(LIST_KEY, JSON.stringify({ version: 1, boards: [], activeBoardId: null }));
+    expect(loadRegistry()).toEqual([{ id: "m1", name: "Move?" }]);
+    expect(boardLinks().move.name).toBe("Move?");
+    renameBoard("  ");
+    expect(loadRegistry()).toEqual([{ id: "m1", name: "Move?" }]);
   });
 });
 
