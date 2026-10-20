@@ -44,6 +44,21 @@ browser folder standing in for the folder picker); it makes and removes its own
 
 ## What works now
 
+**e2e on a busy machine (tests only, 2026-10-20).** Three races in the
+tests, none in the apps (each reproduced and measured first; details in
+gauntlet's HANDOFF.md). (1) The bridge test's two apps are tabs of one
+browser, and a tab behind the other drops to ~2 frames a second a few
+seconds after losing the front, and gets the other app's storage events
+late under load (3 s and 7.5 s seen): 3.5 (A3's arrow, drawn only after a
+frame) and 4.6 missed the 3 s window although both apps had the change.
+`front(page)` in `e2e/bridge.e2e.ts` brings each app to the front when the
+test turns to it, once the shared storage has been quiet for 800 ms (past
+both apps' 400 ms save delay). (2) 1.4/2.4 wait for the newest backup to
+hold step 4's edits (a backup made just before the last edit counted as
+"after step 4"), and `backupFiles` skips a file replaced mid-read. (3) A
+fresh page's wait for `[data-ready]` is `READY` (30 s, `e2e/helpers.ts`):
+locally the time is the dev server sending 203 modules, 1 s idle up to
+9.9 s beside the gauntlet suite, so 15 s was too close; not a hang.
 **A renamed board's name shows everywhere (v0.0.107, owner, 2026-10-19).**
 A linked map is named after its board, but opening writes nothing, so
 Linkkit's copy and its map list keep an old board name until the map's

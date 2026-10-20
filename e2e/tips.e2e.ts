@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { READY } from "./helpers";
+
 /**
  * The tips under the header ("Click any box to see what it needs…" and
  * "Start from a template or example…") sit behind a small "Tips" toggle
@@ -30,7 +32,7 @@ const hint = (page: Page) => page.getByText(/^Click any box to see what it needs
 const templates = (page: Page) => page.getByRole("button", { name: "Start from a template or example…" });
 
 async function ready(page: Page) {
-  await expect(page.locator("[data-ready]")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("[data-ready]")).toBeVisible(READY);
   await expect(page.locator("[data-box-id]").first()).toBeVisible();
 }
 

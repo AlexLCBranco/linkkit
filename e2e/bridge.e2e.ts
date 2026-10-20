@@ -182,8 +182,14 @@ const backupFiles = (page: Page, app: "linkkit" | "boardkit") =>
     const files: { name: string; modified: number; text: string }[] = [];
     for await (const entry of (folder as unknown as { values(): AsyncIterable<FileSystemHandle> }).values()) {
       if (entry.kind !== "file") continue;
-      const file = await (entry as FileSystemFileHandle).getFile();
-      files.push({ name: entry.name, modified: file.lastModified, text: await file.text() });
+      // An app may replace or prune a backup between the listing and the
+      // read (NotFoundError seen on a busy run): that file is skipped.
+      try {
+        const file = await (entry as FileSystemFileHandle).getFile();
+        files.push({ name: entry.name, modified: file.lastModified, text: await file.text() });
+      } catch (error) {
+        if ((error as DOMException).name !== "NotFoundError") throw error;
+      }
     }
     return files.sort((a, b) => b.modified - a.modified);
   }, app);
@@ -224,6 +230,29 @@ const boardkitMenu = (bk: Page) => menuText(bk, "Switch board");
 async function openBoardkitTrash(bk: Page) {
   await bk.getByRole("button", { name: "Recently deleted lists and cards" }).click();
   return bk.getByRole("dialog");
+}
+
+/** Puts an app's tab in front: called every time the test turns to the
+    other app. The two apps are tabs of one browser, and a tab behind the
+    other drops to a frame or two a second a few seconds after losing the
+    front (measured 2026-10-20: 2 fps behind, 60 in front; Chromium flags
+    don't change it). There React Flow draws a new box's arrow late, and
+    under load the tab gets the other app's storage events seconds late
+    (3 s and 7.5 s seen), so a LIVE check on the app behind failed on a
+    busy machine although both apps had the change. In front, it shows
+    within milliseconds. The app being left goes behind only once it has
+    stored its last change (the shared storage unchanged for 800 ms, past
+    both apps' 400 ms save delay), so that save isn't left to a tab behind. */
+async function front(page: Page) {
+  const stored = async () => JSON.stringify(await records(page));
+  let last = await stored();
+  for (let i = 0; i < 12; i++) {
+    await page.waitForTimeout(800);
+    const now = await stored();
+    if (now === last) break;
+    last = now;
+  }
+  await page.bringToFront();
 }
 
 // ------------------------------------------------------------------- test
@@ -334,57 +363,72 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
   });
 
   await check("3.5", "A3 is in Boardkit's trash; restored, Linkkit shows it last under List A; deleted again", async () => {
+    await front(bk);
     const trash = await openBoardkitTrash(bk);
     await trash.locator("li").filter({ hasText: "A3" }).getByRole("button", { name: "Restore card" }).click();
     await bk.keyboard.press("Escape");
+    await expect(bk.getByRole("dialog")).toHaveCount(0);
     expect((await boardShown(bk))[0].cards, "Boardkit itself").toEqual(["A1", "A2", "A3"]);
+    await front(lk);
     await expect.poll(() => childNames(lk, ids["List A"]), LIVE).toEqual(["A1", "A2", "A3"]);
     // Out again, so the rest of the checklist runs on the board it expects.
+    await front(bk);
     await card(bk, a3).hover();
     await card(bk, a3).getByRole("button", { name: "Delete card" }).click();
+    await front(lk);
     await expect(box(lk, a3)).toHaveCount(0, LIVE);
   });
 
   // ---- 4. Edits cross over live
-  await lk.bringToFront();
-
   await check("4.1", "Rename A1 in Boardkit: Linkkit shows it", async () => {
+    await front(bk);
     await retitle(bk, cardTitle(bk, ids.A1), "A1 renamed");
+    await front(lk);
     await expect.poll(() => boxName(lk, ids.A1), LIVE).toBe("A1 renamed");
   });
 
   await check("4.2", "Rename B1 in Linkkit: Boardkit shows it", async () => {
+    await front(lk);
     await renameBox(lk, ids.B1, "B1 renamed");
+    await front(bk);
     await expect(cardTitle(bk, ids.B1)).toHaveText("B1 renamed", LIVE);
   });
 
   await check("4.3", "Drag A2 above A1 in Boardkit: Linkkit shows A2 first", async () => {
+    await front(bk);
     const a1 = (await card(bk, ids.A1).boundingBox())!;
     const a2 = (await card(bk, ids.A2).boundingBox())!;
     await drag(bk, { x: a2.x + 10, y: a2.y + a2.height / 2 }, { x: a1.x + 10, y: a1.y + 4 });
     expect((await boardShown(bk))[0].cards, "Boardkit itself").toEqual(["A2", "A1 renamed"]);
+    await front(lk);
     await expect.poll(() => childNames(lk, ids["List A"]), LIVE).toEqual(["A2", "A1 renamed"]);
   });
 
   await check("4.4", "Drag B2 onto List A in Linkkit: Boardkit shows B2 in List A", async () => {
+    await front(lk);
     await drag(lk, await centre(box(lk, ids.B2)), await centre(box(lk, ids["List A"])));
     await expect.poll(() => childNames(lk, ids["List A"]), { timeout: 2_000, message: "Linkkit itself" }).toContain("B2");
+    await front(bk);
     await expect.poll(async () => (await boardShown(bk))[0].cards, LIVE).toContain("B2");
     expect((await boardShown(bk))[1].cards).not.toContain("B2");
   });
 
   await check("4.5", "Move B2 back to List B in Boardkit: Linkkit shows it under List B", async () => {
+    await front(bk);
     const from = (await card(bk, ids.B2).boundingBox())!;
     const last = (await card(bk, ids.B1).boundingBox())!;
     await drag(bk, { x: from.x + 10, y: from.y + from.height / 2 }, { x: last.x + 10, y: last.y + last.height + 12 });
     expect((await boardShown(bk))[1].cards, "Boardkit itself").toEqual(["B1 renamed", "B2"]);
+    await front(lk);
     await expect.poll(() => childNames(lk, ids["List B"]), LIVE).toEqual(["B1 renamed", "B2"]);
   });
 
   await check("4.6", "Set List B to cut in Linkkit: Boardkit shows a cut badge and faded cards", async () => {
+    await front(lk);
     await (await toolbarButton(lk, ids["List B"], "Keep, maybe or cut")).click();
     await lk.getByRole("menuitem", { name: "Cut" }).click();
     await expect(box(lk, ids["List B"])).toHaveAttribute("data-cut", "true");
+    await front(bk);
     await expect(list(bk, ids["List B"]).getByRole("img", { name: "Cut" }).first()).toBeVisible(LIVE);
     await expect(list(bk, ids["List B"])).toHaveAttribute("data-cut", "");
     await expect(card(bk, ids.B1)).toHaveAttribute("data-cut", "");
@@ -393,12 +437,14 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
 
   const thot = "Pregame line from the bridge test";
   await check("4.7", "Pregame thots on A1 renamed in Boardkit: Linkkit shows it as the box's note", async () => {
+    await front(bk);
     await card(bk, ids.A1).hover();
     await card(bk, ids.A1).getByRole("button", { name: "Show pregame thots" }).click();
     await card(bk, ids.A1).getByRole("button", { name: "Pregame thots", exact: true }).click();
     await bk.keyboard.type(thot);
     // Multi-line field: Enter is a new line, leaving it keeps the text.
     await bk.getByRole("button", { name: "Board name" }).focus();
+    await front(lk);
     await expect(box(lk, ids.A1).getByRole("img", { name: "Has notes" })).toBeVisible(LIVE);
     await expect(box(lk, ids.A1)).toContainText(thot);
   });
@@ -414,10 +460,18 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
     expect(await linkkitMenu(lk)).toContain("Backing up to “e2e-linkkit-backup” · last just now");
   });
 
+  // The NEWEST backup, waited for: on a slow run step 4 has quiet spells of
+  // 10 s, so a backup made before its last edits can still be "after
+  // duringStep4", and the one with them is then still waiting for quiet.
+  const newestBackup = (page: Page, app: "linkkit" | "boardkit") =>
+    expect.poll(async () => (await backupFiles(page, app))[0]?.text ?? "", {
+      timeout: 25_000,
+      message: `the newest ${app} backup, with step 4's edits`,
+    });
+
   await check("1.4", "Linkkit: the backup holds ZZ bridge test with step 4's edits", async () => {
-    const file = await backupAfter(lk, "linkkit", duringStep4);
-    expect(file.text).toContain(NAME);
-    expect(file.text).toContain("B1 renamed");
+    await newestBackup(lk, "linkkit").toContain("B1 renamed");
+    expect((await backupFiles(lk, "linkkit"))[0].text).toContain(NAME);
   });
 
   await check("2.3", "Boardkit: a new boardkit-backup-YYYY-MM-DD-HHMM.json; menu says last just now", async () => {
@@ -427,20 +481,21 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
   });
 
   await check("2.4", "Boardkit: the backup holds ZZ bridge test with step 4's edits", async () => {
-    const file = await backupAfter(bk, "boardkit", duringStep4);
-    expect(file.text).toContain(NAME);
-    expect(file.text).toContain(thot);
+    await newestBackup(bk, "boardkit").toContain(thot);
+    expect((await backupFiles(bk, "boardkit"))[0].text).toContain(NAME);
   });
-  await lk.bringToFront();
-
   // ---- 5. Deletes go to Boardkit's trash, and come back
   await check("5.1", "Delete B1 renamed in Linkkit: gone in Boardkit, in Boardkit's trash; Linkkit offers Boardkit's trash", async () => {
+    await front(lk);
     await (await toolbarButton(lk, ids.B1, "Delete box")).click();
     await expect(box(lk, ids.B1)).toHaveCount(0);
+    await front(bk);
     await expect(card(bk, ids.B1)).toHaveCount(0, LIVE);
     const trash = await openBoardkitTrash(bk);
     await expect(trash).toContainText("B1 renamed");
     await bk.keyboard.press("Escape");
+    await expect(bk.getByRole("dialog")).toHaveCount(0);
+    await front(lk);
     await lk.getByRole("button", { name: "Recently deleted" }).click();
     const lkTrash = lk.getByRole("dialog");
     await expect(lkTrash.getByRole("link", { name: "Open trash in Boardkit" })).toBeVisible();
@@ -449,24 +504,29 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
   });
 
   await check("5.2", "Restore it from Boardkit's trash: back in Linkkit under List B, old place", async () => {
+    await front(bk);
     const trash = await openBoardkitTrash(bk);
     await trash.locator("li").filter({ hasText: "B1 renamed" }).getByRole("button", { name: "Restore card" }).click();
     await bk.keyboard.press("Escape");
     await expect(card(bk, ids.B1)).toHaveCount(1);
     expect((await boardShown(bk))[1].cards, "Boardkit itself").toEqual(["B1 renamed", "B2"]);
+    await front(lk);
     await expect.poll(() => childNames(lk, ids["List B"]), LIVE).toEqual(["B1 renamed", "B2"]);
   });
 
   await check("5.3", "Delete List B in Linkkit: Boardkit's trash holds it; restored, it and both cards come back", async () => {
     // Compared with the order just before, so a mismatch left by 5.2 isn't
     // counted twice.
+    await front(bk);
     const cardsBefore = (await boardShown(bk)).find((l) => l.list === "List B")?.cards;
+    await front(lk);
     const boxesBefore = await childNames(lk, ids["List B"]);
     await (await toolbarButton(lk, ids["List B"], "Delete box")).click();
     const ask = lk.getByRole("alertdialog");
     await expect(ask).toContainText("List B");
     await ask.getByRole("button", { name: /^Delete \d+ boxes$/ }).click();
     await expect(box(lk, ids["List B"])).toHaveCount(0);
+    await front(bk);
     await expect(list(bk, ids["List B"])).toHaveCount(0, LIVE);
     const trash = await openBoardkitTrash(bk);
     const row = trash.locator("li").filter({ hasText: "List B" });
@@ -474,30 +534,40 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
     await row.getByRole("button", { name: "Restore list" }).click();
     await bk.keyboard.press("Escape");
     expect((await boardShown(bk)).find((l) => l.list === "List B")?.cards, "Boardkit itself").toEqual(cardsBefore);
+    await front(lk);
     await expect.poll(() => childNames(lk, ids[NAME]), LIVE).toEqual(["List A", "List B"]);
     await expect.poll(() => childNames(lk, ids["List B"]), LIVE).toEqual(boxesBefore);
   });
 
   await check("5.4", "Delete A2 in Boardkit: gone in Linkkit", async () => {
+    await front(bk);
     await card(bk, ids.A2).hover();
     await card(bk, ids.A2).getByRole("button", { name: "Delete card" }).click();
     await expect(card(bk, ids.A2)).toHaveCount(0);
+    await front(lk);
     await expect(box(lk, ids.A2)).toHaveCount(0, LIVE);
   });
 
   // ---- 6. Undo respects the other app
   await check("6.1", "Rename List A to List A 2 in Linkkit, Ctrl+Z: List A in both", async () => {
+    await front(lk);
     await renameBox(lk, ids["List A"], "List A 2");
+    await front(bk);
     await expect(listTitle(bk, ids["List A"])).toHaveText("List A 2", LIVE);
+    await front(lk);
     await lk.keyboard.press("Control+z");
     await expect.poll(() => boxName(lk, ids["List A"])).toBe("List A");
+    await front(bk);
     await expect(listTitle(bk, ids["List A"])).toHaveText("List A", LIVE);
   });
 
   await check("6.2", "Linkkit List A 3, Boardkit List A 4, Linkkit Ctrl+Z: refused, both show List A 4", async () => {
+    await front(lk);
     await renameBox(lk, ids["List A"], "List A 3");
+    await front(bk);
     await expect(listTitle(bk, ids["List A"])).toHaveText("List A 3", LIVE);
     await retitle(bk, listTitle(bk, ids["List A"]), "List A 4");
+    await front(lk);
     await expect.poll(() => boxName(lk, ids["List A"]), LIVE).toBe("List A 4");
     await lk.keyboard.press("Control+z");
     await expect(lk.getByRole("status")).toContainText(
@@ -505,6 +575,7 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
     );
     await lk.waitForTimeout(1_000);
     expect(await boxName(lk, ids["List A"])).toBe("List A 4");
+    await front(bk);
     await expect(listTitle(bk, ids["List A"])).toHaveText("List A 4");
   });
 
@@ -531,6 +602,7 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
 
   // ---- 8. Unlink and clean up
   await check("8.1", "Delete this board… in Boardkit names the Linkkit map; Cancel", async () => {
+    await front(bk);
     await bk.getByRole("button", { name: "Switch board" }).click();
     await bk.getByRole("menuitem", { name: "Delete this board…" }).click();
     const ask = bk.getByRole("alertdialog");
@@ -541,12 +613,14 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
   });
 
   await check("8.2", "Unlink from Boardkit in Linkkit: chip gone, map still a tree, board still in Boardkit", async () => {
+    await front(lk);
     await mapMenu(lk, "This map", "Unlink from Boardkit…");
     await lk.getByRole("alertdialog").getByRole("button", { name: "Unlink" }).click();
     await expect(lk.getByText("Linked to Boardkit")).toHaveCount(0);
     await expect(lk.getByRole("button", { name: NAME, exact: true })).toBeVisible();
     expect(await childNames(lk, ids[NAME])).toEqual(["List A 4", "List B"]);
     await expect(box(lk, ids[NAME]).getByRole("button", { name: "Add a child" })).toHaveCount(1);
+    await front(bk);
     await bk.reload();
     await expect(bk.getByRole("button", { name: "Board name" })).toHaveText(NAME);
   });
@@ -556,7 +630,7 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
   // cards; the start box is the board).
   const boardKey = `boardkit:board:${ids[NAME]}`;
   await check("8.2a", "Map from a Boardkit board…: ZZ board says 2 lists · 3 cards; Open as map links it, board untouched", async () => {
-    await lk.bringToFront();
+    await front(lk);
     const boardBefore = await lk.evaluate((key) => localStorage.getItem(key), boardKey);
     await mapMenu(lk, "+ New", "From a Boardkit board…");
     const dialog = lk.getByRole("alertdialog");
@@ -571,13 +645,17 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
   });
 
   await check("8.2b", "Rename A1 in Boardkit and B2 in Linkkit: each shows in the other", async () => {
+    await front(bk);
     await retitle(bk, cardTitle(bk, ids.A1), "A1 again");
+    await front(lk);
     await expect.poll(() => boxName(lk, ids.A1), LIVE).toBe("A1 again");
     await renameBox(lk, ids.B2, "B2 again");
+    await front(bk);
     await expect(cardTitle(bk, ids.B2)).toHaveText("B2 again", LIVE);
   });
 
   await check("8.2c", "Map from a Boardkit board… again: the ZZ board is greyed, linked to the new map", async () => {
+    await front(lk);
     await mapMenu(lk, "+ New", "From a Boardkit board…");
     const dialog = lk.getByRole("alertdialog");
     const row = dialog.getByRole("radio", { name: new RegExp(`^${NAME}`) });
@@ -607,6 +685,7 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
   });
 
   await check("8.3", "Delete the ZZ bridge test board in Boardkit", async () => {
+    await front(bk);
     await bk.getByRole("button", { name: "Switch board" }).click();
     await bk.getByRole("menuitem", { name: "Delete this board…" }).click();
     const ask = bk.getByRole("alertdialog");
@@ -616,6 +695,7 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
   });
 
   await check("8.4", "Delete the ZZ bridge test map in Linkkit, then Delete for good", async () => {
+    await front(lk);
     await mapMenu(lk, "This map", "Delete");
     await expect(lk.getByRole("button", { name: NAME, exact: true })).toHaveCount(0);
     await lk.getByRole("button", { name: "Recently deleted" }).click();
@@ -631,8 +711,9 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
   });
 
   await check("8.5", "Turn off automatic backup in both apps: still off after a reload", async () => {
+    await front(lk);
     await mapMenu(lk, "Backup", "Turn off automatic backup");
-    await bk.bringToFront();
+    await front(bk);
     await bk.getByRole("button", { name: "Switch board" }).click();
     await bk.getByRole("menuitem", { name: "Turn off automatic backup" }).click();
     // Off on screen first: turning off forgets the folder asynchronously, and

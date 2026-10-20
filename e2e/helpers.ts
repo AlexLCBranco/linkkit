@@ -6,6 +6,16 @@ import { expect, type Locator, type Page } from "@playwright/test";
  * maps are never in reach.
  */
 
+/**
+ * How long a fresh page may take to be `[data-ready]`. Locally that is
+ * mostly the dev server sending Linkkit's 203 modules one by one (the live
+ * site sends a bundle), and it grows with load, not stuck on any one step:
+ * measured 2026-10-20, about 1 s idle, 4 s with the CPU slowed 4x and 7 s at
+ * 8x, and up to 9.9 s beside the gauntlet suite (modules arriving until
+ * 9.7 s, the app ready 0.2 s later). 15 s was too close on a busy run.
+ */
+export const READY = { timeout: 30_000 };
+
 export const box = (lk: Page, id: string): Locator => lk.locator(`[data-box-id="${id}"]`);
 
 /** The ids of every box, by name (names are unique in these tests). */

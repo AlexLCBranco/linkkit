@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { addChild, box, boxIds, mapMenu, newTree } from "./helpers";
+import { addChild, box, boxIds, mapMenu, newTree, READY } from "./helpers";
 
 /**
  * Opening a map is read-only (owner, 2026-10-19): opening, reloading or
@@ -36,7 +36,7 @@ async function open(page: Page, id: string, how: "app" | "embed") {
   } else {
     await page.goto(`/linkkit/?embed=1&id=${encodeURIComponent(id)}`);
   }
-  await expect(page.locator("[data-ready]")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("[data-ready]")).toBeVisible(READY);
   await expect(page.locator("[data-box-id]").first()).toBeVisible();
   await page.waitForTimeout(1_500);
 }
@@ -85,7 +85,7 @@ test("opening, reloading and reopening a bracket and a tree in three window size
     }
     // A plain reload of the map open last, too.
     await page.reload();
-    await expect(page.locator("[data-ready]")).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator("[data-ready]")).toBeVisible(READY);
     await page.waitForTimeout(1_500);
     for (const k of [bracket, tree]) expect(await stored(page, k)).toBe(was[k]);
   }

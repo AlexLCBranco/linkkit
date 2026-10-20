@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { addChild, boxIds, mapMenu, newTree } from "./helpers";
+import { addChild, boxIds, mapMenu, newTree, READY } from "./helpers";
 
 /**
  * Fit to view on open (owner, 2026-10-19): a map bigger than the window
@@ -44,7 +44,7 @@ async function boxesOffScreen(page: Page) {
 test("a map bigger than the window opens with every box on screen, and opening writes nothing", async ({ page }) => {
   await page.setViewportSize(MAKE);
   await page.goto("/linkkit/");
-  await expect(page.locator("[data-ready]")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("[data-ready]")).toBeVisible(READY);
 
   // Wider than 957 px (8 next steps side by side) and taller than 910 px
   // (a chain 10 deep under the first).
@@ -68,7 +68,7 @@ test("a map bigger than the window opens with every box on screen, and opening w
   for (const size of OPEN_IN) {
     await page.setViewportSize(size);
     await page.reload();
-    await expect(page.locator("[data-ready]")).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator("[data-ready]")).toBeVisible(READY);
     await expect(page.locator("[data-box-id]")).toHaveCount(19);
     // Past Linkkit's save delay (400 ms) and any glide.
     await page.waitForTimeout(1_500);
@@ -91,7 +91,7 @@ test("a map bigger than the window opens with every box on screen, and opening w
   await pill.click();
   await expect(pill).toHaveText("100%");
   await page.reload();
-  await expect(page.locator("[data-ready]")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("[data-ready]")).toBeVisible(READY);
   await page.waitForTimeout(1_500);
   await expect(pill).toHaveText("100%");
   const afterReload = await everything();
@@ -105,7 +105,7 @@ test("a map bigger than the window opens with every box on screen, and opening w
   expect(JSON.parse((await page.evaluate(() => localStorage.getItem("linkkit:zoom")))!)).toEqual({ [id]: 0.9 });
   await page.setViewportSize(OPEN_IN[0]);
   await page.reload();
-  await expect(page.locator("[data-ready]")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("[data-ready]")).toBeVisible(READY);
   await expect(pill).toHaveText("90%");
   expect(await stored(page, id)).toBe(was);
 

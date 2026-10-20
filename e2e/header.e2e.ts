@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { box, mapMenu, newTree } from "./helpers";
+import { box, mapMenu, newTree, READY } from "./helpers";
 
 /**
  * Every header control is on screen and clickable in windows from just
@@ -47,7 +47,7 @@ async function switchMapOpens(page: Page, width: number) {
 test("every header control is clickable from 481 px wide up, in a plain map and a tree (nothing selected, then a box selected)", async ({ page }) => {
   await page.setViewportSize({ width: 1400, height: 910 });
   await page.goto("/linkkit/");
-  await expect(page.locator("[data-ready]")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("[data-ready]")).toBeVisible(READY);
 
   // The first map of a fresh profile: a plain connections map.
   for (const width of WIDTHS) {
@@ -63,7 +63,7 @@ test("every header control is clickable from 481 px wide up, in a plain map and 
   const tree = await page.evaluate(() => localStorage.getItem("linkkit:active")!);
   await page.keyboard.press("Escape");
   await page.reload();
-  await expect(page.locator("[data-ready]")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("[data-ready]")).toBeVisible(READY);
   for (const width of WIDTHS) {
     await page.setViewportSize({ width, height: 910 });
     await everyButtonClickable(page, width);

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { addChild, boxIds, mapMenu, newTree } from "./helpers";
+import { addChild, boxIds, mapMenu, newTree, READY } from "./helpers";
 
 /**
  * A board renamed in Boardkit (owner, 2026-10-19): a linked map is named
@@ -46,7 +46,7 @@ async function listedNames(lk: Page): Promise<string[]> {
 }
 
 async function ready(lk: Page) {
-  await expect(lk.locator("[data-ready]")).toBeVisible({ timeout: 15_000 });
+  await expect(lk.locator("[data-ready]")).toBeVisible(READY);
 }
 
 test("a board renamed in Boardkit shows its new name everywhere its linked map is named, writing nothing", async ({ context }) => {
