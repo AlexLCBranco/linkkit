@@ -42,8 +42,7 @@ export interface WhiteboardMapProps {
  * showing never writes.
  */
 export function WhiteboardMap({ mapId, editing, onContent, room }: WhiteboardMapProps) {
-  const box = useRef<HTMLDivElement>(null);
-  useSteadySize(box);
+  const box = useSteadySize();
   return (
     <div ref={box} className={styles.steady}>
       {editing ? <EditingMap mapId={mapId} onContent={onContent} room={room} /> : <ShownMap mapId={mapId} onContent={onContent} />}
@@ -56,7 +55,8 @@ export function WhiteboardMap({ mapId, editing, onContent, room }: WhiteboardMap
  * again before it shows (a frame or two): meanwhile it keeps the size it
  * had, so the widget around it never jumps.
  */
-function useSteadySize(box: RefObject<HTMLDivElement | null>) {
+function useSteadySize(): RefObject<HTMLDivElement | null> {
+  const box = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
@@ -80,7 +80,8 @@ function useSteadySize(box: RefObject<HTMLDivElement | null>) {
       swaps.disconnect();
       sizes.disconnect();
     };
-  }, [box]);
+  }, []);
+  return box;
 }
 
 /** The keys a shown map follows: its own record, the trash (deleted or
