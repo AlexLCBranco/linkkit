@@ -94,3 +94,36 @@
 .pinned :global(.react-flow__edge) {
   pointer-events: none;
 }
+
+/* On the gauntlet whiteboard (whiteboardCanvas.ts): only the part of the
+   page the boxes cover, at its natural size, with no paper behind it; the
+   whiteboard scales it. Never scrolls. */
+.canvas[data-whiteboard] {
+  position: relative;
+  inset: auto;
+  overflow: hidden;
+  background: transparent;
+}
+
+.canvas[data-whiteboard] .paper {
+  display: none;
+}
+
+/* A map with no boxes yet, on the whiteboard: its area, marked faintly. */
+.emptyHint {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-md);
+  pointer-events: none;
+}
+
+/* Being edited on the whiteboard: the dotted paper shows in the room round
+   the boxes (only the dots: the whiteboard stays under it). */
+.canvas[data-whiteboard][data-room] .paper {
+  display: block;
+}

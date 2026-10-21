@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-19, v0.0.107 (a board renamed in Boardkit shows its new name wherever its linked map is named; opening a map from the map menu no longer saves it)_
+_Last updated: 2026-10-21, v0.0.108 (Linkkit maps as widgets on the gauntlet whiteboard: `src/app/whiteboard/`)_
 
 ## What it is
 
@@ -43,6 +43,26 @@ browser folder standing in for the folder picker); it makes and removes its own
 "ZZ bridge test" map and board and checks every other record is untouched.
 
 ## What works now
+
+**Maps on the gauntlet whiteboard (gauntlet phase 3, 2026-10-21).** A new
+entry, `src/app/whiteboard/` (like Boardkit's): gauntlet imports it as a
+pinned git dependency and draws each map as a whiteboard widget with
+Linkkit's own components. The map being edited lives in Linkkit's own
+store (`openWhiteboardMap`, as the map menu opens one, writing nothing);
+every other map on the page is drawn from a read-only copy of its saved
+record (`peekMap`: no write, nothing remembered), passed to the same
+components through `MapStoreContext` (`useMapStore` reads that store
+when one is given; `getState`/`setState`/`subscribe` stay the open
+map's). `MapCanvas` has a whiteboard mode (`whiteboardCanvas.ts`): only
+the part of the page the boxes cover shows (`contentBox`), no paper,
+never scrolled or zoomed (the whiteboard scales the widget), the screen is
+the page the map was last tidied on (so a bracket or a tree re-tidy comes
+out as in Linkkit, and the window never matters), and while edited a band
+of dotted paper round the boxes to add boxes on. Pointer positions go
+through `usePagePoint` (right under the whiteboard's own scale too). Its
+undo and redo are the page's there (`history.ts`), and Boardkit on the
+same page hears Linkkit's writes (`storedHere.ts`, `bridge.ts`). The
+standalone app works as before.
 
 **e2e on a busy machine (tests only, 2026-10-20).** Three races in the
 tests, none in the apps (each reproduced and measured first; details in

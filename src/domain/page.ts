@@ -109,6 +109,42 @@ export function alignFor(kind: MapKind, align: PageAlign): PageAlign {
   return kind === "bracket" ? { x: "start", y: "start" } : align;
 }
 
+/** A part of the page: its top-left corner and its size, in page pixels. */
+export interface PageRect {
+  readonly left: number;
+  readonly top: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+export interface ContentBoxOptions {
+  /** Room kept round the boxes. */
+  readonly margin: number;
+  /** A map with no boxes: an area this big at the page's top left. */
+  readonly empty: Size;
+  /** Starts at the page's top-left corner, whatever the boxes leave free
+      there (a bracket: its round headings sit over its first matches). */
+  readonly fromCorner?: boolean;
+  /** Room past the right-most box (a bracket's Champion box). */
+  readonly extraRight?: number;
+}
+
+/**
+ * The part of the page a map's boxes cover, with a margin round them: what
+ * the gauntlet whiteboard shows of a map (its natural size there; it never
+ * scrolls or zooms). Whole pixels, never past the page's top or left edge.
+ */
+export function contentBox(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, fallbackSize: Size, options: ContentBoxOptions): PageRect {
+  if (Object.keys(map.nodes).length === 0) return { left: 0, top: 0, width: options.empty.width, height: options.empty.height };
+  const b = boxBounds(map, sizes, fallbackSize);
+  const m = options.margin;
+  const left = options.fromCorner ? 0 : Math.max(0, Math.floor(b.left - m));
+  const top = options.fromCorner ? 0 : Math.max(0, Math.floor(b.top - m));
+  const right = Math.ceil(b.right + m + (options.extraRight ?? 0));
+  const bottom = Math.ceil(b.bottom + m);
+  return { left, top, width: right - left, height: bottom - top };
+}
+
 /** The outer edges of all the boxes, where they are now. */
 export function boxBounds(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, fallbackSize: Size): Bounds {
   const nodes = Object.values(map.nodes);

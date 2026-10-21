@@ -10,6 +10,7 @@ import {
   boxBounds,
   clampGroupMove,
   clampToPage,
+  contentBox,
   defaultPageSize,
   freeSpot,
   keepOnPage,
@@ -28,6 +29,32 @@ const insets = { edge: 14 };
 const screen = { width: 800, height: 600 };
 const box = { width: 100, height: 36 };
 const noSizes = new Map<NodeId, Size>();
+
+describe("contentBox (the whiteboard's part of the page)", () => {
+  const options = { margin: 16, empty: { width: 320, height: 160 } };
+
+  it("is the boxes' outer edges with the margin, in whole pixels", () => {
+    let map = build(["a", "b"]);
+    map = moveNode(map, asNodeId("a"), { x: 300.5, y: 200 });
+    map = moveNode(map, asNodeId("b"), { x: 600, y: 400 });
+    // a: 250.5..350.5 x 182..218; b: 550..650 x 382..418.
+    expect(contentBox(map, noSizes, box, options)).toEqual({ left: 234, top: 166, width: 432, height: 268 });
+  });
+
+  it("never reaches past the page's top or left edge", () => {
+    const map = moveNode(build(["a"]), asNodeId("a"), { x: 60, y: 20 });
+    expect(contentBox(map, noSizes, box, options)).toEqual({ left: 0, top: 0, width: 126, height: 54 });
+  });
+
+  it("from the corner, with room on the right (a bracket)", () => {
+    const map = moveNode(build(["a"]), asNodeId("a"), { x: 300, y: 200 });
+    expect(contentBox(map, noSizes, box, { ...options, fromCorner: true, extraRight: 156 })).toEqual({ left: 0, top: 0, width: 522, height: 234 });
+  });
+
+  it("an empty map is an area at the top left", () => {
+    expect(contentBox(build([]), noSizes, box, options)).toEqual({ left: 0, top: 0, width: 320, height: 160 });
+  });
+});
 
 describe("page", () => {
   it("sizes a new page to the window, within limits", () => {

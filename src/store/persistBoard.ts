@@ -1,4 +1,5 @@
 import { readBoardRecord, type BoardRecord, type BoardRecordRead } from "../domain/boardRecord";
+import { wroteHere } from "./storedHere";
 
 /**
  * The only module that touches Boardkit's keys (shared store, bridge step
@@ -48,6 +49,7 @@ export function loadBoard(boardId: string): StoredBoard {
 /** Stores a board record. Throws when storage refuses it. */
 export function writeBoard(boardId: string, record: BoardRecord): void {
   localStorage.setItem(boardKey(boardId), JSON.stringify(record));
+  wroteHere(boardKey(boardId));
 }
 
 type Raw = Record<string, unknown>;
@@ -87,6 +89,7 @@ export function writeBoardName(boardId: string, name: string): void {
   if (index === -1 || list.boards[index].name === name) return;
   const boards = list.boards.map((b, i) => (i === index ? { ...b, name } : b));
   localStorage.setItem(BOARD_LIST_KEY, JSON.stringify({ ...list, boards }));
+  wroteHere(BOARD_LIST_KEY);
 }
 
 /** Whether Boardkit's data is here (its board list reads): only then can a
@@ -119,6 +122,7 @@ export function createBoard(boardId: string, name: string, record: BoardRecord):
   try {
     writeBoard(boardId, record);
     localStorage.setItem(BOARD_LIST_KEY, JSON.stringify({ ...list, boards: [...list.boards, { id: boardId, name }] }));
+    wroteHere(BOARD_LIST_KEY);
   } catch (error) {
     removeBoard(boardId);
     throw error;
@@ -136,9 +140,11 @@ export function removeBoard(boardId: string): void {
     if (list?.boards.some((b) => b.id === boardId)) {
       const boards = list.boards.filter((b) => b.id !== boardId);
       localStorage.setItem(BOARD_LIST_KEY, JSON.stringify({ ...list, boards }));
+      wroteHere(BOARD_LIST_KEY);
     }
   } finally {
     localStorage.removeItem(boardKey(boardId));
+    wroteHere(boardKey(boardId));
   }
 }
 
@@ -153,6 +159,7 @@ export function openBoardNext(boardId: string): void {
     const list = storedList();
     if (!list || list.activeBoardId === boardId || !list.boards.some((b) => b.id === boardId)) return;
     localStorage.setItem(BOARD_LIST_KEY, JSON.stringify({ ...list, activeBoardId: boardId }));
+    wroteHere(BOARD_LIST_KEY);
   } catch {
     // Not fatal: Boardkit just opens the board it had open.
   }

@@ -1,4 +1,5 @@
-import { BaseEdge, EdgeLabelRenderer, useReactFlow, type Edge, type EdgeProps } from "@xyflow/react";
+import { BaseEdge, EdgeLabelRenderer, type Edge, type EdgeProps } from "@xyflow/react";
+import { usePagePoint } from "./pagePoint";
 import { X } from "lucide-react";
 import { memo, useCallback, useState } from "react";
 
@@ -75,7 +76,7 @@ export const LinkEdgeView = memo(function LinkEdgeView({ id, data }: EdgeProps<L
   const isRelinking = useMapStore((s) => s.relinking?.link === linkId);
   const selectLink = useMapStore((s) => s.selectLink);
   const relink = useRelink(linkId);
-  const { screenToFlowPosition } = useReactFlow();
+  const screenToFlowPosition = usePagePoint();
   const kind = useMapStore((s) => s.map.kind);
   // The box it leads to looks cut: the arrow fades and dashes with it.
   const isCut = useMapStore((s) => {

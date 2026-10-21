@@ -1,4 +1,4 @@
-import { useReactFlow } from "@xyflow/react";
+import { usePagePoint } from "./pagePoint";
 import { ChevronsDownUp, ChevronsUpDown, ClipboardPaste, Copy, CopyPlus, GitFork, Image, Merge, NotebookPen, Pencil, Plus, Scissors, Tag, Trash2 } from "lucide-react";
 import { useRef, useState, type MouseEvent, type ReactElement } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -52,7 +52,7 @@ type Target =
 export function BoxContextMenu({ children }: { readonly children: ReactElement }) {
   const [target, setTarget] = useState<Target | null>(null);
   const isTyping = useMapStore((s) => s.editing !== null);
-  const { screenToFlowPosition } = useReactFlow();
+  const screenToFlowPosition = usePagePoint();
   // "Rename" puts focus in the name field, so it waits until the menu has
   // fully closed: while it animates out, the menu still holds focus and
   // would pull it straight back out of the field.

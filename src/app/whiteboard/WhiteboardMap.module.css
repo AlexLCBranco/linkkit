@@ -1,0 +1,27 @@
+/* A map on the whiteboard: its own size (the part of the page its boxes
+   cover, MapCanvas in whiteboard mode), in Linkkit's look. */
+.map {
+  position: relative;
+  width: max-content;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-md);
+  line-height: var(--line-normal);
+  color: var(--text-primary);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.problem {
+  width: 320px;
+  padding: var(--space-4);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-normal);
+}
+
+.steady {
+  width: max-content;
+}

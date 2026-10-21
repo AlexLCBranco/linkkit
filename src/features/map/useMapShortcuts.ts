@@ -35,10 +35,23 @@ function inOverlay(target: EventTarget | null): boolean {
   return isElement(target) && target.closest('[role="menu"], [role="dialog"], [role="alertdialog"]') !== null;
 }
 
+/**
+ * The map is being edited on the gauntlet whiteboard (`app/whiteboard/`):
+ * undo and redo are the whole page's there (the whiteboard keeps one undo
+ * for the page, in the order things were done), and so is the shortcuts
+ * list. The keyboard focus is the whiteboard's, outside the map.
+ */
+let onWhiteboard = false;
+export const setMapKeysOnWhiteboard = (on: boolean): void => {
+  onWhiteboard = on;
+};
+
 /** Focus is on the map (or nowhere): Tab, Enter and the arrows act on boxes
-    only then. On a header button, Tab must move focus and Enter press it. */
+    only then. On a header button, Tab must move focus and Enter press it.
+    On the whiteboard, anywhere but on a button. */
 function onCanvas(target: EventTarget | null): boolean {
   if (!isElement(target)) return true;
+  if (onWhiteboard) return target.closest("button, a, [role='button']") === null;
   return target === document.body || target.closest(`.react-flow, [${MAP_VIEW_ATTRIBUTE}]`) !== null;
 }
 
@@ -64,6 +77,7 @@ export function onMapKey(e: KeyPress): void {
   if (isTyping(e.target) || inOverlay(e.target) || e.altKey) return;
   const store = useMapStore.getState();
   const is = (id: ShortcutId) => pressed(e, id);
+  if (onWhiteboard && (is("undo") || is("redo") || is("help"))) return;
   const isTree = store.map.kind === "tree";
   // Tab and the arrow keys work the same in a Steps map.
   const treeShaped = hasTreeShape(store.map.kind);
@@ -164,9 +178,11 @@ export function onMapKey(e: KeyPress): void {
   }
 }
 
-export function useMapShortcuts() {
+/** `enabled` false: a map shown but not edited (on the whiteboard). */
+export function useMapShortcuts(enabled = true) {
   useEffect(() => {
+    if (!enabled) return;
     document.addEventListener("keydown", onMapKey);
     return () => document.removeEventListener("keydown", onMapKey);
-  }, []);
+  }, [enabled]);
 }

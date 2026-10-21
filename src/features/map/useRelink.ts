@@ -1,4 +1,4 @@
-import { useReactFlow } from "@xyflow/react";
+import { usePagePoint } from "./pagePoint";
 import { useCallback, type PointerEvent as ReactPointerEvent } from "react";
 
 import { relinkCheck } from "../../domain/map";
@@ -21,7 +21,7 @@ function boxAt(x: number, y: number): NodeId | null {
  * Hand-written with pointer events, like a box's drag (`useBoxGestures`).
  */
 export function useRelink(linkId: LinkId) {
-  const { screenToFlowPosition } = useReactFlow();
+  const screenToFlowPosition = usePagePoint();
 
   return useCallback(
     (end: "from" | "to") => (e: ReactPointerEvent<SVGElement>) => {

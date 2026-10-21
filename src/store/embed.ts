@@ -15,10 +15,12 @@ let embed: Embed | null = readEmbed(globalThis.location?.search ?? "");
 
 export const embedded = (): Embed | null => embed;
 
-/** Tests only: the store reads the address once, at load. */
-export function setEmbeddedForTests(next: Embed | null): void {
+/** Before the stores load: the gauntlet whiteboard (`app/whiteboard/prepare.ts`),
+    and tests (the store reads it once, at load). */
+export function setEmbedded(next: Embed | null): void {
   embed = next;
 }
+export const setEmbeddedForTests = setEmbedded;
 
 export const useEmbedStatus = create<{ readonly status: EmbedStatus }>(() => ({ status: "ok" }));
 

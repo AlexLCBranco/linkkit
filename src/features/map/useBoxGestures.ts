@@ -1,4 +1,4 @@
-import { useReactFlow } from "@xyflow/react";
+import { usePagePoint } from "./pagePoint";
 import { useCallback, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 import { clampGroupMove, pageSize } from "../../domain/page";
@@ -39,7 +39,7 @@ let dragCount = 0;
  * the page scrolls mid-drag.
  */
 export function useBoxGestures(id: NodeId) {
-  const { screenToFlowPosition } = useReactFlow();
+  const screenToFlowPosition = usePagePoint();
   const [dragging, setDragging] = useState(false);
 
   const onBoxPointerDown = useCallback(

@@ -1,4 +1,5 @@
-import { create } from "zustand";
+import { createContext, useContext } from "react";
+import { create, useStore, type StoreApi } from "zustand";
 
 import { mapsToRestore } from "../domain/backup";
 import { clearedText, createBracket, EMPTY_SLOT_HINT, firstRoundSlots, pasteNames, pickWinner, renamePlayer, type BracketSize, type Slot } from "../domain/bracket";
@@ -1027,7 +1028,7 @@ const NEXT_STEP_OFFSET = { TB: { x: 0, y: 96 }, LR: { x: 200, y: 0 } };
     state, kept outside the store so it never re-renders anything. */
 let nav: NavMemory = EMPTY_MEMORY;
 
-export const useMapStore = create<MapState>()((set, get) => ({
+const globalMapStore = create<MapState>()((set, get) => ({
   ...initialState(),
   selected: null,
   hovered: null,
@@ -1757,6 +1758,33 @@ export const useMapStore = create<MapState>()((set, get) => ({
     }),
 }));
 
+/**
+ * The store a component reads: the open map's (this module's), or another
+ * one given by `MapStoreContext`. The gauntlet whiteboard draws maps that
+ * nobody is editing from read-only copies of their saved records, with the
+ * same components (`app/whiteboard/`): those copies come in through the
+ * context. `getState`, `setState` and `subscribe` are always the open
+ * map's: whatever acts (a click, a key) acts on the map being edited, and
+ * a read-only copy never takes the pointer.
+ */
+export const MapStoreContext = createContext<StoreApi<MapState> | null>(null);
+
+/** The store this component's map is in (see `MapStoreContext`). */
+export const useMapStoreApi = (): StoreApi<MapState> => useContext(MapStoreContext) ?? globalMapStore;
+
+function useMapStoreHere(): MapState;
+function useMapStoreHere<T>(selector: (s: MapState) => T): T;
+function useMapStoreHere<T>(selector?: (s: MapState) => T): T | MapState {
+  return useStore(useMapStoreApi(), (selector ?? ((s: MapState) => s)) as (s: MapState) => T | MapState);
+}
+
+export const useMapStore = Object.assign(useMapStoreHere, {
+  getState: globalMapStore.getState,
+  setState: globalMapStore.setState,
+  subscribe: globalMapStore.subscribe,
+  getInitialState: globalMapStore.getInitialState,
+});
+
 /** The maps this visit started with (the saved list as Linkkit opened). A
     map made since (new, duplicated, from a template or a board, restored)
     was never opened from storage: it shows at 100%, not fitted to the
@@ -1878,25 +1906,48 @@ export function initOtherTabs(): void {
   window.addEventListener("storage", (event) => {
     // `key` is null when another tab cleared all of storage: nothing to merge.
     if (event.key === null || event.storageArea !== localStorage) return;
-    if (isListKey(event.key)) {
-      pullLists();
-      return;
-    }
-    const id = mapIdOfKey(event.key);
-    if (id) {
-      pullMap(id, event.newValue === null);
-      return;
-    }
-    // Boardkit's list holds the boards' names: a linked map listed here
-    // shows its board's (`loadRegistry`), so the list is read again.
-    if (isBoardListKey(event.key)) pullLists();
-    // Boardkit (on the shared site) saved the open linked tree's board, or
-    // its list, which holds the board's name.
-    const { map } = useMapStore.getState();
-    if (map.linkedBoard && (isBoardListKey(event.key) || boardIdOfKey(event.key) === map.linkedBoard)) {
-      pullMap(map.id, false);
-    }
+    takeStoredElsewhere(event.key, event.newValue === null);
   });
+}
+
+/**
+ * Another tab stored (or removed, `removed`) storage key `key`; on the
+ * gauntlet whiteboard also Boardkit on the same page (which the browser's
+ * `storage` event never tells of).
+ */
+export function takeStoredElsewhere(key: string, removed: boolean): void {
+  if (isListKey(key)) {
+    pullLists();
+    return;
+  }
+  const id = mapIdOfKey(key);
+  if (id) {
+    pullMap(id, removed);
+    return;
+  }
+  // Boardkit's list holds the boards' names: a linked map listed here
+  // shows its board's (`loadRegistry`), so the list is read again.
+  if (isBoardListKey(key)) pullLists();
+  // Boardkit (on the shared site) saved the open linked tree's board, or
+  // its list, which holds the board's name.
+  const { map } = useMapStore.getState();
+  if (map.linkedBoard && (isBoardListKey(key) || boardIdOfKey(key) === map.linkedBoard)) {
+    pullMap(map.id, false);
+  }
+}
+
+/**
+ * The gauntlet whiteboard is done with the open map (its widget stopped
+ * being edited): typing ends, its waiting save is written, and an empty
+ * placeholder takes its place, never shown or saved (it waits for a tidy
+ * that never runs, as in a frame whose map isn't there). The map's undo
+ * history is kept for when it opens again.
+ */
+export function closeOpenMap(): void {
+  const s = useMapStore.getState();
+  s.stopEditing();
+  flushSave();
+  useMapStore.setState((state) => open(state, exampleMap(newPageSize()), state.maps, true));
 }
 
 // The notes panel follows the selection (Treekit's): showing another box

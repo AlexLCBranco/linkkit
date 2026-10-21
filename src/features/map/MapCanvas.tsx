@@ -1,4 +1,4 @@
-import { ReactFlow, ReactFlowProvider, useReactFlow, type NodeChange, type NodeOrigin } from "@xyflow/react";
+import { ReactFlow, ReactFlowProvider, type NodeChange, type NodeOrigin } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
 import {
   useCallback,
@@ -19,11 +19,11 @@ import { layoutMap } from "../../domain/layout";
 import { scrollToReveal } from "../../domain/navigation";
 import { shownMap } from "../../domain/shown";
 import { boxesIn, marqueeSelection, rectBetween, type Rect } from "../../domain/marquee";
-import { alignFor, boxBounds, clampToPage, keepOnPage, layoutRoom, pageSize, placeBlockBeside, placeOnPage, resizedByEdit } from "../../domain/page";
+import { alignFor, boxBounds, clampToPage, contentBox, keepOnPage, layoutRoom, pageSize, placeBlockBeside, placeOnPage, resizedByEdit } from "../../domain/page";
 import { fitZoom, scrollAfterZoom, scrollToContent, ZOOM_MAX, ZOOM_MIN, zoomPage, type ZoomedPage } from "../../domain/zoom";
 import type { Bounds } from "../../domain/layout";
 import { hasTreeShape, type ArrowLength, type LayoutDirection, type LinkId, type LinkMap, type NodeId, type Point, type Size } from "../../domain/types";
-import { namingNewBox, savedBeforeThisVisit, selectionOf, useMapStore } from "../../store/mapStore";
+import { namingNewBox, savedBeforeThisVisit, selectionOf, useMapStore, useMapStoreApi } from "../../store/mapStore";
 import { fitsOnOpen, pinnedFromOf, roundsHiddenOf, shownNow, useViewStore, zoomOf } from "../../store/viewStore";
 import { pinnedRounds } from "../../domain/bracketLayout";
 import { BoxContextMenu } from "./BoxContextMenu";
@@ -39,6 +39,7 @@ import { HintBubble } from "./HintBubble";
 import { RelinkPreview } from "./RelinkPreview";
 import { useHint } from "../../store/hint";
 import {
+  BRACKET_DECOR,
   BRACKET_PIN_ABOVE,
   DRAG_THRESHOLD,
   LABEL_FALLBACK_SIZE,
@@ -51,13 +52,16 @@ import {
   REVEAL_MARGIN,
   ROUTES,
   TIDY_GLIDE_MS,
+  WHITEBOARD_CONTENT,
 } from "./layoutConfig";
 import { LinkEdgeView, type LinkFlowEdge } from "./LinkEdgeView";
 import styles from "./MapCanvas.module.css";
 import { MAP_PAGE_ATTRIBUTE, MAP_SHEET_ATTRIBUTE, MAP_VIEW_ATTRIBUTE, screenSize } from "./pageMarkers";
 import { boxFlowNode } from "./flowNodes";
+import { usePagePoint } from "./pagePoint";
 import { useGlide } from "./useGlide";
 import { useMapShortcuts } from "./useMapShortcuts";
+import { useWhiteboardCanvas } from "./whiteboardCanvas";
 
 // Defined once at module level: React Flow warns (and re-mounts every
 // node) if these objects change identity between renders.
@@ -141,12 +145,20 @@ function MapCanvasInner() {
   const select = useMapStore((s) => s.select);
   const addBox = useMapStore((s) => s.addBox);
   const nudgeBoxes = useMapStore((s) => s.nudgeBoxes);
-  const { screenToFlowPosition } = useReactFlow();
+  const screenToFlowPosition = usePagePoint();
+  // The store this map is in: the open map's, or a read-only copy's on the
+  // gauntlet whiteboard (`whiteboardCanvas.ts`), whose actions do nothing.
+  const api = useMapStoreApi();
+  const whiteboard = useWhiteboardCanvas();
+  const storedPage = useMapStore((s) => s.map.page);
 
   // The screen's size, kept up to date as the window (or a scrollbar)
   // changes it. Null until first measured: nothing is placed before then.
+  // On the whiteboard there is no screen: the page the map was last tidied
+  // on stands in for it, so nothing depends on the window.
   const viewRef = useRef<HTMLDivElement>(null);
-  const [screen, setScreen] = useState<Size | null>(null);
+  const [measuredScreen, setScreen] = useState<Size | null>(null);
+  const screen = whiteboard ? storedPage : measuredScreen;
   useLayoutEffect(() => {
     const view = viewRef.current;
     if (!view) return;
@@ -174,7 +186,9 @@ function MapCanvasInner() {
     if (marqueeEnded.current) marqueeEnded.current = false;
     else select(null);
   }, [select]);
-  useMapShortcuts();
+  // A read-only copy on the whiteboard takes no keys: only the map being
+  // edited does.
+  useMapShortcuts(!whiteboard || whiteboard.editing);
 
   // Measured sizes are view state, not map data: they depend on fonts and
   // CSS, so they live here, never in the saved map.
@@ -214,8 +228,8 @@ function MapCanvasInner() {
     if (bracketAtOpen.current.map === map) return;
     const options = tidyOptions(map, labelSizesRef.current, map.arrowLength, map.direction);
     const placed = placeOnPage(layoutMap(map, sizes, options), layoutRoom(map.kind, screen), PAGE_MARGIN, alignFor(map.kind, useViewStore.getState().alignment));
-    useMapStore.getState().refitBracket(placed.positions, placed.page);
-  }, [needsTidy, allMeasured, screen, map, sizes]);
+    api.getState().refitBracket(placed.positions, placed.page);
+  }, [needsTidy, allMeasured, screen, map, sizes, api]);
 
   // A box that grew past the screen's edge (renamed, or newly named) moves
   // back onto it, unless other boxes already make the page bigger there.
@@ -226,7 +240,7 @@ function MapCanvasInner() {
   const checked = useRef<{ id: string; sizes: ReadonlyMap<NodeId, Size>; nodes: LinkMap["nodes"] } | null>(null);
   useEffect(() => {
     if (!screen) return;
-    const { map } = useMapStore.getState();
+    const { map } = api.getState();
     const before = checked.current?.id === map.id ? checked.current : { sizes: new Map<NodeId, Size>(), nodes: map.nodes };
     checked.current = { id: map.id, sizes, nodes: map.nodes };
     if (needsTidy) return;
@@ -234,7 +248,7 @@ function MapCanvasInner() {
     if (ids.length === 0) return;
     const moves = keepOnPage(map, sizes, MAP_LAYOUT.fallbackSize, PAGE_INSETS, screen, ids);
     if (moves.size > 0) nudgeBoxes(moves);
-  }, [needsTidy, screen, sizes, nudgeBoxes]);
+  }, [needsTidy, screen, sizes, nudgeBoxes, api]);
 
   // The page: the screen, or bigger where the boxes reach further.
   const page = useMemo(
@@ -244,7 +258,9 @@ function MapCanvasInner() {
 
   // The page as drawn at this map's zoom, and React Flow's camera to match:
   // never panned, only scaled and set where the zoomed page goes.
-  const zoom = useViewStore((s) => zoomOf(s, map.id));
+  // On the whiteboard always 100%: the whiteboard scales the whole widget.
+  const chosenZoom = useViewStore((s) => zoomOf(s, map.id));
+  const zoom = whiteboard ? 1 : chosenZoom;
   const chosenAlignment = useViewStore((s) => s.alignment);
   const alignment = useMemo(() => alignFor(map.kind, chosenAlignment), [map.kind, chosenAlignment]);
   const drawn = useMemo(
@@ -259,7 +275,9 @@ function MapCanvasInner() {
   const scrolled = useRef({ left: 0, top: 0 });
   // A bracket's pinned later rounds follow the screen down (`pinnedRounds`),
   // so only then does scrolling redraw the page.
-  const pinnedFrom = useViewStore((s) => (map.kind === "bracket" ? pinnedFromOf(s.pinnedRounds, map.id) : 0));
+  // Never on the whiteboard: there is no screen to follow down.
+  const chosenPinnedFrom = useViewStore((s) => (map.kind === "bracket" ? pinnedFromOf(s.pinnedRounds, map.id) : 0));
+  const pinnedFrom = whiteboard ? 0 : chosenPinnedFrom;
   const [scrollTop, setScrollTop] = useState(0);
   const onScroll = useCallback(() => {
     const view = viewRef.current;
@@ -302,14 +320,15 @@ function MapCanvasInner() {
   useLayoutEffect(() => {
     if (fitted || needsTidy || !allMeasured || !screen) return;
     const view = useViewStore.getState();
-    if (nodeIds.length > 0 && fitsOnOpen(view, map.id) && savedBeforeThisVisit(map.id)) {
+    // The whiteboard shows every box anyway (and never zooms).
+    if (!whiteboard && nodeIds.length > 0 && fitsOnOpen(view, map.id) && savedBeforeThisVisit(map.id)) {
       const content = boxBounds(map, sizes, MAP_LAYOUT.fallbackSize);
       const fit = fitZoom(content, screen, REVEAL_MARGIN);
       fitting.current = { content, zoom: fit };
       if (fit !== zoomOf(view, map.id)) view.setFit(map.id, fit);
     }
     markFitted();
-  }, [fitted, needsTidy, allMeasured, screen, map, sizes, nodeIds.length]);
+  }, [fitted, needsTidy, allMeasured, screen, map, sizes, nodeIds.length, whiteboard]);
 
   const drawnBefore = useRef<ZoomedPage | null>(null);
   useLayoutEffect(() => {
@@ -359,7 +378,7 @@ function MapCanvasInner() {
       const at = screenToFlowPosition({ x: e.clientX, y: e.clientY });
       // A tree grows only from its boxes ("+", or a box's dot): a box
       // added on its own would be loose. Said where it was tried.
-      const { kind } = useMapStore.getState().map;
+      const { kind } = api.getState().map;
       if (hasTreeShape(kind) || kind === "bracket") {
         useHint.getState().show(kind === "bracket" ? BRACKET_FIXED : PAPER_REFUSAL, at);
         return;
@@ -367,7 +386,7 @@ function MapCanvasInner() {
       // Not measured yet: a typical box's size keeps it on the page for now.
       addBox(clampToPage(at, MAP_LAYOUT.fallbackSize, page, PAGE_INSETS));
     },
-    [addBox, screenToFlowPosition],
+    [addBox, screenToFlowPosition, api],
   );
 
   // The selected box stays on screen (Treekit's): selected with the arrow
@@ -395,7 +414,8 @@ function MapCanvasInner() {
   const revealY = selectedAt?.y;
   useEffect(() => {
     const view = viewRef.current;
-    if (!view || !drawn || revealX === undefined || revealY === undefined || pressing.current) return;
+    // The whiteboard never scrolls: every box shows.
+    if (whiteboard || !view || !drawn || revealX === undefined || revealY === undefined || pressing.current) return;
     const size = selectedSize ?? MAP_LAYOUT.fallbackSize;
     const to = scrollToReveal(
       { x: drawn.x + revealX * drawn.zoom, y: drawn.y + revealY * drawn.zoom },
@@ -404,7 +424,7 @@ function MapCanvasInner() {
       REVEAL_MARGIN,
     );
     if (to.left !== view.scrollLeft || to.top !== view.scrollTop) view.scrollTo({ ...to, behavior: "smooth" });
-  }, [selectedId, revealX, revealY, selectedSize, drawn]);
+  }, [selectedId, revealX, revealY, selectedSize, drawn, whiteboard]);
 
   // Tidy up and Align: the new places go into the store at once, as one
   // change; `useGlide` then draws the boxes on their way there.
@@ -412,10 +432,10 @@ function MapCanvasInner() {
   const startGlide = glide.start;
   useEffect(() => {
     const centres = (m: typeof map) => new Map<NodeId, Point>(Object.values(m.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
-    const glideFrom = (from: Map<NodeId, Point>) => startGlide(from, shownNow(useMapStore.getState().map).nodes);
+    const glideFrom = (from: Map<NodeId, Point>) => startGlide(from, shownNow(api.getState().map).nodes);
     // Tidy up, in the direction and arrow length asked for (switching
     // either is a tidy with the new setting, saved together with it).
-    const offTidy = useMapStore.subscribe((s, prev) => {
+    const offTidy = api.subscribe((s, prev) => {
       if (s.tidyRequest === prev.tidyRequest || s.needsTidy) return;
       const screen = screenRef.current;
       if (!screen) return;
@@ -430,7 +450,7 @@ function MapCanvasInner() {
     });
     // Align: the whole map moves as one block, its shape untouched.
     const offAlign = useViewStore.subscribe((v, prev) => {
-      const s = useMapStore.getState();
+      const s = api.getState();
       const screen = screenRef.current;
       if (v.applied === prev.applied || s.needsTidy || !screen) return;
       const shown = shownNow(s.map);
@@ -444,7 +464,7 @@ function MapCanvasInner() {
       offTidy();
       offAlign();
     };
-  }, [startGlide]);
+  }, [startGlide, api]);
 
   // A tree that grew (a next step, a second parent, a new step's name)
   // re-tidies itself, and the boxes glide to make room. A box not measured
@@ -454,16 +474,16 @@ function MapCanvasInner() {
   // undo takes back the step and the room made for it together.
   const settleTree = useCallback(
     (sizes: ReadonlyMap<NodeId, Size>, screen: Size) => {
-      const s = useMapStore.getState();
+      const s = api.getState();
       const shown = shownNow(s.map);
       const options = tidyOptions(shown, labelSizesRef.current, shown.arrowLength, shown.direction);
       const layout = layoutMap(shown, sizes, options, shown.direction);
       const placed = placeOnPage(layout, screen, PAGE_MARGIN, alignFor(shown.kind, useViewStore.getState().alignment));
       const from = new Map<NodeId, Point>(Object.values(shown.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
       s.nudgeBoxes(placed.positions);
-      startGlide(from, shownNow(useMapStore.getState().map).nodes);
+      startGlide(from, shownNow(api.getState().map).nodes);
     },
-    [startGlide],
+    [startGlide, api],
   );
   const settleRequest = useMapStore((s) => s.settleRequest);
   const settled = useRef(settleRequest);
@@ -506,14 +526,14 @@ function MapCanvasInner() {
     }
     if (!renamedSize || (at.size && at.size.width === renamedSize.width && at.size.height === renamedSize.height)) return;
     if (!screen || needsTidy) return;
-    if (useMapStore.getState().takeRenameSettle()) settleTree(sizes, screen);
-  }, [renamed, renamedSize, sizes, screen, needsTidy, settleTree]);
+    if (api.getState().takeRenameSettle()) settleTree(sizes, screen);
+  }, [renamed, renamedSize, sizes, screen, needsTidy, settleTree, api]);
 
   // A tree box let go where it can't stay glides home (`cancelDrag`).
   const glideRequest = useMapStore((s) => s.glideRequest);
   useLayoutEffect(() => {
-    if (glideRequest) startGlide(glideRequest.from, shownNow(useMapStore.getState().map).nodes);
-  }, [glideRequest, startGlide]);
+    if (glideRequest) startGlide(glideRequest.from, shownNow(api.getState().map).nodes);
+  }, [glideRequest, startGlide, api]);
 
   // Switching a tree's label style resizes its boxes (Treekit's are wider):
   // once the new sizes are measured, it re-tidies as a tree that grew does,
@@ -554,7 +574,7 @@ function MapCanvasInner() {
   useEffect(() => {
     if (!placeRequest || placeRequest === placed.current || !allMeasured || !screen || needsTidy) return;
     placed.current = placeRequest;
-    const s = useMapStore.getState();
+    const s = api.getState();
     const anchor = s.map.nodes[placeRequest.anchor];
     const ids = new Set(placeRequest.ids.filter((id) => s.map.nodes[id]));
     if (!anchor || ids.size === 0) return;
@@ -569,8 +589,8 @@ function MapCanvasInner() {
     const positions = placeBlockBeside(layout, box(anchor.id), others, PASTE_BLOCK, s.map.direction);
     const from = new Map<NodeId, Point>([...ids].map((id) => [id, { x: s.map.nodes[id].x, y: s.map.nodes[id].y }]));
     s.nudgeBoxes(positions);
-    startGlide(from, shownNow(useMapStore.getState().map).nodes);
-  }, [placeRequest, allMeasured, screen, needsTidy, sizes, startGlide]);
+    startGlide(from, shownNow(api.getState().map).nodes);
+  }, [placeRequest, allMeasured, screen, needsTidy, sizes, startGlide, api]);
 
   const placedAt = useCallback((id: NodeId): Point => glide.shown?.get(id) ?? map.nodes[id], [glide.shown, map.nodes]);
   const at = useCallback(
@@ -633,7 +653,7 @@ function MapCanvasInner() {
       if (e.button !== 0 || !(e.target as Element).classList.contains("react-flow__pane")) return;
       const startClient = { x: e.clientX, y: e.clientY };
       const start = screenToFlowPosition(startClient);
-      const before = selectionOf(useMapStore.getState());
+      const before = selectionOf(api.getState());
       const adding = e.shiftKey;
       let moved = false;
       // On the window, not captured by the page: a capture would retarget
@@ -643,7 +663,7 @@ function MapCanvasInner() {
         moved = true;
         const rect = rectBetween(start, screenToFlowPosition({ x: ev.clientX, y: ev.clientY }));
         setMarquee(rect);
-        useMapStore.getState().selectGroup(marqueeSelection(before, boxesIn(rect, boxesRef.current), adding));
+        api.getState().selectGroup(marqueeSelection(before, boxesIn(rect, boxesRef.current), adding));
       };
       const end = () => {
         window.removeEventListener("pointermove", move);
@@ -656,7 +676,7 @@ function MapCanvasInner() {
       window.addEventListener("pointerup", end);
       window.addEventListener("pointercancel", end);
     },
-    [screenToFlowPosition],
+    [screenToFlowPosition, api],
   );
 
   // Each arrow's line, head and label stretch, in the map's arrow style
@@ -753,12 +773,46 @@ function MapCanvasInner() {
   const onNodesChange = useCallback((changes: NodeChange<BoxFlowNode | MatchFlowNode | GhostFlowNode>[]) => readSizes(changes, false), [readSizes]);
   const onPinnedNodesChange = useCallback((changes: NodeChange<MatchFlowNode>[]) => readSizes(changes, true), [readSizes]);
 
+  // On the whiteboard only the part of the page the boxes cover shows
+  // (`contentBox`), once they are measured; the whiteboard is told of it,
+  // to size the widget.
+  const shown = useMemo(() => {
+    if (!whiteboard || !allMeasured) return null;
+    const bracket = map.kind === "bracket" ? { fromCorner: true, extraRight: BRACKET_DECOR.gap + BRACKET_DECOR.championWidth } : {};
+    return contentBox(map, sizes, MAP_LAYOUT.fallbackSize, { ...WHITEBOARD_CONTENT, ...bracket });
+  }, [whiteboard, allMeasured, map, sizes]);
+  const onContent = whiteboard?.onContent;
+  useLayoutEffect(() => {
+    if (shown && !needsTidy) onContent?.(shown);
+  }, [shown, needsTidy, onContent]);
+  const area = shown ?? { left: 0, top: 0, ...WHITEBOARD_CONTENT.empty };
+  // While it is edited, paper round it to add boxes on and drag them onto
+  // (`WhiteboardCanvas.room`), drawn past its widget's box: the widget keeps
+  // its size. Never past the page's top or left edge.
+  const room = whiteboard?.editing ? (whiteboard.room ?? WHITEBOARD_CONTENT.room) : null;
+  const pad = room
+    ? { left: Math.min(room.left, area.left), top: Math.min(room.top, area.top), right: room.right, bottom: room.bottom }
+    : { left: 0, top: 0, right: 0, bottom: 0 };
+
   return (
     <BoxContextMenu>
       <div
         ref={viewRef}
         className={styles.canvas}
         data-ready={needsTidy || !fitted ? undefined : true}
+        data-whiteboard={whiteboard ? true : undefined}
+        data-room={room ? true : undefined}
+        style={
+          whiteboard
+            ? {
+                width: area.width + pad.left + pad.right,
+                height: area.height + pad.top + pad.bottom,
+                margin: `${-pad.top}px ${-pad.right}px ${-pad.bottom}px ${-pad.left}px`,
+              }
+            : undefined
+        }
+        // A read-only copy on the whiteboard: nothing in it takes focus.
+        inert={whiteboard !== null && !whiteboard.editing}
         // Box names and arrow labels in the map's label style (CSS only).
         data-label-style={map.labelStyle}
         onScroll={onScroll}
@@ -768,7 +822,11 @@ function MapCanvasInner() {
           className={styles.page}
           // Whole pixels tall, so the pinned layer (held to the screen's bottom
           // edge from the page's) lines up exactly.
-          style={drawn ? { width: drawn.width, height: Math.ceil(drawn.height) } : FILL}
+          style={
+            drawn
+              ? { width: drawn.width, height: Math.ceil(drawn.height), transform: whiteboard ? `translate(${pad.left - area.left}px, ${pad.top - area.top}px)` : undefined }
+              : FILL
+          }
           onDoubleClick={onPageDoubleClick}
           onPointerDown={onPagePointerDown}
           data-marquee={marquee ? true : undefined}
@@ -812,8 +870,10 @@ function MapCanvasInner() {
             multiSelectionKeyCode={null}
             deleteKeyCode={null}
             disableKeyboardA11y
-            // Bottom-right belongs to the version badge.
+            // Bottom-right belongs to the version badge. On the whiteboard
+            // (many maps at once, each a widget) none.
             attributionPosition="top-right"
+            proOptions={whiteboard ? { hideAttribution: true } : undefined}
           />
           {/* Previews over the boxes, in page units like them, zoomed the same way. */}
           <div className={styles.sheet} style={sheetStyle(page, drawn)}>
@@ -845,6 +905,9 @@ function MapCanvasInner() {
             />
           )}
         </div>
+        {whiteboard && nodeIds.length === 0 && (
+          <div className={styles.emptyHint}>{whiteboard.editing ? "Double-click to add a box" : "Empty map"}</div>
+        )}
       </div>
     </BoxContextMenu>
   );

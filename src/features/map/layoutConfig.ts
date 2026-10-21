@@ -91,6 +91,15 @@ export const LABEL_FALLBACK_SIZE = { width: 48, height: 22 };
     number). */
 export const PAGE_INSETS: PageInsets = { edge: 14 };
 
+/** On the gauntlet whiteboard: the room shown round a map's boxes, how big
+    an empty map shows (`contentBox`), and the paper round it while it is
+    edited. */
+export const WHITEBOARD_CONTENT = {
+  margin: 16,
+  empty: { width: 320, height: 160 },
+  room: { left: 120, top: 120, right: 120, bottom: 120 },
+};
+
 /** How far apart (each side of the middle) two arrows between the same
     boxes in opposite directions are drawn. */
 export const TWIN_OFFSET = 7;

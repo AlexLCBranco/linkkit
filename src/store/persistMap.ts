@@ -11,6 +11,7 @@ import { useLinkHold, type HoldReason } from "./linkHold";
 import { boardKey, createBoard, loadBoard, loadBoardName, removeBoard, writeBoard, writeBoardName } from "./persistBoard";
 import { useSaveHealth } from "./saveHealth";
 import { useSyncNotice } from "./syncNotice";
+import { wroteHere } from "./storedHere";
 
 /**
  * The only module that touches localStorage for maps. `domain/` owns the
@@ -50,6 +51,7 @@ function tryWrite(key: string, value: string, track = true): boolean {
   let ok = true;
   try {
     localStorage.setItem(key, value);
+    wroteHere(key);
   } catch {
     // See the module comment: failing to save is not fatal.
     ok = false;
@@ -93,6 +95,22 @@ function writeRegistry(registry: Registry): void {
  */
 export function loadRegistry(onMissing?: (missing: Registry) => void): Registry {
   return withBoardNames(storedRegistry(onMissing));
+}
+
+/** The map list as `loadRegistry` gives it, read without writing anything
+    (no reconciling): the maps listed, stored and not deleted, in order,
+    linked ones under their board's name. For the gauntlet whiteboard's
+    Map picker. */
+export function peekMapList(): Registry {
+  try {
+    const raw = localStorage.getItem(REGISTRY_KEY);
+    const registry = raw === null ? [] : (readRegistry(JSON.parse(raw)) ?? []);
+    const stored = new Set<string>(storedMapIds());
+    const trashed = new Set<string>(loadMapTrash().map((m) => m.id));
+    return withBoardNames(registry.filter((m) => stored.has(m.id) && !trashed.has(m.id)));
+  } catch {
+    return [];
+  }
 }
 
 /** The list as stored (reconciled as above), with each map under the name
@@ -355,6 +373,7 @@ function saveLinked(map: LinkMap & { readonly linkedBoard: string }): LinkMap {
         if (!now.copy || !sameMap(derived, now.copy)) {
           rev = now.rev + 1;
           localStorage.setItem(key, JSON.stringify(serializeStored(derived, rev)));
+          wroteHere(key);
         }
         synced.set(map.id, { rev, map: derived, board: { rev: record.rev, name: now.name === null ? null : result.name } });
         written = derived;
@@ -391,6 +410,7 @@ export function linkStoredMap(linked: LinkMap & { readonly linkedBoard: string }
   }
   try {
     localStorage.setItem(key, JSON.stringify(serializeStored(linked, rev)));
+    wroteHere(key);
   } catch {
     try {
       removeBoard(linked.linkedBoard);
@@ -451,6 +471,7 @@ export function saveMap(toSave: LinkMap): void {
     const base = synced.get(map.id);
     if (!(base?.map && base.rev === rev && sameMap(written, base.map))) {
       localStorage.setItem(key, JSON.stringify(serializeMap(written, rev + 1)));
+      wroteHere(key);
       synced.set(map.id, { rev: rev + 1, map: written });
     }
   } catch {
@@ -537,6 +558,7 @@ export const isListKey = (key: string): boolean => key === REGISTRY_KEY || key =
 export function deleteStoredMap(id: MapId): void {
   try {
     localStorage.removeItem(MAP_KEY_PREFIX + id);
+    wroteHere(MAP_KEY_PREFIX + id);
   } catch {
     // Nothing to do: the list below still forgets it.
   }
@@ -648,6 +670,44 @@ export function saveStarterId(id: MapId | null): void {
   }
   useSaveHealth.getState().forget(STARTER_KEY);
 }
+
+/** A stored map as `peekMap` reads it. */
+export type PeekedMap =
+  | { readonly status: "missing" | "unreadable" | "trashed" }
+  /** `unplaced`: a linked tree with boxes made in Boardkit since, still to
+      be placed (opened, it tidies them in first). */
+  | { readonly status: "ok"; readonly map: LinkMap; readonly unplaced: boolean };
+
+/**
+ * A stored map as it would open (a linked one built from its board), read
+ * without writing or remembering anything: no damaged copy set aside, no
+ * repair stored, nothing this tab knows of the map changed. For showing a
+ * map nobody is editing (the gauntlet whiteboard, `app/whiteboard/`).
+ */
+export function peekMap(id: MapId, fallbackPage: Size): PeekedMap {
+  try {
+    if (loadMapTrash().some((m) => m.id === id)) return { status: "trashed" };
+    // Its latest save failed this session: that content is the real map.
+    const pending = unsaved.get(id);
+    const raw = localStorage.getItem(MAP_KEY_PREFIX + id);
+    if (!pending && raw === null) return { status: "missing" };
+    let map = pending ?? null;
+    if (!map) {
+      const read = parse(raw as string, fallbackPage);
+      if (read.status === "unreadable") return { status: "unreadable" };
+      map = read.map;
+    }
+    if (!isLinked(map)) return { status: "ok", map, unplaced: false };
+    const now = storedLinked(map);
+    if (now.kind === "tree") return { status: "ok", map: now.map, unplaced: now.unplaced.length > 0 };
+    return { status: "ok", map: now.kind === "gone" ? unlinked(map) : map, unplaced: false };
+  } catch {
+    return { status: "unreadable" };
+  }
+}
+
+/** The storage key a map is stored under. */
+export const mapKey = (id: MapId): string => MAP_KEY_PREFIX + id;
 
 /**
  * Reads one map, or `null` if it is missing or nothing could be salvaged.
