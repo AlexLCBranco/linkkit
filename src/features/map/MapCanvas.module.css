@@ -101,7 +101,10 @@
 .canvas[data-whiteboard] {
   position: relative;
   inset: auto;
-  overflow: hidden;
+  /* Clip, not hidden: a hidden overflow still scrolls when a field in it
+     takes the focus (naming a new box near the edge), and the boxes then
+     sat off where the map shows. */
+  overflow: clip;
   background: transparent;
 }
 

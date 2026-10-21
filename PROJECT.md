@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-21, v0.0.109 (a click away saves what was typed; an empty new box clicked away is not kept)_
+_Last updated: 2026-10-21, v0.0.110 (whiteboard: a map never scrolls inside its widget)_
 
 ## What it is
 
@@ -43,6 +43,11 @@ browser folder standing in for the folder picker); it makes and removes its own
 "ZZ bridge test" map and board and checks every other record is untouched.
 
 ## What works now
+
+**Whiteboard fix (v0.0.110).** A map on the gauntlet whiteboard clips what
+lies past its area instead of hiding it: a hidden overflow still scrolled
+when a field in it took the focus (naming a new box near the edge), and the
+boxes then sat off where the map shows.
 
 **Click away saves (owner, 2026-10-21, v0.0.109).** Every inline field
 (a box's name, an arrow's label, a player's name, a map's name) keeps
