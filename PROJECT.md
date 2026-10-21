@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-21, v0.0.108 (Linkkit maps as widgets on the gauntlet whiteboard: `src/app/whiteboard/`)_
+_Last updated: 2026-10-21, v0.0.109 (a click away saves what was typed; an empty new box clicked away is not kept)_
 
 ## What it is
 
@@ -43,6 +43,13 @@ browser folder standing in for the folder picker); it makes and removes its own
 "ZZ bridge test" map and board and checks every other record is untouched.
 
 ## What works now
+
+**Click away saves (owner, 2026-10-21, v0.0.109).** Every inline field
+(a box's name, an arrow's label, a player's name, a map's name) keeps
+what was typed on a press anywhere outside it, as Enter does, seen first
+on the window, so it is kept even where the press never blurs the field
+(the gauntlet whiteboard). A field that was empty and still is cancels
+instead: a new box left nameless is taken back. Escape still cancels.
 
 **Maps on the gauntlet whiteboard (gauntlet phase 3, 2026-10-21).** A new
 entry, `src/app/whiteboard/` (like Boardkit's): gauntlet imports it as a

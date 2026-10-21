@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { pressed } from "../domain/shortcuts";
 import styles from "./InlineEditable.module.css";
@@ -30,7 +30,10 @@ interface InlineEditableProps {
 /**
  * Click-to-edit text, copied from Treekit (which adapted Boardkit's). Generic:
  * it knows nothing about maps. Enter commits, Shift+Enter starts a new line
- * where allowed (`multiline`: box names), Esc cancels, clicking away commits.
+ * where allowed (`multiline`: box names), Esc cancels, clicking away commits
+ * (owner, 2026-10-21: a press anywhere outside keeps what was typed, as Enter
+ * does), except that clicking away from a field that was empty and still is
+ * cancels it: a new box left nameless is not kept.
  *
  * The edit field is its own component, mounted only while editing. Its
  * draft starts from `value` on mount, so every edit begins fresh with no
@@ -74,6 +77,7 @@ function EditField({
   // Set once the edit has ended, so the blur that follows Enter/Esc (as the
   // textarea unmounts) does not commit a second time.
   const finishedRef = useRef(false);
+  const fieldRef = useRef<HTMLSpanElement>(null);
 
   function finish(commit: boolean) {
     if (finishedRef.current) return;
@@ -83,8 +87,25 @@ function EditField({
     onDone(commit);
   }
 
+  /** A click away: kept as Enter keeps it; empty before and after, cancelled. */
+  const away = () => finish(!(value === "" && draft.trim() === ""));
+  const awayRef = useRef(away);
+  awayRef.current = away;
+  // Seen first (window, capture): a press that never blurs the field (the
+  // gauntlet whiteboard's canvas keeps the focus where it is), or that ends
+  // the editing round it so the field goes before it could blur, still
+  // keeps the text. The press then goes on to do whatever it does.
+  useEffect(() => {
+    const onDown = (event: PointerEvent) => {
+      if (!fieldRef.current?.contains(event.target as Node)) awayRef.current();
+    };
+    window.addEventListener("pointerdown", onDown, true);
+    return () => window.removeEventListener("pointerdown", onDown, true);
+  }, []);
+
   return (
     <span
+      ref={fieldRef}
       className={[styles.autosize, className].filter(Boolean).join(" ")}
       data-value={draft || placeholder || " "}
     >
@@ -122,7 +143,7 @@ function EditField({
           onPasteLines(text, draft.slice(0, field.selectionStart), draft.slice(field.selectionEnd));
           onDone(true);
         }}
-        onBlur={() => finish(true)}
+        onBlur={away}
         onKeyDown={(event) => {
           // Keep every key local: canvas shortcuts (Delete = delete the box)
           // must not fire while typing.
