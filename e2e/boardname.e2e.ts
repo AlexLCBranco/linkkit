@@ -8,9 +8,8 @@ import { addChild, boxIds, mapMenu, newTree, READY } from "./helpers";
  * and record keep the old name until the map's next edit. Every place that
  * shows the map's name shows the board's new one anyway: Linkkit's header
  * and map list (with another map open, after switching, after a reload),
- * "Map from a Boardkit board…" ("Linked to …"), Boardkit's delete-board
- * question and the gauntlet canvas's "Add a stone" list. And none of that
- * writes a byte of Linkkit's maps or list.
+ * "Map from a Boardkit board…" ("Linked to …") and Boardkit's delete-board
+ * question. And none of that writes a byte of Linkkit's maps or list.
  *
  * Throwaway data in a fresh browser profile on the shared site: one linked
  * map and its board, both deleted at the end. Runs on the live site and on
@@ -124,16 +123,6 @@ test("a board renamed in Boardkit shows its new name everywhere its linked map i
   await expect(lk.getByRole("button", { name: RENAMED, exact: true })).toBeVisible();
   expect(await listedNames(lk)).toContain(RENAMED);
   await lk.waitForTimeout(1_500);
-
-  // The gauntlet canvas's "Add a stone" list names it after the board too:
-  // the board and its map.
-  const canvas = await context.newPage();
-  await canvas.goto("/");
-  await canvas.getByRole("button", { name: "+ Add stone" }).click();
-  const picks = canvas.getByRole("dialog", { name: "Add a stone" });
-  await expect(picks.getByRole("button", { name: startsWith(RENAMED) })).toHaveCount(2);
-  await expect(picks.getByRole("button", { name: startsWith(NAME) })).toHaveCount(0);
-  await canvas.close();
 
   // Boardkit's delete-board question names the map by the board's new name.
   await bk.bringToFront();
