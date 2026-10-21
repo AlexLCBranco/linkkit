@@ -113,6 +113,10 @@ permission prompts like folder pickers, and judging feel/usability). Keep
 those to the minimum, say why each one can't be automated, and give one short
 step at a time.
 
+Tests and scripts run headless and close every browser window and process
+they open, even on failure. After any run, no test window may be left open
+on the owner's PC.
+
 ## Commands
 
 ```bash
