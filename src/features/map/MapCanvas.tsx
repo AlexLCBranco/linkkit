@@ -71,6 +71,10 @@ const edgeTypes = { link: LinkEdgeView };
 /** A node's position is its centre, matching how the map stores boxes. */
 const CENTER_ORIGIN: NodeOrigin = [0.5, 0.5];
 /** Double-clicking a tree's paper adds nothing: the hint says how instead. */
+/** On the whiteboard: how far past the map's area its boxes' toolbars and
+    menus may still show (page px). */
+const WHITEBOARD_POP_OUT = 64;
+
 const PAPER_REFUSAL = "With tree rules on, every box needs a parent: use a box’s + button, or drag its dot onto the paper.";
 /** The page before the screen is first measured. */
 const FILL = { width: "100%", height: "100%" };
@@ -798,6 +802,13 @@ function MapCanvasInner() {
     if (shown && !needsTidy) onContent?.(shown, { x: shiftX, y: shiftY });
   }, [shown, needsTidy, onContent, shiftX, shiftY]);
   const area = shown ?? { left: 0, top: 0, ...WHITEBOARD_CONTENT.empty };
+  // React Flow's layer, cut to that part (and a little round it: a box's
+  // toolbar and menus pop out past the map's edge, a top box's toolbar
+  // above it, still drawn and clickable). Page units, as the page.
+  const flowClip =
+    whiteboard && drawn
+      ? `inset(${area.top - WHITEBOARD_POP_OUT}px ${drawn.width - area.left - area.width - WHITEBOARD_POP_OUT}px ${Math.ceil(drawn.height) - area.top - area.height - WHITEBOARD_POP_OUT}px ${area.left - WHITEBOARD_POP_OUT}px)`
+      : undefined;
 
   return (
     <BoxContextMenu>
@@ -870,6 +881,7 @@ function MapCanvasInner() {
             // (many maps at once, each a widget) none.
             attributionPosition="top-right"
             proOptions={whiteboard ? { hideAttribution: true } : undefined}
+            style={flowClip ? { clipPath: flowClip } : undefined}
           />
           {/* Previews over the boxes, in page units like them, zoomed the same way. */}
           <div className={styles.sheet} style={sheetStyle(page, drawn)}>

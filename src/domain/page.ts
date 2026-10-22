@@ -1,5 +1,5 @@
 import type { Bounds, MapLayout } from "./layout";
-import type { LayoutDirection, LinkMap, MapKind, NodeId, Point, Size } from "./types";
+import { hasTreeShape, type LayoutDirection, type LinkMap, type MapKind, type NodeId, type Point, type Size } from "./types";
 
 /**
  * The page: the sheet the boxes live on. It is the screen (the area the
@@ -143,6 +143,19 @@ export function contentBox(map: LinkMap, sizes: ReadonlyMap<NodeId, Size>, fallb
   const right = Math.ceil(b.right + m + (options.extraRight ?? 0));
   const bottom = Math.ceil(b.bottom + m);
   return { left, top, width: right - left, height: bottom - top };
+}
+
+/**
+ * A tree whose boxes were never laid out: every box still on the spot a
+ * new one is made at, the page's corner (`createTree`, a map made from a
+ * board), because it was stored before anything opened it (the gauntlet
+ * whiteboard's "Add map view"). No layout puts a box there (boxes keep
+ * clear of the page's edges), so such a map is tidied before it shows.
+ */
+export function neverLaidOut(map: LinkMap): boolean {
+  if (!hasTreeShape(map.kind)) return false;
+  const nodes = Object.values(map.nodes);
+  return nodes.length > 0 && nodes.every((n) => n.x === 0 && n.y === 0);
 }
 
 /** The outer edges of all the boxes, where they are now. */

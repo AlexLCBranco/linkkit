@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-22, v0.0.111 (no dot grid; on the whiteboard the whole page is an edited map's)_
+_Last updated: 2026-10-22, v0.0.112 (whiteboard: an arrow out of a dot and a hint show anywhere on the page; a dot let go on bare page adds a child; a map from a board is laid out before it shows)_
 
 ## What it is
 
@@ -43,6 +43,23 @@ browser folder standing in for the folder picker); it makes and removes its own
 "ZZ bridge test" map and board and checks every other record is untouched.
 
 ## What works now
+
+**Whiteboard fixes from the owner's hand test (gauntlet, 2026-10-22,
+v0.0.112).** On the whiteboard only React Flow's own layer is cut to the
+map's area (a `clip-path`, with the 64 px a box's toolbar pops out); the
+previews and hints over it are not cut at all, so a box's dot dragged far
+past the map's edge keeps its dashed arrow, and a "tree rules" hint shows
+where the double-click was, inside the map or out. The page itself takes
+no presses past the area. Let go on bare whiteboard page (the whiteboard
+says where: `WhiteboardCanvas.onPage`), a tree's dot adds a child there,
+as on the paper (it then settles into the tree). A tree never laid out
+(every box still at the page's corner: a map made from a board by the
+whiteboard's "Add map view" and stored before anything opened it,
+`neverLaidOut`) is tidied before it shows, shown or opened, so a board's
+Map and Both views show it whole. `useWhiteboardMapAdding` tells the
+whiteboard how boxes are added (anywhere, from a box, or fixed), for its
+label. Known, not changed: the tree layout lets long card names overlap
+their neighbours (same in Linkkit's own page).
 
 **No dot grid; the whole whiteboard page for an edited map (gauntlet
 hand-test round items 6-7, owner, 2026-10-21, v0.0.111).** The paper has

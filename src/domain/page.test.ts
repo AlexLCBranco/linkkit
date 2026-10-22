@@ -15,6 +15,7 @@ import {
   freeSpot,
   keepOnPage,
   layoutRoom,
+  neverLaidOut,
   placeBlockBeside,
   pageSize,
   placeOnPage,
@@ -23,12 +24,33 @@ import {
   type Align,
 } from "./page";
 import { build } from "./testMaps";
+import { addNextStep, createTree, startOf } from "./tree";
 import type { NodeId, Size } from "./types";
 
 const insets = { edge: 14 };
 const screen = { width: 800, height: 600 };
 const box = { width: 100, height: 36 };
 const noSizes = new Map<NodeId, Size>();
+
+describe("neverLaidOut (a tree stored before anything tidied it)", () => {
+  it("is a tree whose every box is still at the page's corner, one box or many", () => {
+    const one = createTree(asMapId("m"), "M", screen).map;
+    expect(neverLaidOut(one)).toBe(true);
+    const many = addNextStep(addNextStep(one, startOf(one)!, { x: 0, y: 0 })!.map, startOf(one)!, { x: 0, y: 0 })!.map;
+    expect(Object.keys(many.nodes)).toHaveLength(3);
+    expect(neverLaidOut(many)).toBe(true);
+  });
+
+  it("is not a tree with any box placed, an empty map, or a map without tree rules", () => {
+    const one = createTree(asMapId("m"), "M", screen).map;
+    const placed = moveNode(one, startOf(one)!, { x: 120, y: 80 });
+    expect(neverLaidOut(placed)).toBe(false);
+    const two = addNextStep(one, startOf(one)!, { x: 200, y: 0 })!.map;
+    expect(neverLaidOut(two)).toBe(false);
+    expect(neverLaidOut({ ...one, nodes: {} })).toBe(false);
+    expect(neverLaidOut({ ...one, kind: "connections" })).toBe(false);
+  });
+});
 
 describe("contentBox (the whiteboard's part of the page)", () => {
   const options = { margin: 16, empty: { width: 320, height: 160 } };

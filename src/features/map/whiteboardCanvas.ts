@@ -19,6 +19,10 @@ export interface WhiteboardCanvas {
   /** Told the part of the page shown, and the map's whiteboard shift
       (`LinkMap.shift`), whenever either changes. */
   readonly onContent?: (box: PageRect, shift: Point) => void;
+  /** Whether this point on the screen (client px) is bare whiteboard page
+      the edited map may use: nothing else there. A box's dot dragged out
+      and let go there adds a next step, as on Linkkit's paper. */
+  readonly onPage?: (x: number, y: number) => boolean;
 }
 
 export const WhiteboardCanvasContext = createContext<WhiteboardCanvas | null>(null);

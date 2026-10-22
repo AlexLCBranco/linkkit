@@ -1,6 +1,7 @@
 import { BOARD_RECORD_VERSION, nextRecord, type BoardContent, type BoardRecord } from "../domain/boardRecord";
 import { linkedTree, problemText, treeToBoard, unlinked, withStartName, type LinkedTo } from "../domain/bridge";
 import { mergeMaps, sameMap } from "../domain/merge";
+import { neverLaidOut } from "../domain/page";
 import { readMap, revOf, serializeMap, serializeStored, type MapRead } from "../domain/persistence";
 import { readRegistry, removeMap, serializeRegistry, upsertMap, type Registry } from "../domain/registry";
 import { readMapTrash, serializeMapTrash, type MapTrash } from "../domain/trash";
@@ -697,10 +698,11 @@ export function peekMap(id: MapId, fallbackPage: Size): PeekedMap {
       if (read.status === "unreadable") return { status: "unreadable" };
       map = read.map;
     }
-    if (!isLinked(map)) return { status: "ok", map, unplaced: false };
+    if (!isLinked(map)) return { status: "ok", map, unplaced: neverLaidOut(map) };
     const now = storedLinked(map);
-    if (now.kind === "tree") return { status: "ok", map: now.map, unplaced: now.unplaced.length > 0 };
-    return { status: "ok", map: now.kind === "gone" ? unlinked(map) : map, unplaced: false };
+    if (now.kind === "tree") return { status: "ok", map: now.map, unplaced: now.unplaced.length > 0 || neverLaidOut(now.map) };
+    const shown = now.kind === "gone" ? unlinked(map) : map;
+    return { status: "ok", map: shown, unplaced: neverLaidOut(shown) };
   } catch {
     return { status: "unreadable" };
   }
@@ -800,8 +802,13 @@ function listedName(id: MapId): string | null {
 }
 
 /** A map just read from storage, as it opens: a linked one is built from
-    its board (`openLinked`), any other is as read. */
-const opened = (map: LinkMap): LinkMap => (isLinked(map) ? openLinked(map) : map);
+    its board (`openLinked`), any other is as read. One never laid out
+    (`neverLaidOut`) is tidied before it shows (`takeUnplaced`). */
+function opened(read: LinkMap): LinkMap {
+  const map = isLinked(read) ? openLinked(read) : read;
+  if (neverLaidOut(map)) unplacedOnLoad.add(map.id);
+  return map;
+}
 
 /**
  * A linked map as it opens, from Linkkit's stored `copy`: the tree its

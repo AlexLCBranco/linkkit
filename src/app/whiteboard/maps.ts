@@ -1,7 +1,7 @@
 import { createMapId } from "../../domain/ids";
 import { createMap } from "../../domain/map";
 import { numberedName, UNTITLED_MAP } from "../../domain/names";
-import type { MapId } from "../../domain/types";
+import { hasTreeShape, type MapId } from "../../domain/types";
 import { setEmbedStatus } from "../../store/embed";
 import { mapFromBoard } from "../../domain/bridge";
 import { createTree } from "../../domain/tree";
@@ -184,6 +184,17 @@ export function doubleClickOnWhiteboardMap(mapId: string, x: number, y: number):
   if (!pane) return false;
   pane.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true, clientX: x, clientY: y }));
   return true;
+}
+
+/**
+ * How boxes are added to map `mapId` while it is edited, for the
+ * whiteboard to say so: "anywhere" (a double-click anywhere on the page),
+ * "from-a-box" (tree rules: a box's + or its dot dragged out; a
+ * double-click on the paper says why not), "fixed" (a bracket), or `null`
+ * while that map isn't the one open. Follows the map as it changes.
+ */
+export function useWhiteboardMapAdding(mapId: string): "anywhere" | "from-a-box" | "fixed" | null {
+  return useMapStore((s) => (s.map.id !== mapId ? null : s.map.kind === "bracket" ? "fixed" : hasTreeShape(s.map.kind) ? "from-a-box" : "anywhere"));
 }
 
 export function mapTakesEscape(target: EventTarget | null): boolean {

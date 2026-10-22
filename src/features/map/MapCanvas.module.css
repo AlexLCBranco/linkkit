@@ -93,18 +93,27 @@
 
 /* On the gauntlet whiteboard (whiteboardCanvas.ts): only the part of the
    page the boxes cover, at its natural size, with no paper behind it; the
-   whiteboard scales it. Never scrolls. */
+   whiteboard scales it. Never scrolls: nothing here clips or scrolls
+   (a hidden overflow scrolls when a field in it takes the focus, naming a
+   new box near the edge, and the boxes then sat off where the map shows).
+   Only React Flow's own layer is cut to the map's area (MapCanvas, its
+   clip-path); the previews and hints over it (an arrow dragged out of a
+   box's dot, a refusal) show anywhere on the whiteboard's page. */
 .canvas[data-whiteboard] {
   position: relative;
   inset: auto;
-  /* Clip, not hidden: a hidden overflow still scrolls when a field in it
-     takes the focus (naming a new box near the edge), and the boxes then
-     sat off where the map shows. */
-  overflow: clip;
-  /* A box's toolbar and menus pop out past the map's edge (a top box's
-     toolbar sits above it): still drawn, and still clickable. */
-  overflow-clip-margin: 64px;
+  overflow: visible;
   background: transparent;
+}
+
+/* The page itself takes no presses there: past the map's area they are the
+   whiteboard's. React Flow's layer (cut to the area) takes them as ever,
+   and they still reach the page's own handlers. */
+.canvas[data-whiteboard] .page {
+  pointer-events: none;
+}
+.canvas[data-whiteboard] :global(.react-flow) {
+  pointer-events: auto;
 }
 
 .canvas[data-whiteboard] .paper {

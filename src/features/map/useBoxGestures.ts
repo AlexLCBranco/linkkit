@@ -44,7 +44,8 @@ export function useBoxGestures(id: NodeId) {
   // Edited on the whiteboard, the whole page is the map's: a drag goes
   // anywhere; past the page's left or top edge everything else moves
   // right or down instead (the map's shift), so nothing moves on screen.
-  const onWhiteboard = useWhiteboardCanvas()?.editing ?? false;
+  const whiteboard = useWhiteboardCanvas();
+  const onWhiteboard = whiteboard?.editing ?? false;
   const [dragging, setDragging] = useState(false);
 
   const onBoxPointerDown = useCallback(
@@ -178,10 +179,12 @@ export function useBoxGestures(id: NodeId) {
         const verdict = to ? canLink(map, id, to) : null;
         return to && verdict && !verdict.ok ? { box: to, text: linkRefusalText(map, id, to, verdict.reason) } : null;
       };
-      /** Over the bare paper of a tree (not a box, arrow or label). */
+      /** Over the bare paper of a tree (not a box, arrow or label). Edited
+          on the whiteboard, its whole page is the map's paper: anywhere
+          the whiteboard says is bare (past the map's edge too). */
       const onPaper = (x: number, y: number) =>
         hasTreeShape(useMapStore.getState().map.kind) &&
-        !!document.elementFromPoint(x, y)?.classList.contains("react-flow__pane");
+        (!!document.elementFromPoint(x, y)?.classList.contains("react-flow__pane") || (onWhiteboard && !!whiteboard?.onPage?.(x, y)));
       const update = (ev: PointerEvent | ReactPointerEvent) =>
         useMapStore.getState().setConnecting({
           from: id,
@@ -209,7 +212,7 @@ export function useBoxGestures(id: NodeId) {
       el.addEventListener("pointerup", end);
       el.addEventListener("pointercancel", end);
     },
-    [id, screenToFlowPosition],
+    [id, screenToFlowPosition, onWhiteboard, whiteboard],
   );
 
   return { dragging, onBoxPointerDown, onDotPointerDown };
