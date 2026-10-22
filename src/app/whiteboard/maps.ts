@@ -3,8 +3,12 @@ import { createMap } from "../../domain/map";
 import { numberedName, UNTITLED_MAP } from "../../domain/names";
 import type { MapId } from "../../domain/types";
 import { setEmbedStatus } from "../../store/embed";
-import { closeOpenMap, newPageSize, useMapStore } from "../../store/mapStore";
+import { mapFromBoard } from "../../domain/bridge";
+import { createTree } from "../../domain/tree";
+import { boardChoices, closeOpenMap, newPageSize, takeStoredElsewhere, useMapStore } from "../../store/mapStore";
+import { loadBoard } from "../../store/persistBoard";
 import { deleteStoredMap, mapKey, peekMap, peekMapList, saveMap } from "../../store/persistMap";
+import { wroteHere } from "../../store/storedHere";
 import { useSaveHealth } from "../../store/saveHealth";
 import { cancelSave } from "../../store/saveQueue";
 
@@ -54,6 +58,57 @@ export function deleteEmptyWhiteboardMap(id: string, name: string): boolean {
   }
   deleteStoredMap(id as MapId);
   return true;
+}
+
+/**
+ * "Add map view" on a board widget: a new map linked to Boardkit board
+ * `boardId`, as Linkkit's "Map from a Boardkit board…" makes one (named
+ * after the board, its lists and cards as boxes), stored at once. Nothing
+ * is opened, and nothing is written in Boardkit. Why not, as text, when
+ * the board can't have one (it has one already, say) or storage is full.
+ */
+export function createLinkedWhiteboardMap(boardId: string): { readonly id: string } | { readonly refused: string } {
+  const choice = boardChoices().find((c) => c.id === boardId);
+  const read = loadBoard(boardId);
+  if (!choice || choice.reason || read.status !== "ok") return { refused: choice?.reason ?? "That board is no longer in Boardkit." };
+  const { map: blank } = createTree(createMapId(), choice.name, newPageSize());
+  const { map } = mapFromBoard(blank, boardId, choice.name, read.record.board);
+  saveMap(map);
+  if (useSaveHealth.getState().failing.includes(mapKey(map.id))) {
+    deleteStoredMap(map.id);
+    return { refused: "The map could not be saved: this browser's storage is full." };
+  }
+  return { id: map.id };
+}
+
+/**
+ * "Unlink map" on a board widget: the linked map becomes an ordinary map
+ * with its own copy (Linkkit's "Unlink from Boardkit"); the board stays in
+ * Boardkit as it is. Returns the map's stored record from before, to put
+ * back for an undo (`restoreWhiteboardMapRecord`), or `null` when there
+ * was nothing to unlink.
+ */
+export function unlinkWhiteboardMap(id: string): string | null {
+  const before = localStorage.getItem(mapKey(id as MapId));
+  if (before === null) return null;
+  const wasOpen = useMapStore.getState().map.id === id;
+  if (!openWhiteboardMap(id) || !useMapStore.getState().map.linkedBoard) {
+    if (!wasOpen && useMapStore.getState().map.id === id) closeOpenMap();
+    return null;
+  }
+  useMapStore.getState().unlinkFromBoard();
+  if (!wasOpen) closeOpenMap();
+  return before;
+}
+
+/** Puts a map's stored record back as it was (`unlinkWhiteboardMap`'s
+    undo), as another tab's write would. */
+export function restoreWhiteboardMapRecord(id: string, record: string): void {
+  if (useMapStore.getState().map.id === id) closeOpenMap();
+  const key = mapKey(id as MapId);
+  localStorage.setItem(key, record);
+  takeStoredElsewhere(key, false);
+  wroteHere(key);
 }
 
 /** Renames a map, as its name field in Linkkit's header does. */

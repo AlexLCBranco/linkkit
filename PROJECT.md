@@ -58,7 +58,11 @@ moves right or down instead (`shiftMap`), and the map keeps how far in
 `LinkMap.shift` (saved, undone and merged with the boxes, kept through
 the Boardkit bridge), so the whiteboard keeps the boxes where they are on
 its page. An empty map on the whiteboard is 260 x 48, its hint "Double-
-click anywhere to add a box", centred.
+click anywhere to add a box", centred. For the whiteboard's board widgets
+(item 8): `createLinkedWhiteboardMap` ("Add map view": a new map linked to
+a board, as "Map from a Boardkit board…" makes one, stored, not opened),
+`unlinkWhiteboardMap` (Linkkit's "Unlink from Boardkit", returning the
+record from before) and `restoreWhiteboardMapRecord` (its undo).
 
 **Whiteboard fix (v0.0.110).** A map on the gauntlet whiteboard clips what
 lies past its area instead of hiding it: a hidden overflow still scrolled
