@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-21, v0.0.110 (whiteboard: a map never scrolls inside its widget)_
+_Last updated: 2026-10-22, v0.0.111 (no dot grid; on the whiteboard the whole page is an edited map's)_
 
 ## What it is
 
@@ -43,6 +43,22 @@ browser folder standing in for the folder picker); it makes and removes its own
 "ZZ bridge test" map and board and checks every other record is untouched.
 
 ## What works now
+
+**No dot grid; the whole whiteboard page for an edited map (gauntlet
+hand-test round items 6-7, owner, 2026-10-21, v0.0.111).** The paper has
+no dots any more, in Linkkit and on the whiteboard (positions and
+snapping unchanged). On the whiteboard the 120 px band round an edited map
+is gone: the whole page is its space. A double-click on the paper there
+adds a box at that spot, or at the nearest spot that overlaps no box
+(`nearestFreeSpot`, `addBoxNear`); the whiteboard hands double-clicks
+anywhere on its page to it (`doubleClickOnWhiteboardMap`). A box dragged
+anywhere goes there (no page edge right or down; a longer name doesn't
+pull a box back either). Past the page's left or top edge everything else
+moves right or down instead (`shiftMap`), and the map keeps how far in
+`LinkMap.shift` (saved, undone and merged with the boxes, kept through
+the Boardkit bridge), so the whiteboard keeps the boxes where they are on
+its page. An empty map on the whiteboard is 260 x 48, its hint "Double-
+click anywhere to add a box", centred.
 
 **Whiteboard fix (v0.0.110).** A map on the gauntlet whiteboard clips what
 lies past its area instead of hiding it: a hidden overflow still scrolled

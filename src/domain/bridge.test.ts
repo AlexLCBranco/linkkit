@@ -155,6 +155,11 @@ describe("boardToTree", () => {
     const map = tree();
     expect(boardToTree("move", "Move?", board(), viewOf(map)).map).toEqual(map);
   });
+
+  it("keeps the whiteboard shift (Linkkit's own, like the page)", () => {
+    const map = { ...tree(), shift: { x: 30, y: 0 } };
+    expect(boardToTree("move", "Move?", board(), viewOf(map)).map).toEqual(map);
+  });
 });
 
 describe("treeToBoard", () => {

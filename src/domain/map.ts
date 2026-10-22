@@ -133,6 +133,23 @@ export function moveNodes(map: LinkMap, positions: ReadonlyMap<NodeId, Point>): 
   return next;
 }
 
+/**
+ * Every box (and every deleted box's place, for its restore) moved by `d`,
+ * and `d` added to the map's whiteboard shift (`LinkMap.shift`): on the
+ * whiteboard a box may go left of or above the page's corner, where page
+ * places can't go, so everything moves right and down instead.
+ */
+export function shiftMap(map: LinkMap, d: Point): LinkMap {
+  if (d.x === 0 && d.y === 0) return map;
+  const nodes: Record<NodeId, MapNode> = {};
+  for (const node of Object.values(map.nodes)) nodes[node.id] = { ...node, x: node.x + d.x, y: node.y + d.y };
+  const trash = map.trash.map((entry) => ({ ...entry, nodes: entry.nodes.map((n) => ({ ...n, x: n.x + d.x, y: n.y + d.y })) }));
+  const x = (map.shift?.x ?? 0) + d.x;
+  const y = (map.shift?.y ?? 0) + d.y;
+  const { shift: _, ...rest } = map;
+  return { ...rest, nodes, trash, ...(x || y ? { shift: { x, y } } : {}) };
+}
+
 /** Deletes a box and every arrow touching it. */
 export const deleteNode = (map: LinkMap, id: NodeId): LinkMap => deleteNodes(map, [id]);
 

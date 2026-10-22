@@ -275,6 +275,46 @@ export function visibleCenter(page: Bounds, view: Bounds, zoom = 1): Point {
  * never hides a new box under an old one (or the old one under it). Gives
  * up and returns `at` if nothing is free within a few dozen steps.
  */
+/**
+ * The free spot nearest `at` for a box of `size`: `at` itself if it
+ * overlaps no box (kept `clearance` clear), else the closest point on
+ * rings round it, `step` apart, out to `reach`. Nothing free in reach:
+ * `at`.
+ */
+export function nearestFreeSpot(
+  map: LinkMap,
+  sizes: ReadonlyMap<NodeId, Size>,
+  at: Point,
+  size: Size,
+  options: { readonly step: number; readonly reach: number; readonly fallbackSize: Size; readonly clearance: number },
+): Point {
+  const nodes = Object.values(map.nodes);
+  const free = (p: Point) =>
+    nodes.every((n) => {
+      const other = sizes.get(n.id) ?? options.fallbackSize;
+      return (
+        Math.abs(n.x - p.x) >= (size.width + other.width) / 2 + options.clearance ||
+        Math.abs(n.y - p.y) >= (size.height + other.height) / 2 + options.clearance
+      );
+    });
+  if (free(at)) return at;
+  for (let r = options.step; r <= options.reach; r += options.step) {
+    // Points round the ring about `step` apart, all equally near `at`.
+    const count = Math.max(8, Math.ceil((2 * Math.PI * r) / options.step));
+    let best: Point | null = null;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * 2 * Math.PI;
+      const p = { x: at.x + r * Math.cos(a), y: at.y + r * Math.sin(a) };
+      if (free(p)) {
+        best = p;
+        break;
+      }
+    }
+    if (best) return { x: Math.round(best.x), y: Math.round(best.y) };
+  }
+  return at;
+}
+
 export function freeSpot(
   map: LinkMap,
   sizes: ReadonlyMap<NodeId, Size>,

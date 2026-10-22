@@ -52,6 +52,7 @@ import {
   REVEAL_MARGIN,
   ROUTES,
   TIDY_GLIDE_MS,
+  WHITEBOARD_ADD,
   WHITEBOARD_CONTENT,
 } from "./layoutConfig";
 import { LinkEdgeView, type LinkFlowEdge } from "./LinkEdgeView";
@@ -246,9 +247,12 @@ function MapCanvasInner() {
     if (needsTidy) return;
     const ids = resizedByEdit(before, { sizes, nodes: map.nodes });
     if (ids.length === 0) return;
-    const moves = keepOnPage(map, sizes, MAP_LAYOUT.fallbackSize, PAGE_INSETS, screen, ids);
+    // On the whiteboard the page goes on right and down (the widget grows):
+    // only its left and top edges hold a box back.
+    const room = whiteboard ? { width: Infinity, height: Infinity } : screen;
+    const moves = keepOnPage(map, sizes, MAP_LAYOUT.fallbackSize, PAGE_INSETS, room, ids);
     if (moves.size > 0) nudgeBoxes(moves);
-  }, [needsTidy, screen, sizes, nudgeBoxes, api]);
+  }, [needsTidy, screen, sizes, nudgeBoxes, api, whiteboard]);
 
   // The page: the screen, or bigger where the boxes reach further.
   const page = useMemo(
@@ -383,10 +387,16 @@ function MapCanvasInner() {
         useHint.getState().show(kind === "bracket" ? BRACKET_FIXED : PAPER_REFUSAL, at);
         return;
       }
+      // On the whiteboard: where it was double-clicked, or the nearest spot
+      // that overlaps no box.
+      if (whiteboard) {
+        api.getState().addBoxNear(at, sizesRef.current, WHITEBOARD_ADD);
+        return;
+      }
       // Not measured yet: a typical box's size keeps it on the page for now.
       addBox(clampToPage(at, MAP_LAYOUT.fallbackSize, page, PAGE_INSETS));
     },
-    [addBox, screenToFlowPosition, api],
+    [addBox, screenToFlowPosition, api, whiteboard],
   );
 
   // The selected box stays on screen (Treekit's): selected with the arrow
@@ -782,17 +792,12 @@ function MapCanvasInner() {
     return contentBox(map, sizes, MAP_LAYOUT.fallbackSize, { ...WHITEBOARD_CONTENT, ...bracket });
   }, [whiteboard, allMeasured, map, sizes]);
   const onContent = whiteboard?.onContent;
+  const shiftX = map.shift?.x ?? 0;
+  const shiftY = map.shift?.y ?? 0;
   useLayoutEffect(() => {
-    if (shown && !needsTidy) onContent?.(shown);
-  }, [shown, needsTidy, onContent]);
+    if (shown && !needsTidy) onContent?.(shown, { x: shiftX, y: shiftY });
+  }, [shown, needsTidy, onContent, shiftX, shiftY]);
   const area = shown ?? { left: 0, top: 0, ...WHITEBOARD_CONTENT.empty };
-  // While it is edited, paper round it to add boxes on and drag them onto
-  // (`WhiteboardCanvas.room`), drawn past its widget's box: the widget keeps
-  // its size. Never past the page's top or left edge.
-  const room = whiteboard?.editing ? (whiteboard.room ?? WHITEBOARD_CONTENT.room) : null;
-  const pad = room
-    ? { left: Math.min(room.left, area.left), top: Math.min(room.top, area.top), right: room.right, bottom: room.bottom }
-    : { left: 0, top: 0, right: 0, bottom: 0 };
 
   return (
     <BoxContextMenu>
@@ -801,16 +806,7 @@ function MapCanvasInner() {
         className={styles.canvas}
         data-ready={needsTidy || !fitted ? undefined : true}
         data-whiteboard={whiteboard ? true : undefined}
-        data-room={room ? true : undefined}
-        style={
-          whiteboard
-            ? {
-                width: area.width + pad.left + pad.right,
-                height: area.height + pad.top + pad.bottom,
-                margin: `${-pad.top}px ${-pad.right}px ${-pad.bottom}px ${-pad.left}px`,
-              }
-            : undefined
-        }
+        style={whiteboard ? { width: area.width, height: area.height } : undefined}
         // A read-only copy on the whiteboard: nothing in it takes focus.
         inert={whiteboard !== null && !whiteboard.editing}
         // Box names and arrow labels in the map's label style (CSS only).
@@ -824,7 +820,7 @@ function MapCanvasInner() {
           // edge from the page's) lines up exactly.
           style={
             drawn
-              ? { width: drawn.width, height: Math.ceil(drawn.height), transform: whiteboard ? `translate(${pad.left - area.left}px, ${pad.top - area.top}px)` : undefined }
+              ? { width: drawn.width, height: Math.ceil(drawn.height), transform: whiteboard ? `translate(${-area.left}px, ${-area.top}px)` : undefined }
               : FILL
           }
           onDoubleClick={onPageDoubleClick}
@@ -906,7 +902,7 @@ function MapCanvasInner() {
           )}
         </div>
         {whiteboard && nodeIds.length === 0 && (
-          <div className={styles.emptyHint}>{whiteboard.editing ? "Double-click to add a box" : "Empty map"}</div>
+          <div className={styles.emptyHint}>{whiteboard.editing ? "Double-click anywhere to add a box" : "Empty map"}</div>
         )}
       </div>
     </BoxContextMenu>

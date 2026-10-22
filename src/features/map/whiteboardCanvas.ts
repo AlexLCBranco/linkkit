@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 
 import type { PageRect } from "../../domain/page";
+import type { Point } from "../../domain/types";
 
 /**
  * The map drawn as a widget on the gauntlet whiteboard (`app/whiteboard/`),
@@ -15,12 +16,9 @@ export interface WhiteboardCanvas {
   /** Being edited (the open map's store, every edit as in Linkkit), or a
       read-only copy drawn by the same components. */
   readonly editing: boolean;
-  /** Told the part of the page shown, whenever it changes. */
-  readonly onContent?: (box: PageRect) => void;
-  /** While edited: how much paper shows round the boxes, past the
-      widget's box, to add boxes on (`WHITEBOARD_CONTENT.room` if not
-      given). */
-  readonly room?: { readonly left: number; readonly top: number; readonly right: number; readonly bottom: number };
+  /** Told the part of the page shown, and the map's whiteboard shift
+      (`LinkMap.shift`), whenever either changes. */
+  readonly onContent?: (box: PageRect, shift: Point) => void;
 }
 
 export const WhiteboardCanvasContext = createContext<WhiteboardCanvas | null>(null);

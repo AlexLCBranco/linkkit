@@ -9,6 +9,7 @@ import { useMapStore } from "../../store/mapStore";
 import { dropTargetAt } from "./dropTarget";
 import { DRAG_THRESHOLD, MAP_LAYOUT, PAGE_INSETS } from "./layoutConfig";
 import { BOX_ID_ATTRIBUTE, boxSizes, MAP_PAGE_ATTRIBUTE, MAP_VIEW_ATTRIBUTE, screenSize } from "./pageMarkers";
+import { useWhiteboardCanvas } from "./whiteboardCanvas";
 
 /** Counts drags, to give each its own undo key. */
 let dragCount = 0;
@@ -40,6 +41,10 @@ let dragCount = 0;
  */
 export function useBoxGestures(id: NodeId) {
   const screenToFlowPosition = usePagePoint();
+  // Edited on the whiteboard, the whole page is the map's: a drag goes
+  // anywhere; past the page's left or top edge everything else moves
+  // right or down instead (the map's shift), so nothing moves on screen.
+  const onWhiteboard = useWhiteboardCanvas()?.editing ?? false;
   const [dragging, setDragging] = useState(false);
 
   const onBoxPointerDown = useCallback(
@@ -67,8 +72,10 @@ export function useBoxGestures(id: NodeId) {
       const page = el.closest(`[${MAP_PAGE_ATTRIBUTE}]`);
       const view = el.closest(`[${MAP_VIEW_ATTRIBUTE}]`);
       const sizes = page ? boxSizes(page) : new Map();
-      const room = view ? pageSize(map, sizes, MAP_LAYOUT.fallbackSize, PAGE_INSETS, screenSize(view), moving) : null;
+      const room = view && !onWhiteboard ? pageSize(map, sizes, MAP_LAYOUT.fallbackSize, PAGE_INSETS, screenSize(view), moving) : null;
       const boxes = [...from].map(([n, center]) => ({ center, size: sizes.get(n) ?? MAP_LAYOUT.fallbackSize }));
+      const everyBox = new Map<NodeId, Point>(Object.values(map.nodes).map((n) => [n.id, { x: n.x, y: n.y }]));
+      const startShift = map.shift ?? { x: 0, y: 0 };
 
       const move = (ev: PointerEvent) => {
         if (!moved && Math.hypot(ev.clientX - startClient.x, ev.clientY - startClient.y) < DRAG_THRESHOLD) return;
@@ -76,10 +83,24 @@ export function useBoxGestures(id: NodeId) {
         moved = true;
         const at = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
         const wanted = { x: at.x - start.x, y: at.y - start.y };
-        const d = room ? clampGroupMove(boxes, wanted, room, PAGE_INSETS) : wanted;
-        const to = new Map<NodeId, Point>([...from].map(([n, p]) => [n, { x: p.x + d.x, y: p.y + d.y }]));
         const store = useMapStore.getState();
-        store.moveBoxes(to, gesture);
+        let to: Map<NodeId, Point>;
+        if (onWhiteboard) {
+          // How far everything moves right and down so the dragged boxes
+          // keep clear of the page's left and top edges.
+          const e = { x: 0, y: 0 };
+          for (const b of boxes) {
+            e.x = Math.max(e.x, Math.ceil(b.size.width / 2 + PAGE_INSETS.edge - (b.center.x + wanted.x)));
+            e.y = Math.max(e.y, Math.ceil(b.size.height / 2 + PAGE_INSETS.edge - (b.center.y + wanted.y)));
+          }
+          to = new Map([...from].map(([n, p]) => [n, { x: p.x + wanted.x + e.x, y: p.y + wanted.y + e.y }]));
+          const all = new Map([...everyBox].map(([n, p]) => [n, to.get(n) ?? { x: p.x + e.x, y: p.y + e.y }]));
+          store.placeBoxes(all, { x: startShift.x + e.x, y: startShift.y + e.y }, gesture);
+        } else {
+          const d = room ? clampGroupMove(boxes, wanted, room, PAGE_INSETS) : wanted;
+          to = new Map<NodeId, Point>([...from].map(([n, p]) => [n, { x: p.x + d.x, y: p.y + d.y }]));
+          store.moveBoxes(to, gesture);
+        }
         // One tree box on its own may also be dropped onto another box or
         // between siblings, to move it there (with its branch); a step
         // just before or after another step.
@@ -128,7 +149,7 @@ export function useBoxGestures(id: NodeId) {
       el.addEventListener("pointerup", end);
       el.addEventListener("pointercancel", end);
     },
-    [id, screenToFlowPosition],
+    [id, screenToFlowPosition, onWhiteboard],
   );
 
   const onDotPointerDown = useCallback(

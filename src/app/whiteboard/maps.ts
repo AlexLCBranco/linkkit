@@ -116,6 +116,21 @@ export function linkedMaps(): Record<string, string> {
 /** Whether an Escape pressed while the map is edited is Linkkit's (typing
     ends, a selection or a drag is let go, a menu, panel or question
     closes), rather than the whiteboard's (editing ends). */
+/**
+ * A double-click at this point on the screen, anywhere on the whiteboard's
+ * page, made on the map being edited (`mapId`): what a double-click on its
+ * paper does there (a new box at that spot, or the nearest free one; a
+ * tree says why not), even outside the map's own area. False when that map
+ * isn't the one being edited, or isn't drawn yet.
+ */
+export function doubleClickOnWhiteboardMap(mapId: string, x: number, y: number): boolean {
+  if (useMapStore.getState().map.id !== mapId) return false;
+  const pane = document.querySelector('[data-linkkit-map][data-editing="true"] .react-flow__pane');
+  if (!pane) return false;
+  pane.dispatchEvent(new MouseEvent("dblclick", { bubbles: true, cancelable: true, clientX: x, clientY: y }));
+  return true;
+}
+
 export function mapTakesEscape(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
   if (el && (el.tagName === "TEXTAREA" || el.tagName === "INPUT" || el.isContentEditable)) return true;

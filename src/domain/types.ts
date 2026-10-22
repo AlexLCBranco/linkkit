@@ -237,6 +237,11 @@ export interface LinkMap {
   readonly hideNumbers?: true;
   /** Bracket maps only: every player, by id. Absent on every other map. */
   readonly players?: Readonly<Record<PlayerId, Player>>;
+  /** On the gauntlet whiteboard: how far every box has been moved right
+      and down, in all, so a box could go left of or above the page's
+      corner there (`shiftMap`). The whiteboard keeps the map where it was
+      on its page by it; saved and undone with the boxes. Absent: none. */
+  readonly shift?: Point;
 }
 
 /** Where a deleted box sat among a box's next steps (trees only), so a

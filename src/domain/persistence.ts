@@ -16,6 +16,7 @@ import type {
   Player,
   PlayerId,
   NodeStatus,
+  Point,
   PaletteColor,
   SiblingOrder,
   Size,
@@ -139,6 +140,7 @@ export function serializeMap(map: LinkMap, rev?: number): PersistedMap {
       ...(map.noteClashes && Object.keys(map.noteClashes).length ? { noteClashes: map.noteClashes } : {}),
       ...(map.hideNumbers ? { hideNumbers: true as const } : {}),
       ...(map.players ? { players: map.players } : {}),
+      ...(map.shift ? { shift: { x: map.shift.x, y: map.shift.y } } : {}),
     },
   };
 }
@@ -293,6 +295,7 @@ export function readMap(data: unknown, fallbackPage: Size): MapRead {
     // Only a Steps map has numbers to hide.
     ...(kind === "steps" && raw.hideNumbers === true ? { hideNumbers: true as const } : {}),
     ...(kind === "bracket" ? { players: readPlayers(raw.players, fix) } : {}),
+    ...readShift(raw.shift),
   };
   for (const [key, link] of Object.entries(rawLinks)) {
     if (!isObject(link) || typeof link.from !== "string" || typeof link.to !== "string") {
@@ -513,4 +516,11 @@ function readOrder(raw: unknown, fix: <T>(value: T) => T): SiblingOrder {
     order[parent as NodeId] = list as NodeId[];
   }
   return order;
+}
+
+/** A whiteboard shift (`LinkMap.shift`): two finite numbers, not both 0. */
+function readShift(raw: unknown): { shift?: Point } {
+  if (!isObject(raw) || typeof raw.x !== "number" || typeof raw.y !== "number") return {};
+  if (!Number.isFinite(raw.x) || !Number.isFinite(raw.y) || (raw.x === 0 && raw.y === 0)) return {};
+  return { shift: { x: raw.x, y: raw.y } };
 }

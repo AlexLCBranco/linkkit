@@ -50,6 +50,8 @@ export interface LinkedView {
   readonly labelStyle?: LabelStyle;
   readonly hideCut: boolean;
   readonly collapsed: readonly NodeId[];
+  /** The whiteboard shift (`LinkMap.shift`). Absent: none. */
+  readonly shift?: Point;
   /** Box centres, by box. A box with none (added in Boardkit) is unplaced. */
   readonly places: Readonly<Record<NodeId, Point>>;
   /** Box colours, by box; a box with none has the default style. */
@@ -105,6 +107,7 @@ export function viewOf(map: LinkMap): LinkedView {
     labelStyle,
     hideCut,
     collapsed,
+    ...(map.shift ? { shift: map.shift } : {}),
     places,
     colors,
     labels,
@@ -200,6 +203,7 @@ export function boardToTree(
     links,
     order,
     hideCut: view.hideCut,
+    ...(view.shift ? { shift: view.shift } : {}),
     collapsed: view.collapsed.filter((id) => nodes[id]),
     trash: [],
     cardNotesShared: true,

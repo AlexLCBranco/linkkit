@@ -19,8 +19,9 @@
 }
 
 /* The page itself, in page units, placed and scaled to the zoom by
-   MapCanvas (so at 50% it is half the size, and its dots too). The paper
-   lies under React Flow; the sheet holds the previews over it. */
+   MapCanvas. The paper lies under React Flow, plain: no dot grid (owner,
+   2026-10-21; positions and snapping are unchanged). The sheet holds the
+   previews over it. */
 .paper,
 .sheet {
   position: absolute;
@@ -28,11 +29,6 @@
   left: 0;
   transform-origin: 0 0;
   pointer-events: none;
-}
-
-.paper {
-  background-image: radial-gradient(var(--canvas-dots) var(--page-dot-radius), transparent calc(var(--page-dot-radius) + 0.25px));
-  background-size: var(--page-dot-gap) var(--page-dot-gap);
 }
 
 /* Until the first Tidy up, boxes and arrows are measured but not shown, so
@@ -123,10 +119,4 @@
   border: 1px dashed var(--border-subtle);
   border-radius: var(--radius-md);
   pointer-events: none;
-}
-
-/* Being edited on the whiteboard: the dotted paper shows in the room round
-   the boxes (only the dots: the whiteboard stays under it). */
-.canvas[data-whiteboard][data-room] .paper {
-  display: block;
 }

@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { StoreApi } from "zustand";
 
-import type { PageRect } from "../../domain/page";
 import { MapCanvas } from "../../features/map/MapCanvas";
 import { setMapKeysOnWhiteboard } from "../../features/map/useMapShortcuts";
 import { WhiteboardCanvasContext, type WhiteboardCanvas } from "../../features/map/whiteboardCanvas";
@@ -21,11 +20,7 @@ export interface WhiteboardMapProps {
   readonly editing: boolean;
   /** Told the part of Linkkit's page the map shows (its natural size
       there), whenever it changes. */
-  readonly onContent?: (box: PageRect) => void;
-  /** While edited: the paper shown round its boxes (Linkkit's own amount
-      if not given). Less on a side where something else of the widget
-      sits (a board's lists beside its map). */
-  readonly room?: WhiteboardCanvas["room"];
+  readonly onContent?: WhiteboardCanvas["onContent"];
 }
 
 /**
@@ -41,11 +36,11 @@ export interface WhiteboardMapProps {
  * same components from read-only copies of their saved records, which
  * showing never writes.
  */
-export function WhiteboardMap({ mapId, editing, onContent, room }: WhiteboardMapProps) {
+export function WhiteboardMap({ mapId, editing, onContent }: WhiteboardMapProps) {
   const box = useSteadySize();
   return (
     <div ref={box} className={styles.steady}>
-      {editing ? <EditingMap mapId={mapId} onContent={onContent} room={room} /> : <ShownMap mapId={mapId} onContent={onContent} />}
+      {editing ? <EditingMap mapId={mapId} onContent={onContent} /> : <ShownMap mapId={mapId} onContent={onContent} />}
     </div>
   );
 }
@@ -92,7 +87,7 @@ function concerns(key: string, mapId: string, store: StoreApi<MapState> | null):
   return !!board && key === `boardkit:board:${board}`;
 }
 
-function ShownMap({ mapId, onContent }: { readonly mapId: string; readonly onContent?: (box: PageRect) => void }) {
+function ShownMap({ mapId, onContent }: Omit<WhiteboardMapProps, "editing">) {
   const [display, setDisplay] = useState<DisplayMap>(() => readDisplayMap(mapId));
   const store = useRef<StoreApi<MapState> | null>(display.store);
 
@@ -123,7 +118,7 @@ function ShownMap({ mapId, onContent }: { readonly mapId: string; readonly onCon
   );
 }
 
-function EditingMap({ mapId, onContent, room }: Omit<WhiteboardMapProps, "editing">) {
+function EditingMap({ mapId, onContent }: Omit<WhiteboardMapProps, "editing">) {
   // Whether there is a map to open (read, never written).
   const there = useMemo(() => peekMap(mapId as MapId, newPageSize()).status === "ok", [mapId]);
   useEffect(() => {
@@ -136,7 +131,7 @@ function EditingMap({ mapId, onContent, room }: Omit<WhiteboardMapProps, "editin
   }, [mapId]);
   const status = useEmbedStatus((s) => s.status);
   const shownId = useMapStore((s) => s.map.id);
-  const canvas = useMemo(() => ({ editing: true, onContent, room }), [onContent, room]);
+  const canvas = useMemo(() => ({ editing: true, onContent }), [onContent]);
   if (!there) return <Problem status="missing" />;
   if (status === "deleted") return <Problem status="deleted" />;
   if (shownId !== mapId) return null;

@@ -17,7 +17,7 @@ initOtherTabs();
 export { WhiteboardMap, type WhiteboardMapProps } from "./WhiteboardMap";
 export { MapParts } from "./MapParts";
 export { onMapHistory, redoMap, undoMap } from "./history";
-export { closeWhiteboardMap, createWhiteboardMap, deleteEmptyWhiteboardMap, linkedMapOf, linkedMaps, mapTakesEscape, openWhiteboardMap, renameWhiteboardMap, whiteboardMaps } from "./maps";
+export { closeWhiteboardMap, createWhiteboardMap, doubleClickOnWhiteboardMap, deleteEmptyWhiteboardMap, linkedMapOf, linkedMaps, mapTakesEscape, openWhiteboardMap, renameWhiteboardMap, whiteboardMaps } from "./maps";
 export { keyStoredElsewhere, onKeyChanged, onWroteHere } from "./bridge";
 export { flushSave as flushMap } from "../../store/saveQueue";
 export type { PageRect } from "../../domain/page";

@@ -41,10 +41,11 @@ import {
   setCollapsed,
   type MapFragment,
   setPage,
+  shiftMap,
 } from "../domain/map";
 import { sameShape } from "../domain/order";
 import { parseOutline, pasteOutline } from "../domain/outline";
-import { defaultPageSize } from "../domain/page";
+import { defaultPageSize, nearestFreeSpot } from "../domain/page";
 import {
   boxDeleteRefusal,
   canCollapse,
@@ -392,6 +393,15 @@ export interface MapState {
   deleteBoxes(ids: readonly NodeId[]): void;
   /** Moves several boxes; moves with the same `gesture` are one step. */
   moveBoxes(positions: ReadonlyMap<NodeId, Point>, gesture?: string): void;
+  /** On the whiteboard: moves boxes as `moveBoxes` does, and sets the
+      map's whiteboard shift (`LinkMap.shift`) to `shift` (the drag that
+      took a box left of or above the page's corner moved the rest). */
+  placeBoxes(positions: ReadonlyMap<NodeId, Point>, shift: Point, gesture?: string): void;
+  /** On the whiteboard: a new box at `at` (or the nearest spot that
+      overlaps no box), ready for its name, as `addBox`. Left of or above
+      the page's corner, everything moves right and down first
+      (`shiftMap`). One undo step. */
+  addBoxNear(at: Point, sizes: ReadonlyMap<NodeId, Size>, place: WhiteboardPlace): NodeId;
   setBoxesColor(ids: readonly NodeId[], color: PaletteColor | null): void;
   /** Keep / maybe / cut (`null` clears it) on every box that may have one
       (`canSetStatus`), as one undo step. */
@@ -1236,6 +1246,24 @@ const globalMapStore = create<MapState>()((set, get) => ({
         : trashing(s, branch);
     }),
   moveBoxes: (positions, gesture) => set((s) => commit(s, moveNodes(s.map, positions), gesture ?? null)),
+  placeBoxes: (positions, shift, gesture) =>
+    set((s) => {
+      const moved = moveNodes(s.map, positions);
+      const { shift: _, ...rest } = moved;
+      return commit(s, shift.x || shift.y ? { ...rest, shift } : rest, gesture ?? null);
+    }),
+  addBoxNear: (at, sizes, place) => {
+    get().stopEditing();
+    const { size, edge } = place;
+    const spot = nearestFreeSpot(get().map, sizes, at, size, { ...place, fallbackSize: size });
+    const d = {
+      x: Math.max(0, Math.ceil(size.width / 2 + edge - spot.x)),
+      y: Math.max(0, Math.ceil(size.height / 2 + edge - spot.y)),
+    };
+    const { map, nodeId } = addNode(shiftMap(get().map, d), { x: spot.x + d.x, y: spot.y + d.y });
+    set((s) => ({ ...commit(s, map, newBoxKey(nodeId)), editing: { kind: "box", id: nodeId } }));
+    return nodeId;
+  },
   setBoxesColor: (ids, color) => set((s) => commit(s, setNodesColor(s.map, ids, color))),
   setBoxesStatus: (ids, status) => set((s) => withRoomMade(s, setNodesStatus(s.map, ids, status))),
   toggleCut: (ids) =>
@@ -1967,3 +1995,15 @@ useMapStore.subscribe((s, prev) => {
     nav = remember(nav, s.map, prev.selected, s.selected);
   }
 });
+
+/** Where a box added on the whiteboard goes (`addBoxNear`): its size
+    before it is measured, the clear space kept from the page's edges and
+    round other boxes, and how far apart and how far out the nearest free
+    spot is looked for. */
+export interface WhiteboardPlace {
+  readonly size: Size;
+  readonly edge: number;
+  readonly clearance: number;
+  readonly step: number;
+  readonly reach: number;
+}

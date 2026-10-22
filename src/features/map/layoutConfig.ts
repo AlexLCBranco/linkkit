@@ -91,13 +91,22 @@ export const LABEL_FALLBACK_SIZE = { width: 48, height: 22 };
     number). */
 export const PAGE_INSETS: PageInsets = { edge: 14 };
 
-/** On the gauntlet whiteboard: the room shown round a map's boxes, how big
-    an empty map shows (`contentBox`), and the paper round it while it is
-    edited. */
+/** On the gauntlet whiteboard: the room shown round a map's boxes, and how
+    big an empty map shows (`contentBox`): just big enough for its hint. */
 export const WHITEBOARD_CONTENT = {
   margin: 16,
-  empty: { width: 320, height: 160 },
-  room: { left: 120, top: 120, right: 120, bottom: 120 },
+  empty: { width: 260, height: 48 },
+};
+
+/** On the gauntlet whiteboard, a box added by a double-click anywhere on
+    the page (`addBoxNear`): a typical box, kept clear of the others, at
+    the nearest free spot looked for in rings 12 px apart. */
+export const WHITEBOARD_ADD = {
+  size: MAP_LAYOUT.fallbackSize,
+  edge: PAGE_INSETS.edge,
+  clearance: 12,
+  step: 12,
+  reach: 600,
 };
 
 /** How far apart (each side of the middle) two arrows between the same
