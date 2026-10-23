@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { pressed } from "../domain/shortcuts";
+import { splitLinks } from "../domain/webLinks";
 import styles from "./InlineEditable.module.css";
 
 interface InlineEditableProps {
@@ -25,6 +26,9 @@ interface InlineEditableProps {
       and Tab keep the text and ask for the next field (`1`), Shift+Tab
       for the one before (`-1`). Called after `onDone`. */
   readonly onStep?: (step: 1 | -1) => void;
+  /** Shown (not typed), web addresses in the text are links, opened in a
+      new tab; a press on one never reaches the box (no select, no drag). */
+  readonly linkify?: boolean;
 }
 
 /**
@@ -39,13 +43,36 @@ interface InlineEditableProps {
  * draft starts from `value` on mount, so every edit begins fresh with no
  * effect needed to reset it.
  */
-export function InlineEditable({ value, editing, className, placeholder, ...rest }: InlineEditableProps) {
+export function InlineEditable({ value, editing, className, placeholder, linkify = false, ...rest }: InlineEditableProps) {
   if (editing) {
     return <EditField value={value} className={className} placeholder={placeholder} {...rest} />;
   }
+  const segments = linkify && value ? splitLinks(value) : null;
   return (
     <span className={[styles.display, !value && styles.placeholder, className].filter(Boolean).join(" ")}>
-      {value || placeholder}
+      {segments?.some((s) => s.type === "link")
+        ? segments.map((s, i) =>
+            s.type === "text" ? (
+              s.text
+            ) : (
+              <a
+                key={i}
+                className={styles.link}
+                href={s.href}
+                title={s.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                draggable={false}
+                data-link-open=""
+                onPointerDown={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {s.text}
+              </a>
+            ),
+          )
+        : value || placeholder}
     </span>
   );
 }

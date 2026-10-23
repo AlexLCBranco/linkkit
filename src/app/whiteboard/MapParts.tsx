@@ -5,6 +5,7 @@ import { DeleteBranchDialog } from "../../features/map/DeleteBranchDialog";
 import { SelectionBar } from "../../features/map/SelectionBar";
 import { SyncToast } from "../../features/maps/SyncToast";
 import { NotesPanel } from "../../features/notes/NotesPanel";
+import { LinkPromptHost } from "../../features/map/LinkPromptHost";
 import { TrashFullDialog } from "../../features/trash/TrashFullDialog";
 import { saveOpenMapNow } from "../../store/autoSave";
 import { useSaveHealth } from "../../store/saveHealth";
@@ -25,6 +26,7 @@ export function MapParts() {
       <div className={styles.layer} data-linkkit-parts="">
         <SelectionBar />
         <NotesPanel />
+        <LinkPromptHost />
       </div>
       <DeleteBranchDialog />
       <TrashFullDialog />

@@ -1,5 +1,6 @@
 import { LINK_FIELDS, MAP_FIELDS, NODE_FIELDS, TRASH_ENTRY_FIELDS, unknownFields } from "./extras";
 import { basicLinkCheck } from "./rules";
+import { isWebUrl } from "./url";
 import type {
   ArrowLength,
   ArrowStyle,
@@ -407,7 +408,10 @@ function readNode(id: NodeId, node: Record<string, unknown>, kind: MapKind, fix:
   // (and the bracket's repair then finds a match missing).
   const match = node.match === undefined ? undefined : kind === "bracket" ? readMatch(node.match) ?? fix(undefined) : fix(undefined);
   const extra = unknownFields(node, NODE_FIELDS);
-  const read: MapNode = notes.trim() ? { ...extra, id, name, x, y, color, status, notes } : { ...extra, id, name, x, y, color, status };
+  const plain: MapNode = notes.trim() ? { ...extra, id, name, x, y, color, status, notes } : { ...extra, id, name, x, y, color, status };
+  // A link this build wouldn't open (a hand-edited `javascript:`) is
+  // dropped, quietly: not damage, never kept.
+  const read: MapNode = isWebUrl(node.url) ? { ...plain, url: node.url } : plain;
   return stepType ? { ...read, stepType } : match ? { ...read, match } : read;
 }
 

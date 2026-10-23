@@ -17,6 +17,7 @@ import { TidyButton } from "../features/map/TidyButton";
 import { ZoomControls } from "../features/map/ZoomControls";
 import { MapSwitcher } from "../features/maps/MapSwitcher";
 import { NotesPanel } from "../features/notes/NotesPanel";
+import { LinkPromptHost } from "../features/map/LinkPromptHost";
 import { LinkedChip } from "../features/maps/BoardLink";
 import { BackupHoldBanner } from "../features/maps/BackupHoldBanner";
 import { LinkHoldBanner } from "../features/maps/LinkHoldBanner";
@@ -70,6 +71,7 @@ export function App() {
         <SelectionBar />
         <ZoomControls />
         <NotesPanel />
+        <LinkPromptHost />
       </main>
       <DeleteBranchDialog />
       <TrashFullDialog />

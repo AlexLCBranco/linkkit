@@ -131,6 +131,10 @@ export interface MapNode {
   /** Bracket maps only: the match this box is (every box in a bracket is
       one). Absent on every other map. */
   readonly match?: Match;
+  /** A web link the box holds (domain/url.ts: http or https only),
+      opened from its link icon in a new tab. Absent = none. In a map
+      linked to a board, a card's or list's box shares the item's link. */
+  readonly url?: string;
 }
 
 /** A player in a bracket, stored once (`LinkMap.players`); match slots

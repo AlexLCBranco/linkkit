@@ -11,6 +11,7 @@ import { LinkHoldBanner } from "../features/maps/LinkHoldBanner";
 import { SaveFailedBanner } from "../features/maps/SaveFailedBanner";
 import { SyncToast } from "../features/maps/SyncToast";
 import { NotesPanel } from "../features/notes/NotesPanel";
+import { LinkPromptHost } from "../features/map/LinkPromptHost";
 import { TrashFullDialog } from "../features/trash/TrashFullDialog";
 import { useEmbedStatus } from "../store/embed";
 import { useMapStore } from "../store/mapStore";
@@ -38,6 +39,7 @@ export function EmbedApp() {
         <SelectionBar />
         <ZoomControls />
         <NotesPanel />
+        <LinkPromptHost />
         <div className={styles.embedTools} aria-label="Map tools" role="toolbar">
           <AddBoxButton />
           <TidyButton />

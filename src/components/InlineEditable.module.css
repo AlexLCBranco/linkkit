@@ -51,3 +51,18 @@
 .textarea::placeholder {
   color: var(--text-muted);
 }
+
+/* A web address in a shown name (`linkify`): body text, marked by an
+   accent underline, as Boardkit's links. */
+.link {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--accent-hover);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.link:hover {
+  background: var(--surface-hover);
+}

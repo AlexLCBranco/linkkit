@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-22, v0.0.112 (whiteboard: an arrow out of a dot and a hint show anywhere on the page; a dot let go on bare page adds a child; a map from a board is laid out before it shows)_
+_Last updated: 2026-10-23, v0.0.113 (links on boxes: right-click or Ctrl+K, opened from a link icon)_
 
 ## What it is
 
@@ -43,6 +43,20 @@ browser folder standing in for the folder picker); it makes and removes its own
 "ZZ bridge test" map and board and checks every other record is untouched.
 
 ## What works now
+
+**Links on boxes (gauntlet's "links on everything", owner, 2026-10-23,
+v0.0.113).** A box can hold a web link (`MapNode.url`): right-click it →
+"Add link…" / "Edit link…" / "Remove link", or Ctrl+K with one box
+selected. A small field takes it: only http and https are kept
+(`domain/url.ts`, the same rule as Boardkit's and the whiteboard's; a typed
+"example.com" gets https://), anything else is refused with a short
+message. A link badge on the box's bottom-right corner opens it in a new
+tab; a click on the box still selects it. Web addresses in a box's name
+show as links (`domain/webLinks.ts`). Saved, undone, merged with other
+tabs, copied with the box; a stored `javascript:` link is dropped on load.
+In a map linked to a Boardkit board, a list's or card's box shares the
+item's link both ways (the bridge); the start's is Linkkit's own. For the
+gauntlet whiteboard: `setWhiteboardBoxUrl`, `whiteboardBoxUrl`.
 
 **Whiteboard fixes from the owner's hand test (gauntlet, 2026-10-22,
 v0.0.112).** On the whiteboard only React Flow's own layer is cut to the

@@ -32,6 +32,7 @@ import {
   setDirection,
   setNodeColor,
   setNodeNotes,
+  setNodeUrl,
   resolveNoteClash,
   type ClashPick,
   setNodesColor,
@@ -377,6 +378,9 @@ export interface MapState {
       one box's notes (until the panel closes or shows another box) is one
       undo step. */
   setBoxNotes(id: NodeId, notes: string): void;
+  /** Sets (`undefined`: removes) a box's link, already checked
+      (domain/url.ts). One undo step. */
+  setBoxUrl(id: NodeId, url: string | undefined): void;
   /** Settles a note clash (`noteClashes`): keep the note as it is
       (Boardkit's), take the one kept aside (Linkkit's), or both joined.
       One undo step. */
@@ -1212,6 +1216,7 @@ const globalMapStore = create<MapState>()((set, get) => ({
     }),
   setBoxColor: (id, color) => set((s) => commit(s, setNodeColor(s.map, id, color))),
   setBoxNotes: (id, notes) => set((s) => commit(s, setNodeNotes(s.map, id, notes), notesKey(id))),
+  setBoxUrl: (id, url) => set((s) => commit(s, setNodeUrl(s.map, id, url))),
   resolveNoteClash: (id, pick) => set((s) => commit(s, resolveNoteClash(s.map, id, pick))),
   openNotes: (id) => {
     get().stopEditing();

@@ -141,6 +141,11 @@
   --z-canvas: 1;
   --z-sticky: 10;
   --z-popover: 100;
+  /* A box's link: its badge on the bottom-right corner (BoxView), and the
+     link field (components/LinkPrompt.tsx). */
+  --link-badge-size: 18px;
+  --link-icon-size: 11px;
+  --link-prompt-width: 300px;
 
   /* ---- Customisation palette ----
      Matches domain/types.ts's PALETTE_COLORS, and Treekit's. Constant

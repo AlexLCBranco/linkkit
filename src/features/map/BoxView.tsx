@@ -3,6 +3,7 @@ import { ChevronsDownUp, ChevronsUpDown, Merge, NotebookPen, Palette, Pencil, Pl
 import { memo, type CSSProperties, type MouseEvent, type PointerEvent } from "react";
 
 import { InlineEditable } from "../../components/InlineEditable";
+import { LinkIcon } from "../../components/LinkIcon";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
 import { arrowsInto, canAddNextStep, canCollapse, canDeleteBox, canSetStatus } from "../../domain/rules";
 import { hiddenAfter } from "../../domain/shown";
@@ -175,6 +176,7 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
         placeholder={isEditing ? "Type a name" : "Untitled"}
         ariaLabel="Box name"
         className={styles.name}
+        linkify
       />
       <Handle type="source" position={Position.Bottom} className={styles.handle} isConnectable={false} />
 
@@ -210,6 +212,10 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
           </>
         )
       )}
+
+      {/* A link: a badge on the bottom-right corner, floating like the
+          notes icon, so it never resizes the box or covers its name. */}
+      {node.url && <LinkIcon url={node.url} className={`${styles.badge} ${styles.linkIcon}`} />}
 
       {isCollapsed && folded > 0 && (
         <button

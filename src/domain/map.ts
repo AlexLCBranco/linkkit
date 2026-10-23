@@ -106,6 +106,21 @@ export function setNodeNotes(map: LinkMap, id: NodeId, notes: string): LinkMap {
   return { ...map, nodes: { ...map.nodes, [id]: withNotes(node, notes) } };
 }
 
+/** `node` with link `url`, or with none (`undefined`: the field goes,
+    never stored empty). */
+export function withUrl(node: MapNode, url: string | undefined): MapNode {
+  if (url) return { ...node, url };
+  const { url: _, ...rest } = node;
+  return rest;
+}
+
+/** Sets (`undefined`: removes) a box's link (already checked, domain/url.ts). */
+export function setNodeUrl(map: LinkMap, id: NodeId, url: string | undefined): LinkMap {
+  const node = map.nodes[id];
+  if (!node || node.url === url) return map;
+  return { ...map, nodes: { ...map.nodes, [id]: withUrl(node, url) } };
+}
+
 /** How a note clash is settled: the box's note as it is (in a linked map,
     Boardkit's pregame thots), the text kept aside (Linkkit's), or both. */
 export type ClashPick = "note" | "aside" | "both";

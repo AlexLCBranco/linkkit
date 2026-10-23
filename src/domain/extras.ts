@@ -38,7 +38,7 @@ export const MAP_FIELDS: ReadonlySet<string> = new Set([
   "shift",
 ]);
 
-export const NODE_FIELDS: ReadonlySet<string> = new Set(["id", "name", "x", "y", "color", "status", "notes", "stepType", "match"]);
+export const NODE_FIELDS: ReadonlySet<string> = new Set(["id", "name", "x", "y", "color", "status", "notes", "stepType", "match", "url"]);
 
 export const LINK_FIELDS: ReadonlySet<string> = new Set(["id", "from", "to", "label"]);
 

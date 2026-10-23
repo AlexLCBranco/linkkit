@@ -8,6 +8,7 @@ import type { NodeId } from "../../domain/types";
 import { selectionOf, useMapStore } from "../../store/mapStore";
 import { useShortcutsDialog } from "../../store/shortcutsDialog";
 import { shownNow } from "../../store/viewStore";
+import { openLinkPromptFor } from "./openLinkPrompt";
 import { BOX_ID_ATTRIBUTE, focusPlayerRow, MAP_VIEW_ATTRIBUTE } from "./pageMarkers";
 
 /** What the handler reads from a key press: a `KeyboardEvent` has it all,
@@ -102,6 +103,12 @@ export function onMapKey(e: KeyPress): void {
       if (is("copy")) store.copyBoxes(picked);
       else if (is("cut")) store.cutBoxes(picked);
       else store.duplicateBoxes(picked);
+    } else if (is("link") && !store.editing) {
+      // Ctrl+K: the box's link field (owner, 2026-10-23), not the browser's.
+      const picked = selectionOf(store);
+      if (picked.length !== 1) return;
+      e.preventDefault();
+      openLinkPromptFor(picked[0]);
     }
     return;
   }

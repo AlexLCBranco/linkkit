@@ -1,4 +1,5 @@
 import { isShownCard, MAX_CARDS_PER_LIST, type BoardContent, type BoardItem, type BoardRecordRead } from "./boardRecord";
+import { isWebUrl } from "./url";
 import { hasUnknownFields, LINK_FIELDS, MAP_FIELDS, NODE_FIELDS, unknownFields, type Extras } from "./extras";
 import { nextSteps } from "./order";
 import { oneLine } from "./map";
@@ -64,6 +65,10 @@ export interface LinkedView {
       the board, so its entry here only counts on a map saved before notes
       were shared (`cardNotesShared`). A box with none has no entry. */
   readonly notes: Readonly<Record<NodeId, string>>;
+  /** Box links, by box. A list's or card's box shares the item's link
+      (Boardkit's `url`), read from the board; only the start's is
+      Linkkit's own. Absent on a view from before links: none. */
+  readonly urls?: Readonly<Record<NodeId, string>>;
   /** Linkkit's text of a note that clashes with Boardkit's (`noteClashes`). */
   readonly clashes?: Readonly<Record<NodeId, string>>;
   /** Linkkit-only notes of boxes in Boardkit's trash (`heldNotes`). */
@@ -87,10 +92,12 @@ export function viewOf(map: LinkMap): LinkedView {
   const colors: Record<NodeId, PaletteColor> = {};
   const labels: Record<NodeId, string> = {};
   const notes: Record<NodeId, string> = {};
+  const urls: Record<NodeId, string> = {};
   for (const node of Object.values(map.nodes)) {
     places[node.id] = { x: node.x, y: node.y };
     if (node.color) colors[node.id] = node.color;
     if (node.notes) notes[node.id] = node.notes;
+    if (node.url) urls[node.id] = node.url;
   }
   for (const link of Object.values(map.links)) if (link.label) labels[link.to] = link.label;
   const { page, direction, arrowLength, arrowStyle, labelStyle, hideCut, collapsed } = map;
@@ -112,6 +119,7 @@ export function viewOf(map: LinkMap): LinkedView {
     colors,
     labels,
     notes,
+    urls,
     extras,
     clashes: map.noteClashes ?? {},
     held: map.heldNotes ?? {},
@@ -142,10 +150,12 @@ export function boardToTree(
   const clashes: Record<NodeId, string> = {};
   // A box's note: Linkkit's own for the start and lists; for a card, its
   // pregame thots (`noteOfCard`).
-  const addBox = (id: NodeId, name: string, status: NodeStatus | null, parent: NodeId | null, card?: BoardItem) => {
+  // `item`: the list or card the box is (none for the start).
+  const addBox = (id: NodeId, name: string, status: NodeStatus | null, parent: NodeId | null, card?: BoardItem, item?: BoardItem) => {
     const place = view.places[id];
     if (!place) unplaced.push(id);
     const notes = card ? noteOfCard(id, card, view, clashes) : (view.notes[id] ?? view.held?.[id]);
+    const url = item ? urlOfItem(item) : view.urls?.[id];
     nodes[id] = {
       ...view.extras?.nodes[id],
       id,
@@ -155,6 +165,7 @@ export function boardToTree(
       color: view.colors[id] ?? null,
       status,
       ...(notes ? { notes } : {}),
+      ...(url ? { url } : {}),
     };
     if (parent) {
       const linkId = id as string as LinkId;
@@ -168,11 +179,11 @@ export function boardToTree(
   for (const listId of board.listOrder) {
     const id = listId as NodeId;
     if (nodes[id]) continue;
-    addBox(id, board.lists[listId].title, statusOf(board.lists[listId]), start);
+    addBox(id, board.lists[listId].title, statusOf(board.lists[listId]), start, undefined, board.lists[listId]);
     for (const cardId of board.cardOrder[listId] ?? []) {
       const card = board.cards[cardId];
       if (!isShownCard(card) || nodes[cardId as NodeId]) continue;
-      addBox(cardId as NodeId, card.title, statusOf(card), id, card);
+      addBox(cardId as NodeId, card.title, statusOf(card), id, card, card);
     }
   }
 
@@ -221,6 +232,10 @@ export function noteHome(map: LinkMap, id: NodeId): "map" | "card" | "linkkit" {
   const parent = Object.values(map.links).find((l) => l.to === id)?.from;
   return parent && parent !== (map.linkedBoard as NodeId) ? "card" : "linkkit";
 }
+
+/** A list's or card's link (Boardkit's `url`), when it is one this build
+    would open. */
+const urlOfItem = (item: BoardItem): string | undefined => (isWebUrl(item.url) ? item.url : undefined);
 
 /** A card's pregame thots (Boardkit's `description`), or "" for none. */
 const pregameOf = (card: BoardItem): string => (typeof card.description === "string" ? card.description : "");
@@ -317,17 +332,22 @@ export function problemText(map: LinkMap, problem: BoardProblem): string {
   }
 }
 
-/** An item with `node`'s name and status (and, for a card, its note as
-    the pregame thots), everything else kept. The same object when none
+/** An item with `node`'s name, status and link (and, for a card, its note
+    as the pregame thots), everything else kept. The same object when none
     changed. */
 function patched(item: BoardItem, node: MapNode, card: boolean): BoardItem {
   const status = statusOf(item);
   const note = node.notes ?? "";
   const noteSame = !card || pregameOf(item) === note;
-  if (item.title === node.name && status === node.status && noteSame) return item;
+  const urlSame = urlOfItem(item) === node.url;
+  if (item.title === node.name && status === node.status && noteSame && urlSame) return item;
   const next: Record<string, unknown> = { ...item, title: node.name };
   if (node.status) next.status = node.status;
   else delete next.status;
+  if (!urlSame) {
+    if (node.url) next.url = node.url;
+    else delete next.url;
+  }
   if (!noteSame) {
     if (note) next.description = note;
     else delete next.description;
@@ -340,6 +360,7 @@ const newItem = (node: MapNode, card: boolean): BoardItem => ({
   title: node.name,
   ...(node.status ? { status: node.status } : {}),
   ...(card && node.notes ? { description: node.notes } : {}),
+  ...(node.url ? { url: node.url } : {}),
 });
 
 /** Longest common subsequence of two id lists: the cards that kept their

@@ -33,6 +33,7 @@ async function load() {
   vi.resetModules();
   const { useMapStore } = await import("../../store/mapStore");
   const { useShortcutsDialog } = await import("../../store/shortcutsDialog");
+  const { useLinkPrompt } = await import("../../store/linkPrompt");
   const { onMapKey } = await import("./useMapShortcuts");
   const spyAll = () => {
     const spies: ReturnType<typeof vi.fn>[] = [];
@@ -48,6 +49,10 @@ async function load() {
     const open = vi.fn();
     spies.push(open);
     useShortcutsDialog.setState({ setOpen: open });
+    // The link field's opener (Ctrl+K) too.
+    const openLink = vi.fn();
+    spies.push(openLink);
+    useLinkPrompt.setState({ open: openLink });
     return { onMapKey, spies };
   };
   return { useMapStore, spyAll };

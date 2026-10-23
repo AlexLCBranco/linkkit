@@ -60,6 +60,7 @@ export const SHORTCUTS = {
     typing: true,
   },
   notes: { group: "Create & edit", does: "Open the selected box's notes", combos: [k("n")] },
+  link: { group: "Create & edit", does: "Add or edit the selected box's link", combos: [k("k", { mod: true })] },
   delete: {
     group: "Create & edit",
     does: "Delete the selected boxes, or the picked arrow",

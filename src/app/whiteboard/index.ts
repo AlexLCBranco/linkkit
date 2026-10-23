@@ -19,5 +19,6 @@ export { MapParts } from "./MapParts";
 export { onMapHistory, redoMap, undoMap } from "./history";
 export { closeWhiteboardMap, createLinkedWhiteboardMap, createWhiteboardMap, doubleClickOnWhiteboardMap, restoreWhiteboardMapRecord, unlinkWhiteboardMap, deleteEmptyWhiteboardMap, linkedMapOf, linkedMaps, mapTakesEscape, openWhiteboardMap, renameWhiteboardMap, useWhiteboardMapAdding, whiteboardMaps } from "./maps";
 export { keyStoredElsewhere, onKeyChanged, onWroteHere } from "./bridge";
+export { setWhiteboardBoxUrl, whiteboardBoxUrl } from "./links";
 export { flushSave as flushMap } from "../../store/saveQueue";
 export type { PageRect } from "../../domain/page";

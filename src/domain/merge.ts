@@ -1,4 +1,4 @@
-import { withNotes } from "./map";
+import { withNotes, withUrl } from "./map";
 import { isOrdered, normalizeOrder } from "./order";
 import { basicLinkCheck } from "./rules";
 import { trashEntryId } from "./trash";
@@ -164,6 +164,7 @@ const BOX_FIELDS = {
   color: (n: MapNode) => n.color,
   status: (n: MapNode) => n.status,
   notes: (n: MapNode) => n.notes ?? "",
+  url: (n: MapNode) => n.url ?? "",
   place: (n: MapNode) => ({ x: n.x, y: n.y }),
 } as const;
 
@@ -178,6 +179,8 @@ function withField(into: MapNode, from: MapNode, field: keyof typeof BOX_FIELDS)
       return { ...into, status: from.status };
     case "notes":
       return withNotes(into, from.notes ?? "");
+    case "url":
+      return withUrl(into, from.url);
     case "place":
       return { ...into, x: from.x, y: from.y };
   }

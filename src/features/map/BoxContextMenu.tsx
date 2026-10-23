@@ -1,5 +1,5 @@
 import { usePagePoint } from "./pagePoint";
-import { ChevronsDownUp, ChevronsUpDown, ClipboardPaste, Copy, CopyPlus, GitFork, Image, Merge, NotebookPen, Pencil, Plus, Scissors, Tag, Trash2 } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, ClipboardPaste, Copy, CopyPlus, GitFork, Image, Link, Merge, NotebookPen, Pencil, Plus, Scissors, Tag, Trash2, Unlink } from "lucide-react";
 import { useRef, useState, type MouseEvent, type ReactElement } from "react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -22,6 +22,7 @@ import { copyPngToClipboard, renderMapPngForCopy } from "../export/renderMapImag
 import { StatusRow } from "./StatusRow";
 import { SwatchRow } from "./SwatchRow";
 import { BOX_ID_ATTRIBUTE, LINK_ID_ATTRIBUTE } from "./pageMarkers";
+import { openLinkPromptFor } from "./openLinkPrompt";
 import { ADD_NEXT_ITEMS } from "./stepMenu";
 
 /** What the menu is about: one box, the picked group, or empty paper (where
@@ -194,6 +195,7 @@ function BoxMenuItems({
   const setBoxesStatus = useMapStore((s) => s.setBoxesStatus);
   const isTree = useMapStore((s) => hasTreeShape(s.map.kind));
   const openNotes = useMapStore((s) => s.openNotes);
+  const url = useMapStore((s) => s.map.nodes[nodeId]?.url);
   const isSteps = useMapStore((s) => s.map.kind === "steps");
   // Steps: the "Add next" menu, or one more branch (`addNextOffer`).
   const offer = useMapStore((s) => addNextOffer(s.map, nodeId));
@@ -245,6 +247,18 @@ function BoxMenuItems({
         Notes…
         <ContextMenuShortcut>N</ContextMenuShortcut>
       </ContextMenuItem>
+      {/* Waits for the menu to close too: the link field takes the focus. */}
+      <ContextMenuItem onSelect={() => runAfterClose(() => openLinkPromptFor(nodeId))}>
+        <Link aria-hidden />
+        {url ? "Edit link…" : "Add link…"}
+        <ContextMenuShortcut>Ctrl+K</ContextMenuShortcut>
+      </ContextMenuItem>
+      {url && (
+        <ContextMenuItem onSelect={() => useMapStore.getState().setBoxUrl(nodeId, undefined)}>
+          <Unlink aria-hidden />
+          Remove link
+        </ContextMenuItem>
+      )}
       <CollapseItem ids={() => [nodeId]} />
       <CopyItems ids={() => [nodeId]} />
       <ContextMenuItem onSelect={() => useMapStore.getState().forkBranch(nodeId)}>

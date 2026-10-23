@@ -380,6 +380,28 @@
 /* ---- Notes ---- */
 
 /* The notes icon: the status badge's twin, on the top-right corner. */
+/* The link badge (components/LinkIcon), on the bottom-right corner: the
+   only corner nothing else uses. Unlike the notes icon it takes presses. */
+.linkIcon {
+  top: auto;
+  left: auto;
+  right: calc(-1 * var(--link-badge-size) / 2);
+  bottom: calc(-1 * var(--link-badge-size) / 2);
+  width: var(--link-badge-size);
+  height: var(--link-badge-size);
+  cursor: pointer;
+}
+
+.linkIcon svg {
+  width: var(--link-icon-size);
+  height: var(--link-icon-size);
+}
+
+.linkIcon:hover {
+  border-color: var(--accent);
+  color: var(--accent-hover);
+}
+
 .notesIcon {
   left: auto;
   right: calc(-1 * var(--status-badge-size) / 2);

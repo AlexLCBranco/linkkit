@@ -1,0 +1,57 @@
+.prompt {
+  position: fixed;
+  z-index: var(--z-popover);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: var(--link-prompt-width);
+  max-width: calc(100vw - 2 * var(--space-2));
+  margin: 0;
+  padding: var(--space-2);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lifted);
+  font-size: var(--font-size-sm);
+}
+
+.heading {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs);
+  overflow-wrap: anywhere;
+}
+
+.input {
+  width: 100%;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-sunken);
+  color: inherit;
+  font: inherit;
+}
+
+.input:focus {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 0;
+}
+
+.input[aria-invalid="true"] {
+  border-color: var(--palette-red);
+}
+
+.hint,
+.error {
+  margin: 0;
+  font-size: var(--font-size-xs);
+}
+
+.hint {
+  color: var(--text-muted);
+}
+
+.error {
+  color: var(--palette-red);
+}
