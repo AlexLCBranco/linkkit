@@ -1,3 +1,4 @@
+import { mapRefUrl } from "../../domain/mapRef";
 import { useEffect } from "react";
 
 import { startRow } from "../../domain/bracket";
@@ -96,6 +97,20 @@ export function onMapKey(e: KeyPress): void {
     } else if (is("paste") && !store.editing) {
       e.preventDefault();
       store.paste();
+    } else if (
+      !onWhiteboard &&
+      !store.editing &&
+      e.key.toLowerCase() === "c" &&
+      !e.shiftKey &&
+      selectionOf(store).length === 0 &&
+      !globalThis.getSelection?.()?.toString()
+    ) {
+      // No box picked: the map itself, as an address the gauntlet
+      // whiteboard pastes as this live map (its Edges round, item 3b).
+      e.preventDefault();
+      void globalThis.navigator?.clipboard?.writeText(mapRefUrl(globalThis.location?.origin ?? "", store.map.id)).then(() => {
+        globalThis.document.documentElement.dataset.mapCopied = String(Date.now());
+      });
     } else if ((is("copy") || is("cut") || is("duplicate")) && !store.editing) {
       const picked = selectionOf(store);
       if (picked.length === 0) return;
