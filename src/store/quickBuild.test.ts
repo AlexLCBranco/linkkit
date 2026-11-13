@@ -195,3 +195,54 @@ describe("a flowchart's Enter (enterOnBox in a Steps map)", () => {
     expect(s().editing).toEqual({ kind: "box", id: second });
   });
 });
+
+describe("a list pasted onto the map (pasteList)", () => {
+  it("with a box picked: each line a box under it, its name kept, one undo step", async () => {
+    const { s, a } = await plainMap();
+    const steps = s().history.past.length;
+    expect(s().pasteList("One\nTwo\n  Two and a half\nThree", a)).toBe(4);
+    const byName = Object.fromEntries(Object.values(s().map.nodes).map((n) => [n.name, n.id]));
+    expect(Object.keys(byName).sort()).toEqual(["A", "One", "Three", "Two", "Two and a half"]);
+    expect(linksFrom(s, a).sort()).toEqual([byName.One, byName.Two, byName.Three].sort());
+    expect(linksFrom(s, byName.Two)).toEqual([byName["Two and a half"]]);
+    // The canvas places them as a block beside the box.
+    expect(s().placeRequest).toMatchObject({ anchor: a });
+    expect(s().placeRequest!.ids).toHaveLength(4);
+    expect(s().history.past.length).toBe(steps + 1);
+    s().undo();
+    expect(Object.values(s().map.nodes).map((n) => n.name)).toEqual(["A"]);
+  });
+
+  it("with nothing picked: new boxes standing on their own, picked", async () => {
+    const { s } = await plainMap();
+    expect(s().pasteList("One\nTwo\nThree", null)).toBe(3);
+    expect(Object.values(s().map.nodes).map((n) => n.name).sort()).toEqual(["A", "One", "Three", "Two"]);
+    expect(Object.keys(s().map.links)).toHaveLength(0);
+    expect(s().placeRequest).toMatchObject({ anchor: null });
+    expect(s().group).toHaveLength(3);
+  });
+
+  it("in a tree: children of the picked box; with none picked, nothing (a box needs a parent)", async () => {
+    const useMapStore = await freshStore();
+    const s = () => useMapStore.getState();
+    s().newTree();
+    const start = Object.keys(s().map.nodes)[0] as NodeId;
+    s().placeAll(new Map([[start, { x: 300, y: 100 }]]), { width: 900, height: 600 });
+    s().stopEditing();
+    const before = s().map;
+    expect(s().pasteList("One\nTwo", null)).toBe(0);
+    expect(s().map).toBe(before);
+    expect(s().pasteList("One\nTwo", start)).toBe(2);
+    expect(linksFrom(s, start)).toHaveLength(2);
+  });
+
+  it("in a flowchart: nothing", async () => {
+    const useMapStore = await freshStore();
+    const s = () => useMapStore.getState();
+    s().newSteps();
+    const start = Object.keys(s().map.nodes)[0] as NodeId;
+    const before = s().map;
+    expect(s().pasteList("One\nTwo", start)).toBe(0);
+    expect(s().map).toBe(before);
+  });
+});

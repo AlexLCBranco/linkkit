@@ -175,6 +175,9 @@ describe("the shortcut table and the key handler", () => {
   it("every key in the dialog does something somewhere", async () => {
     const dead: string[] = [];
     for (const row of MAP_ROWS) {
+      // Paste: the key itself only acts while Linkkit holds copied boxes;
+      // otherwise the browser's paste event does the work (tested below).
+      if (row === SHORTCUTS.paste) continue;
       for (const combo of row.combos as readonly KeyCombo[]) {
         let works = false;
         for (const situation of SITUATIONS) {
@@ -190,5 +193,61 @@ describe("the shortcut table and the key handler", () => {
       }
     }
     expect(dead).toEqual([]);
+  });
+});
+
+describe("Ctrl+V on the map", () => {
+  const ctrlV = { key: "v", ctrlKey: true, metaKey: false, shiftKey: false, altKey: false, target: null };
+  const pasteOf = (text: string) => ({ target: null, clipboardData: { getData: () => text }, preventDefault: vi.fn() });
+
+  async function plain() {
+    const { useMapStore } = await load();
+    const { onMapKey, onMapPaste } = await import("./useMapShortcuts");
+    const s = () => useMapStore.getState();
+    s().newMap();
+    const a = s().addBox({ x: 200, y: 200 });
+    s().renameBox(a, "A");
+    s().stopEditing();
+    return { s, a, onMapKey, onMapPaste };
+  }
+  const namesOf = (s: () => { map: { nodes: Record<string, { name: string }> } }) => Object.values(s().map.nodes).map((n) => n.name).sort();
+
+  it("with no copied boxes the key is left to the browser, and the pasted list becomes boxes", async () => {
+    const { s, a, onMapKey, onMapPaste } = await plain();
+    const preventDefault = vi.fn();
+    onMapKey({ ...ctrlV, preventDefault });
+    expect(preventDefault).not.toHaveBeenCalled();
+    s().select(a);
+    const paste = pasteOf("One\nTwo");
+    onMapPaste(paste);
+    expect(paste.preventDefault).toHaveBeenCalled();
+    expect(namesOf(s)).toEqual(["A", "One", "Two"]);
+    expect(Object.values(s().map.links).every((l) => l.from === a)).toBe(true);
+  });
+
+  it("one line, or a name being typed, is left alone", async () => {
+    const { s, a, onMapPaste } = await plain();
+    const one = pasteOf("Just one line");
+    onMapPaste(one);
+    expect(one.preventDefault).not.toHaveBeenCalled();
+    s().startEditing({ kind: "box", id: a });
+    const typing = pasteOf("One\nTwo");
+    onMapPaste(typing);
+    expect(typing.preventDefault).not.toHaveBeenCalled();
+    expect(namesOf(s)).toEqual(["A"]);
+  });
+
+  it("copied boxes come first: the key pastes them, and the text is not read", async () => {
+    const { s, a, onMapKey, onMapPaste } = await plain();
+    s().copyBoxes([a]);
+    const preventDefault = vi.fn();
+    onMapKey({ ...ctrlV, preventDefault });
+    expect(preventDefault).toHaveBeenCalled();
+    expect(namesOf(s)).toEqual(["A", "A"]);
+    // Should a paste event arrive anyway, the list is not added on top.
+    const paste = pasteOf("One\nTwo");
+    onMapPaste(paste);
+    expect(paste.preventDefault).not.toHaveBeenCalled();
+    expect(namesOf(s)).toEqual(["A", "A"]);
   });
 });

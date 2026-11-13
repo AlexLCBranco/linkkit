@@ -38,6 +38,8 @@ const TREES: readonly MapKind[] = ["tree"];
 const TREE_SHAPED: readonly MapKind[] = ["tree", "steps"];
 const NOT_TREE_SHAPED: readonly MapKind[] = ["connections"];
 const BRACKETS: readonly MapKind[] = ["bracket"];
+/** Where a pasted list of lines becomes boxes (`pasteList`). */
+const LISTS_PASTE: readonly MapKind[] = ["connections", "tree"];
 
 const k = (key: string, extra: Omit<KeyCombo, "key"> = {}): KeyCombo => ({ key, ...extra });
 const digits = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => k(String(from + i)));
@@ -69,7 +71,12 @@ export const SHORTCUTS = {
   copy: { group: "Create & edit", does: "Copy the selected boxes", combos: [k("c", { mod: true })], only: NOT_TREE_SHAPED },
   copyMap: { group: "Create & edit", does: "Copy this map for the gauntlet whiteboard (nothing selected)", combos: [k("c", { mod: true })] },
   cut: { group: "Create & edit", does: "Cut the selected boxes", combos: [k("x", { mod: true })], only: NOT_TREE_SHAPED },
-  paste: { group: "Create & edit", does: "Paste", combos: [k("v", { mod: true })], only: NOT_TREE_SHAPED },
+  paste: {
+    group: "Create & edit",
+    does: "Paste copied boxes; or a copied list of lines, each line a box (under the selected box, if one is selected)",
+    combos: [k("v", { mod: true })],
+    only: LISTS_PASTE,
+  },
   duplicate: {
     group: "Create & edit",
     does: "Duplicate the selected boxes",

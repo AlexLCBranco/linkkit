@@ -370,11 +370,13 @@ function MapCanvasInner() {
   const sizesRef = useRef(sizes);
   const screenRef = useRef(screen);
   const pageRef = useRef(page);
+  const drawnRef = useRef(drawn);
   useEffect(() => {
     sizesRef.current = sizes;
     screenRef.current = screen;
     pageRef.current = page;
-  }, [sizes, screen, page]);
+    drawnRef.current = drawn;
+  }, [sizes, screen, page, drawn]);
 
   // Double-clicking empty paper adds a box there, ready for its name. React
   // Flow has no "pane double-click", so the page listens and checks that
@@ -589,9 +591,9 @@ function MapCanvasInner() {
     if (!placeRequest || placeRequest === placed.current || !allMeasured || !screen || needsTidy) return;
     placed.current = placeRequest;
     const s = api.getState();
-    const anchor = s.map.nodes[placeRequest.anchor];
+    const anchor = placeRequest.anchor ? s.map.nodes[placeRequest.anchor] : null;
     const ids = new Set(placeRequest.ids.filter((id) => s.map.nodes[id]));
-    if (!anchor || ids.size === 0) return;
+    if ((placeRequest.anchor && !anchor) || ids.size === 0) return;
     const block: LinkMap = {
       ...s.map,
       nodes: Object.fromEntries([...ids].map((id) => [id, s.map.nodes[id]])),
@@ -599,11 +601,30 @@ function MapCanvasInner() {
     };
     const layout = layoutMap(block, sizes, tidyOptions(block, labelSizesRef.current, s.map.arrowLength, s.map.direction));
     const box = (id: NodeId) => ({ center: s.map.nodes[id], size: sizes.get(id) ?? MAP_LAYOUT.fallbackSize });
-    const others = (Object.keys(shownNow(s.map).nodes) as NodeId[]).filter((id) => !ids.has(id) && id !== anchor.id).map(box);
-    const positions = placeBlockBeside(layout, box(anchor.id), others, PASTE_BLOCK, s.map.direction);
+    const others = (Object.keys(shownNow(s.map).nodes) as NodeId[]).filter((id) => !ids.has(id) && id !== anchor?.id).map(box);
+    // No box to go beside (a list pasted with none picked): the top of the
+    // part of the page that shows (its left, left-right), in its middle.
+    const view = viewRef.current;
+    const zoomed = drawnRef.current;
+    const seen =
+      view && zoomed
+        ? {
+            left: (view.scrollLeft - zoomed.x) / zoomed.zoom,
+            top: (view.scrollTop - zoomed.y) / zoomed.zoom,
+            width: view.clientWidth / zoomed.zoom,
+            height: view.clientHeight / zoomed.zoom,
+          }
+        : { left: 0, top: 0, ...screen };
+    const corner =
+      s.map.direction === "TB"
+        ? { x: seen.left + seen.width / 2, y: seen.top + PAGE_MARGIN.y - PASTE_BLOCK.gap }
+        : { x: seen.left + PAGE_MARGIN.x - PASTE_BLOCK.gap, y: seen.top + seen.height / 2 };
+    const beside = anchor ? box(anchor.id) : { center: corner, size: { width: 0, height: 0 } };
+    const positions = placeBlockBeside(layout, beside, others, PASTE_BLOCK, s.map.direction);
     const from = new Map<NodeId, Point>([...ids].map((id) => [id, { x: s.map.nodes[id].x, y: s.map.nodes[id].y }]));
     s.nudgeBoxes(positions);
-    startGlide(from, shownNow(api.getState().map).nodes);
+    // From the box they came from, they glide; from nowhere, they appear.
+    if (anchor) startGlide(from, shownNow(api.getState().map).nodes);
   }, [placeRequest, allMeasured, screen, needsTidy, sizes, startGlide, api]);
 
   const placedAt = useCallback((id: NodeId): Point => glide.shown?.get(id) ?? map.nodes[id], [glide.shown, map.nodes]);

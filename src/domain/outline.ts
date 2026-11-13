@@ -69,6 +69,49 @@ export function parseOutline(text: string): OutlineLine[] {
   return out;
 }
 
+/**
+ * A list pasted onto the map itself (no name open): every line a new box.
+ * With a box picked (`under`), the lines go under it (an arrow from it to
+ * each line level with the first; indented lines under the line above, as
+ * in `pasteOutline`), and its own name stays. With none, in a map without
+ * tree rules, the lines level with the first stand on their own. Nothing
+ * changes where a box can't simply be added: a tree with no box picked
+ * (every box needs a parent), a Steps map (an outline's indents would make
+ * splits with no type), a bracket.
+ */
+export function pasteList(
+  map: LinkMap,
+  under: NodeId | null,
+  lines: readonly OutlineLine[],
+  at: Point,
+  newId: () => NodeId,
+): { map: LinkMap; added: NodeId[] } {
+  const none = { map, added: [] };
+  if (map.kind !== "connections" && map.kind !== "tree") return none;
+  if (under) {
+    const node = map.nodes[under];
+    if (!node) return none;
+    // One level in: the first line's level is the picked box's children.
+    return pasteOutline(map, under, node.name, lines.map((l) => ({ ...l, depth: l.depth + 1 })), at, newId);
+  }
+  if (map.kind !== "connections") return none;
+  let next = map;
+  const added: NodeId[] = [];
+  // The box each depth's lines go under; depth 0 stands on its own.
+  const hosts: (NodeId | null)[] = [null];
+  for (const line of lines) {
+    const depth = Math.max(0, Math.min(line.depth, hosts.length - 1));
+    const box = addNode(next, at, line.text, newId());
+    next = box.map;
+    added.push(box.nodeId);
+    const host = hosts[depth];
+    if (host) next = addLink(next, host, box.nodeId).map;
+    hosts.length = depth + 1;
+    hosts.push(box.nodeId);
+  }
+  return { map: next, added };
+}
+
 /** Whether pasted text is an outline (two lines or more) rather than a
     name: a single line pastes as it always has. */
 export const isOutline = (text: string): boolean => parseOutline(text).length > 1;

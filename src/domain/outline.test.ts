@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { linkTree } from "./bridge";
 import { asNodeId } from "./ids";
-import { isOutline, parseOutline, pasteOutline } from "./outline";
+import { isOutline, parseOutline, pasteList, pasteOutline } from "./outline";
 import { parentsOf } from "./rules";
-import { build, buildTree } from "./testMaps";
+import { build, buildSteps, buildTree } from "./testMaps";
 import type { LinkMap, NodeId } from "./types";
 
 const counter = () => {
@@ -82,5 +82,39 @@ describe("pasteOutline", () => {
     const links = Object.values(map.links);
     expect(links).toEqual([expect.objectContaining({ from: "p", to: added[0], label: "needs" })]);
     expect(map.nodes[added[1] as NodeId].name).toBe("Games");
+  });
+});
+
+describe("pasteList (a list pasted onto the map)", () => {
+  let n = 0;
+  const newId = () => asNodeId(`new${++n}`);
+  const names = (map: LinkMap) => Object.values(map.nodes).map((x) => x.name);
+  const arrows = (map: LinkMap) => Object.values(map.links).map((l) => `${map.nodes[l.from].name}>${map.nodes[l.to].name}`).sort();
+
+  it("under a box: its name stays, top lines hang off it, indented lines off the line above", () => {
+    const out = pasteList(build(["a"]), asNodeId("a"), parseOutline("One\n  Deep\nTwo"), { x: 5, y: 6 }, newId);
+    expect(names(out.map)).toEqual(["a", "One", "Deep", "Two"]);
+    expect(arrows(out.map)).toEqual(["One>Deep", "a>One", "a>Two"]);
+    expect(out.added).toHaveLength(3);
+  });
+
+  it("with no box, without tree rules: the top lines stand on their own", () => {
+    const out = pasteList(build(["a"]), null, parseOutline("One\n  Deep\nTwo"), { x: 0, y: 0 }, newId);
+    expect(names(out.map)).toEqual(["a", "One", "Deep", "Two"]);
+    expect(arrows(out.map)).toEqual(["One>Deep"]);
+  });
+
+  it("in a tree: children of the box; with no box nothing is added", () => {
+    const tree = buildTree("s", ["x"], [["s", "x"]]);
+    expect(pasteList(tree, null, parseOutline("One\nTwo"), { x: 0, y: 0 }, newId).map).toBe(tree);
+    const out = pasteList(tree, asNodeId("x"), parseOutline("One\nTwo"), { x: 0, y: 0 }, newId);
+    expect(arrows(out.map)).toEqual(["s>x", "x>One", "x>Two"]);
+  });
+
+  it("never in a Steps map or a bracket, or under a box that isn't there", () => {
+    const steps = buildSteps("s", ["x"], [["s", "x"]]);
+    expect(pasteList(steps, asNodeId("x"), parseOutline("One\nTwo"), { x: 0, y: 0 }, newId).map).toBe(steps);
+    const plain = build(["a"]);
+    expect(pasteList(plain, asNodeId("gone"), parseOutline("One\nTwo"), { x: 0, y: 0 }, newId).map).toBe(plain);
   });
 });

@@ -45,7 +45,7 @@ import {
   shiftMap,
 } from "../domain/map";
 import { sameShape } from "../domain/order";
-import { parseOutline, pasteOutline } from "../domain/outline";
+import { parseOutline, pasteList, pasteOutline } from "../domain/outline";
 import { besideSpot, defaultPageSize, nearestFreeSpot } from "../domain/page";
 import {
   boxDeleteRefusal,
@@ -287,8 +287,10 @@ export interface MapState {
   /** Boxes just pasted as an outline into a map without tree rules: the
       canvas lays out only them, as a small block in free space beside
       `anchor` (the box pasted into), moving nothing else; joined to the
-      paste's undo step. A new object for each paste. */
-  readonly placeRequest: { readonly ids: readonly NodeId[]; readonly anchor: NodeId } | null;
+      paste's undo step. A new object for each paste. `anchor` null (a
+      list pasted with no box picked): in free space on the part of the
+      page that shows. */
+  readonly placeRequest: { readonly ids: readonly NodeId[]; readonly anchor: NodeId | null } | null;
   /** Tree boxes whose delete takes other boxes with them, waiting for the
       user to confirm (`count` boxes in all). */
   readonly confirmingDelete: { readonly ids: readonly NodeId[]; readonly count: number } | null;
@@ -599,6 +601,13 @@ export interface MapState {
       the next branch of the same split that has no name yet opens (and is
       selected); after the last one typing ends. */
   enterOnBox(id: NodeId, name: string, room?: BoxRoom): void;
+  /** A list of lines pasted with no name open: each line a new box, under
+      box `under` (its name stays), or standing on their own when there is
+      none (a map without tree rules only). One undo step; a tree
+      re-tidies, any other map gets the new boxes as a block in free space
+      (`placeRequest`), picked. Returns how many boxes were added (0: this
+      map takes no list there, see `pasteList` in domain/outline.ts). */
+  pasteList(text: string, under: NodeId | null): number;
   startEditing(editing: Editing): void;
   /** Ends typing. A box may stay blank (it shows a faint "Untitled").
       `cancelled` (Esc) on a box just added and still blank takes the add
@@ -1235,6 +1244,27 @@ const globalMapStore = create<MapState>()((set, get) => ({
       if (s.map.kind === "tree") return { ...done, settleRequest: s.settleRequest + 1 };
       return pasted.added.length ? { ...done, placeRequest: { ids: pasted.added, anchor: id } } : done;
     }),
+  pasteList: (text, under) => {
+    get().stopEditing();
+    const lines = parseOutline(text);
+    const s = get();
+    const node = under ? s.map.nodes[under] : null;
+    if (lines.length === 0 || (under && !node)) return 0;
+    const offset = NEXT_STEP_OFFSET[s.map.direction];
+    const at = node ? { x: node.x + offset.x, y: node.y + offset.y } : { x: 0, y: 0 };
+    // A folded box opens, so what is pasted under it shows.
+    const open = under ? setCollapsed(s.map, [under], false) : s.map;
+    const pasted = pasteList(open, under, lines, at, createNodeId);
+    if (pasted.added.length === 0) return 0;
+    set((st) => {
+      const done = commit(st, pasted.map);
+      if (!done.map) return {};
+      if (st.map.kind === "tree") return { ...done, settleRequest: st.settleRequest + 1 };
+      return { ...done, ...(under ? {} : selecting(pasted.added)), placeRequest: { ids: pasted.added, anchor: under } };
+    });
+    // Refused (a tree shared with Boardkit that the list would break): none.
+    return pasted.added.every((id) => get().map.nodes[id]) ? pasted.added.length : 0;
+  },
   moveBox: (id, to, gesture) => set((s) => commit(s, moveNode(s.map, id, to), gesture ?? null)),
   nudgeBoxes: (positions) =>
     set((s) => {

@@ -458,3 +458,102 @@ test("I: in a decision tree the band starts an arrow too (onto the paper: a chil
   await expect(boxes(page)).toHaveCount(2);
   await expect(arrows(page)).toHaveCount(1);
 });
+
+/**
+ * Ctrl+V with `text` on the clipboard, without touching the PC's real
+ * clipboard: the key first (Linkkit's own copied boxes take it), then,
+ * as the browser does when the key was left alone, the paste event with
+ * the text. Says which of the two took it, or "none".
+ */
+const pasteText = (page: Page, text: string) =>
+  page.evaluate((t) => {
+    const key = new KeyboardEvent("keydown", { key: "v", ctrlKey: true, bubbles: true, cancelable: true });
+    document.body.dispatchEvent(key);
+    if (key.defaultPrevented) return "boxes";
+    const data = new DataTransfer();
+    data.setData("text/plain", t);
+    const paste = new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true });
+    document.body.dispatchEvent(paste);
+    return paste.defaultPrevented ? "list" : "none";
+  }, text);
+
+/** Whether two boxes overlap on screen. */
+async function overlap(one: Locator, other: Locator) {
+  const [p, q] = [await centre(one), await centre(other)];
+  return p.left < q.right && q.left < p.right && p.top < q.bottom && q.top < p.bottom;
+}
+
+test("J: a list pasted with a box selected adds its lines under that box; with nothing selected, as new boxes; copied boxes still come first", async ({ page }) => {
+  await open(page);
+  await newPlainMap(page);
+  await addBoxAt(page, 400, 200, "Alpha");
+  const alpha = named(page, "Alpha");
+
+  // The Tips line says so.
+  await expect(page.getByText(/paste it here \(Ctrl\+V\): each line becomes a box/)).toBeVisible();
+
+  // One box selected: three lines, three boxes under it.
+  await alpha.click();
+  expect(await pasteText(page, "Milk\nEggs\nFlour")).toBe("list");
+  await expect(boxes(page)).toHaveCount(4);
+  await expect(arrows(page)).toHaveCount(3);
+  expect(await names(page)).toEqual(["Alpha", "Milk", "Eggs", "Flour"]);
+  for (const name of ["Milk", "Eggs", "Flour"]) await expect(named(page, name)).toHaveAttribute("data-highlight", "teal");
+  // Placed below it, clear of each other.
+  await expect.poll(async () => (await centre(named(page, "Milk"))).y - (await centre(alpha)).y).toBeGreaterThan(60);
+  await page.waitForTimeout(400);
+  expect(await overlap(named(page, "Milk"), named(page, "Eggs"))).toBe(false);
+  expect(await overlap(named(page, "Eggs"), named(page, "Flour"))).toBe(false);
+
+  // One undo step for the whole list.
+  await clickAway(page);
+  await page.keyboard.press("Control+z");
+  await expect(boxes(page)).toHaveCount(1);
+  await page.keyboard.press("Control+y");
+  await expect(boxes(page)).toHaveCount(4);
+
+  // Nothing selected: the lines become boxes of their own, no arrows added, on screen and clear of the rest.
+  await clickAway(page);
+  expect(await pasteText(page, "Red\nGreen")).toBe("list");
+  await expect(boxes(page)).toHaveCount(6);
+  await expect(arrows(page)).toHaveCount(3);
+  await page.waitForTimeout(400);
+  for (const name of ["Red", "Green"]) {
+    const at = await centre(named(page, name));
+    expect(at.left).toBeGreaterThan(0);
+    expect(at.right).toBeLessThan(1400);
+    expect(at.top).toBeGreaterThan(100);
+    expect(at.bottom).toBeLessThan(900);
+    for (const other of ["Alpha", "Milk", "Eggs", "Flour"]) expect(await overlap(named(page, name), named(page, other)), `${name} over ${other}`).toBe(false);
+  }
+  await shot(page, "J");
+
+  // One line of text is not a list: nothing happens.
+  await clickAway(page);
+  expect(await pasteText(page, "Just one line")).toBe("none");
+  await expect(boxes(page)).toHaveCount(6);
+
+  // Boxes copied in Linkkit come first: Ctrl+V pastes them, not the text.
+  await alpha.click();
+  await page.keyboard.press("Control+c");
+  expect(await pasteText(page, "Blue\nPink")).toBe("boxes");
+  await expect(boxes(page)).toHaveCount(7);
+  expect((await names(page)).filter((n) => n === "Alpha")).toHaveLength(2);
+  expect(await names(page)).not.toContain("Blue");
+});
+
+test("J: in a decision tree a pasted list becomes children of the selected box", async ({ page }) => {
+  await open(page);
+  await newMap(page, /^Decision tree/);
+  await expect(field(page)).toBeFocused();
+  await page.keyboard.type("Dinner");
+  await page.keyboard.press("Enter");
+  await named(page, "Dinner").click();
+  expect(await pasteText(page, "Cook\nOrder in\nGo out")).toBe("list");
+  await expect(boxes(page)).toHaveCount(4);
+  await expect(arrows(page)).toHaveCount(3);
+  // With nothing selected a tree takes no loose boxes.
+  await clickAway(page);
+  expect(await pasteText(page, "Loose\nBoxes")).toBe("none");
+  await expect(boxes(page)).toHaveCount(4);
+});

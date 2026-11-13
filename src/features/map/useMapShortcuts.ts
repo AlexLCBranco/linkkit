@@ -3,6 +3,7 @@ import { useEffect } from "react";
 
 import { startRow } from "../../domain/bracket";
 import { isArrowKey } from "../../domain/navigation";
+import { isOutline } from "../../domain/outline";
 import { pressed, type ShortcutId } from "../../domain/shortcuts";
 import { hasTreeShape, PALETTE_COLORS } from "../../domain/types";
 import type { NodeId } from "../../domain/types";
@@ -95,6 +96,9 @@ export function onMapKey(e: KeyPress): void {
       e.preventDefault();
       store.selectAll();
     } else if (is("paste") && !store.editing) {
+      // Linkkit's own copied boxes come first. With none, the key is left
+      // to the browser: its paste event brings the text (`onMapPaste`).
+      if (!store.clipboard) return;
       e.preventDefault();
       store.paste();
     } else if (
@@ -200,11 +204,41 @@ export function onMapKey(e: KeyPress): void {
   }
 }
 
+/** What the paste handler reads from a paste (a `ClipboardEvent` has it). */
+export interface PastePress {
+  readonly target: EventTarget | null;
+  readonly clipboardData: { getData(format: string): string } | null;
+  preventDefault(): void;
+}
+
+/**
+ * Text pasted onto the map with no name open (Ctrl+V): a list of two
+ * lines or more becomes boxes, one per line (`pasteList`): under the one
+ * selected box, or standing on their own with none selected (a map
+ * without tree rules). Linkkit's own copied boxes come first (`onMapKey`
+ * pastes them and no paste event follows); one line of text is not a
+ * list. Not on the gauntlet whiteboard, where a paste is the page's.
+ */
+export function onMapPaste(e: PastePress): void {
+  if (onWhiteboard || isTyping(e.target) || inOverlay(e.target)) return;
+  const store = useMapStore.getState();
+  if (store.editing || store.clipboard) return;
+  const text = e.clipboardData?.getData("text/plain") ?? "";
+  if (!isOutline(text)) return;
+  const picked = selectionOf(store);
+  if (picked.length > 1) return;
+  if (store.pasteList(text, picked[0] ?? null) > 0) e.preventDefault();
+}
+
 /** `enabled` false: a map shown but not edited (on the whiteboard). */
 export function useMapShortcuts(enabled = true) {
   useEffect(() => {
     if (!enabled) return;
     document.addEventListener("keydown", onMapKey);
-    return () => document.removeEventListener("keydown", onMapKey);
+    document.addEventListener("paste", onMapPaste);
+    return () => {
+      document.removeEventListener("keydown", onMapKey);
+      document.removeEventListener("paste", onMapPaste);
+    };
   }, [enabled]);
 }
