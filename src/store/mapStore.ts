@@ -46,7 +46,7 @@ import {
 } from "../domain/map";
 import { sameShape } from "../domain/order";
 import { parseOutline, pasteOutline } from "../domain/outline";
-import { defaultPageSize, nearestFreeSpot } from "../domain/page";
+import { besideSpot, defaultPageSize, nearestFreeSpot } from "../domain/page";
 import {
   boxDeleteRefusal,
   canCollapse,
@@ -453,8 +453,12 @@ export interface MapState {
   eraseMap(id: MapId): void;
   /** Tree: adds a next step after `from` (at `at`, or just after it),
       opens its name for typing and re-tidies the tree. Steps: a plain step
-      after `from` (`addStep`), or a new branch on a Choice or Parallel. */
-  addNextStep(from: NodeId, at?: Point): NodeId | null;
+      after `from` (`addStep`), or a new branch on a Choice or Parallel.
+      A map without tree rules: a new box with an arrow from `from`, at
+      `at`, or just after `from` the way the map grows (the tree's
+      offset), stepped aside while that spot is taken (`room`); its name
+      opens for typing, and box and arrow are one undo step. */
+  addNextStep(from: NodeId, at?: Point, room?: BoxRoom): NodeId | null;
   /** Steps, the "Add next" menu: a `type` step after `from` (a split
       makes `from` the question, with its branches; `domain/steps.ts`).
       The first new step opens for typing; the map re-tidies. Refused with
@@ -587,6 +591,24 @@ export interface MapState {
       back, as if it had never been added (the prototype's Escape). */
   stopEditing(cancelled?: boolean): void;
 }
+
+/** What the store must be told to place a new box clear of the others
+    (only the canvas knows how big boxes are drawn): every box's size, a
+    typical new box's, how far it steps aside at a time, and the clear
+    space kept round other boxes and the page's left and top edges.
+    `whiteboard`: past those edges everything else moves right and down
+    instead (`shiftMap`), as a box dragged there does. */
+export interface BoxRoom {
+  readonly sizes: ReadonlyMap<NodeId, Size>;
+  readonly size: Size;
+  readonly edge: number;
+  readonly step: number;
+  readonly clearance: number;
+  readonly whiteboard?: boolean;
+}
+
+/** `BoxRoom` when nothing is drawn to measure (a test): a one-line box. */
+const UNMEASURED_ROOM: BoxRoom = { sizes: new Map(), size: { width: 120, height: 40 }, edge: 14, step: 24, clearance: 16 };
 
 /**
  * A new map's recorded page size (see `LinkMap.page`) until its first Tidy
@@ -1384,10 +1406,25 @@ const globalMapStore = create<MapState>()((set, get) => ({
     saveMapTrash(trashedMaps);
     set({ trashedMaps });
   },
-  addNextStep: (from, at) => {
+  addNextStep: (from, at, room = UNMEASURED_ROOM) => {
     get().stopEditing();
     const { map } = get();
     const parent = map.nodes[from];
+    if (map.kind === "connections" && parent) {
+      const offset = NEXT_STEP_OFFSET[map.direction];
+      const start = { x: parent.x + offset.x, y: parent.y + offset.y };
+      const spot = at ?? besideSpot(map, room.sizes, start, map.direction, room.size, { ...room, fallbackSize: room.size });
+      // Kept on the page: its left and top edges hold it back, or on the
+      // whiteboard everything else makes way.
+      const d = {
+        x: Math.max(0, Math.ceil(room.size.width / 2 + room.edge - spot.x)),
+        y: Math.max(0, Math.ceil(room.size.height / 2 + room.edge - spot.y)),
+      };
+      const added = addNextStep(room.whiteboard ? shiftMap(map, d) : map, from, { x: spot.x + d.x, y: spot.y + d.y });
+      if (!added) return null;
+      set((s) => ({ ...commit(s, added.map, newBoxKey(added.nodeId)), editing: { kind: "box", id: added.nodeId } }));
+      return added.nodeId;
+    }
     if (map.kind === "steps" && parent) {
       // Tab on a Choice or Parallel adds a branch; on anything else a step.
       const type = stepTypeOf(map, from);

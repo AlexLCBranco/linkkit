@@ -7,6 +7,7 @@ import { layoutMap } from "./layout";
 import { moveNode } from "./map";
 import {
   alignFor,
+  besideSpot,
   boxBounds,
   clampGroupMove,
   clampToPage,
@@ -284,5 +285,40 @@ describe("opening a map moves nothing (owner, 2026-10-19)", () => {
     const added = { ...map.nodes, [c]: { ...map.nodes[a], id: c } };
     const withC = new Map([...sized(100), [c, box]]);
     expect(resizedByEdit({ sizes: sized(100), nodes: map.nodes }, { sizes: withC, nodes: added })).toEqual([c]);
+  });
+});
+
+describe("besideSpot (a new box linked from another)", () => {
+  const size = { width: 120, height: 40 };
+  const options = { step: 24, clearance: 16, fallbackSize: size };
+
+  it("is the spot asked for when nothing is there", () => {
+    const map = moveNode(build(["a"]), asNodeId("a"), { x: 200, y: 100 });
+    expect(besideSpot(map, noSizes, { x: 200, y: 196 }, "TB", size, options)).toEqual({ x: 200, y: 196 });
+  });
+
+  it("top-down: steps to the right until it clears the box already there", () => {
+    let map = moveNode(build(["a", "b"]), asNodeId("a"), { x: 200, y: 100 });
+    map = moveNode(map, asNodeId("b"), { x: 200, y: 196 });
+    const spot = besideSpot(map, noSizes, { x: 200, y: 196 }, "TB", size, options);
+    expect(spot.y).toBe(196);
+    // Clear of "b" by its width and the clearance, and no further than a step past that.
+    expect(spot.x - 200).toBeGreaterThanOrEqual(120 + 16);
+    expect(spot.x - 200).toBeLessThan(120 + 16 + 24);
+  });
+
+  it("left-right: steps downwards instead", () => {
+    let map = moveNode(build(["a", "b"]), asNodeId("a"), { x: 100, y: 100 });
+    map = moveNode(map, asNodeId("b"), { x: 300, y: 100 });
+    const spot = besideSpot(map, noSizes, { x: 300, y: 100 }, "LR", size, options);
+    expect(spot.x).toBe(300);
+    expect(spot.y - 100).toBeGreaterThanOrEqual(40 + 16);
+  });
+
+  it("uses each box's measured size", () => {
+    let map = moveNode(build(["a", "b"]), asNodeId("a"), { x: 200, y: 100 });
+    map = moveNode(map, asNodeId("b"), { x: 200, y: 196 });
+    const wide = new Map<NodeId, Size>([[asNodeId("b"), { width: 300, height: 40 }]]);
+    expect(besideSpot(map, wide, { x: 200, y: 196 }, "TB", size, options).x - 200).toBeGreaterThanOrEqual(210 + 16);
   });
 });

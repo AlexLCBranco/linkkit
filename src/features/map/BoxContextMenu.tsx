@@ -19,11 +19,13 @@ import { useMapStore } from "../../store/mapStore";
 import { selectGroupColor, selectGroupStatus, selectOffersJoin } from "../../store/selectors";
 import { useSyncNotice } from "../../store/syncNotice";
 import { copyPngToClipboard, renderMapPngForCopy } from "../export/renderMapImage";
+import { boxRoom } from "./boxRoom";
 import { StatusRow } from "./StatusRow";
 import { SwatchRow } from "./SwatchRow";
 import { BOX_ID_ATTRIBUTE, LINK_ID_ATTRIBUTE } from "./pageMarkers";
 import { openLinkPromptFor } from "./openLinkPrompt";
 import { ADD_NEXT_ITEMS } from "./stepMenu";
+import { useWhiteboardCanvas } from "./whiteboardCanvas";
 
 /** What the menu is about: one box, the picked group, or empty paper (where
     it only offers to paste, at the spot clicked). */
@@ -197,6 +199,8 @@ function BoxMenuItems({
   const openNotes = useMapStore((s) => s.openNotes);
   const url = useMapStore((s) => s.map.nodes[nodeId]?.url);
   const isSteps = useMapStore((s) => s.map.kind === "steps");
+  const isPlain = useMapStore((s) => s.map.kind === "connections");
+  const onWhiteboard = useWhiteboardCanvas()?.editing ?? false;
   // Steps: the "Add next" menu, or one more branch (`addNextOffer`).
   const offer = useMapStore((s) => addNextOffer(s.map, nodeId));
   const offersJoin = useMapStore((s) => selectOffersJoin(s, nodeId));
@@ -235,6 +239,12 @@ function BoxMenuItems({
         <ContextMenuItem onSelect={() => runAfterClose(() => addNextStep(nodeId))}>
           <Plus aria-hidden />
           Add next step
+        </ContextMenuItem>
+      )}
+      {isPlain && (
+        <ContextMenuItem onSelect={() => runAfterClose(() => addNextStep(nodeId, undefined, boxRoom(null, onWhiteboard)))}>
+          <Plus aria-hidden />
+          Add a linked box
         </ContextMenuItem>
       )}
       <ContextMenuItem onSelect={() => runAfterClose(() => startEditing({ kind: "box", id: nodeId }))}>

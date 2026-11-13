@@ -350,6 +350,38 @@ export function freeSpot(
 }
 
 /**
+ * Where a new box linked from another one goes: `start` (just after its
+ * parent, the way the map grows) if a box of `size` overlaps nothing
+ * there, kept `clearance` clear; else stepped aside, `step` at a time,
+ * across the map's direction (to the right top-down, downwards
+ * left-right), so a parent's new boxes line up beside each other as a
+ * tree's children do. Nothing free within a few hundred steps: `start`.
+ */
+export function besideSpot(
+  map: LinkMap,
+  sizes: ReadonlyMap<NodeId, Size>,
+  start: Point,
+  direction: LayoutDirection,
+  size: Size,
+  options: { readonly step: number; readonly fallbackSize: Size; readonly clearance: number },
+): Point {
+  const nodes = Object.values(map.nodes);
+  const overlaps = (p: Point) =>
+    nodes.some((n) => {
+      const other = sizes.get(n.id) ?? options.fallbackSize;
+      return (
+        Math.abs(n.x - p.x) < (size.width + other.width) / 2 + options.clearance &&
+        Math.abs(n.y - p.y) < (size.height + other.height) / 2 + options.clearance
+      );
+    });
+  const aside = direction === "TB" ? { x: options.step, y: 0 } : { x: 0, y: options.step };
+  for (let i = 0, spot = start; i < 400; i++, spot = { x: spot.x + aside.x, y: spot.y + aside.y }) {
+    if (!overlaps(spot)) return spot;
+  }
+  return start;
+}
+
+/**
  * A laid-out block of new boxes (`block`, e.g. an outline just pasted)
  * moved into free space beside `anchor`, the box they came from, without
  * moving anything else: where the map grows (`direction`), so the arrows

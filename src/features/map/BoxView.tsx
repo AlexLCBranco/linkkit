@@ -13,12 +13,14 @@ import { hasTreeShape, type NodeId, type NodeStatus } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
 import { selectIsParallelJoin, selectNodeHighlight, selectOffersJoin, selectStepNumber } from "../../store/selectors";
 import { AddNextButton } from "./AddNextButton";
+import { boxRoom } from "./boxRoom";
 import styles from "./BoxView.module.css";
 import { StatusRow } from "./StatusRow";
 import { STATUS_META } from "./statusMeta";
 import { SwatchRow } from "./SwatchRow";
 import { BOX_ID_ATTRIBUTE } from "./pageMarkers";
 import { useBoxGestures } from "./useBoxGestures";
+import { useWhiteboardCanvas } from "./whiteboardCanvas";
 
 /** React Flow's node record for a box. The box's content is not copied in:
     the component reads it from the store by id, so React Flow's node array
@@ -40,7 +42,8 @@ const keepToButton = (e: PointerEvent | MouseEvent) => e.stopPropagation();
  * toolbar; the prototype had a corner ×). Right-click opens the same
  * choices (BoxContextMenu). In a tree the toolbar also has "+" (add a
  * next step; not on a card in a tree linked to Boardkit), and the start
- * has no bin (it can't be deleted).
+ * has no bin (it can't be deleted). In a map without tree rules "+" adds a
+ * box with an arrow from this one, beside it, its name open.
  *
  * Any box can carry notes (the notebook in the toolbar, the right-click
  * menu, or N): they open in a side panel (NotesPanel), and a box with
@@ -106,6 +109,9 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   // Tree rules or Steps: a box only grows from another box.
   const isTreeShaped = useMapStore((s) => hasTreeShape(s.map.kind));
   const isSteps = useMapStore((s) => s.map.kind === "steps");
+  // No tree rules: "+" adds a box with an arrow from this one, beside it.
+  const isPlain = useMapStore((s) => s.map.kind === "connections");
+  const onWhiteboard = useWhiteboardCanvas()?.editing ?? false;
   const number = useMapStore((s) => selectStepNumber(s, nodeId));
   const offersJoin = useMapStore((s) => selectOffersJoin(s, nodeId));
   const isParallelJoin = useMapStore((s) => selectIsParallelJoin(s, nodeId));
@@ -269,6 +275,17 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
             onClick={() => addNextStep(nodeId)}
             aria-label="Add a child"
             title="Add a child"
+          >
+            <Plus size={14} />
+          </button>
+        )}
+        {isPlain && (
+          <button
+            type="button"
+            className={styles.toolbarButton}
+            onClick={(e) => addNextStep(nodeId, undefined, boxRoom(e.currentTarget, onWhiteboard))}
+            aria-label="Add a linked box"
+            title="Add a box linked from this one"
           >
             <Plus size={14} />
           </button>

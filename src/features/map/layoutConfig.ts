@@ -124,6 +124,12 @@ export const REVEAL_MARGIN = 36;
     it would overlap another, and keeps this much clear space round it. */
 export const ADD_SPOT = { step: 24, clearance: 8 };
 
+/** A box added from another one in a map without tree rules (its "+", or
+    an arrow let go on bare paper): a typical box, stepped aside this far at
+    a time while its spot is taken, kept this clear of the others and of
+    the page's left and top edges. */
+export const LINKED_ADD = { size: MAP_LAYOUT.fallbackSize, edge: PAGE_INSETS.edge, step: 24, clearance: 16 };
+
 /** How long Tidy up's glide takes (Treekit's glide length). */
 export const TIDY_GLIDE_MS = 220;
 
