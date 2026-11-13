@@ -1,7 +1,9 @@
 import { createMapId } from "../../domain/ids";
 import { createMap } from "../../domain/map";
 import { numberedName, UNTITLED_MAP } from "../../domain/names";
-import { hasTreeShape, type MapId } from "../../domain/types";
+import { hasTreeShape, type MapId, type NodeId, type Point, type Size } from "../../domain/types";
+import { WHITEBOARD_ADD } from "../../features/map/layoutConfig";
+import { boxSizes, MAP_PAGE_ATTRIBUTE } from "../../features/map/pageMarkers";
 import { setEmbedStatus } from "../../store/embed";
 import { mapFromBoard } from "../../domain/bridge";
 import { createTree } from "../../domain/tree";
@@ -136,6 +138,78 @@ export function openWhiteboardMap(id: string): boolean {
   const opened = useMapStore.getState().map.id === id;
   if (opened) setEmbedStatus("ok");
   return opened;
+}
+
+/**
+ * For "new map, start typing": opens map `id` for editing
+ * (`openWhiteboardMap`) and, when it is a free map with no boxes yet, adds
+ * its first box with the name open for typing, so the first key typed is
+ * its name. Call it in the gesture that starts editing; the name field
+ * takes the focus as soon as the map is drawn with `editing`.
+ * `opened`: whether the map is there and open. `boxId`: the new box, or
+ * `null` when none was added (the map has boxes already, or is a decision
+ * tree, flowchart or bracket, which start with their own first box).
+ */
+export function openWhiteboardMapWithFirstBox(id: string): { readonly opened: boolean; readonly boxId: string | null } {
+  if (!openWhiteboardMap(id)) return { opened: false, boxId: null };
+  const s = useMapStore.getState();
+  if (s.map.kind !== "connections" || Object.keys(s.map.nodes).length > 0) return { opened: true, boxId: null };
+  // The page's top-left corner, clear of its edges: the map's whiteboard
+  // shift stays as it is.
+  const { size, edge } = WHITEBOARD_ADD;
+  return { opened: true, boxId: s.addBox({ x: edge + size.width / 2, y: edge + size.height / 2 }) };
+}
+
+/**
+ * Where a point on the screen (client px) is on map `mapId`'s page, in the
+ * map's own units, read from the map as it is drawn now (shown or being
+ * edited; the whiteboard's zoom is allowed for). `null` when that map
+ * isn't drawn.
+ */
+export function whiteboardMapPagePoint(mapId: string, clientX: number, clientY: number): Point | null {
+  const page = drawnPage(mapId);
+  if (!page || page.offsetWidth === 0) return null;
+  const box = page.getBoundingClientRect();
+  const scale = box.width / page.offsetWidth;
+  return { x: (clientX - box.left) / scale, y: (clientY - box.top) / scale };
+}
+
+/** Map `mapId`'s page as drawn (`WhiteboardMap` marks it with the id). */
+function drawnPage(mapId: string): HTMLElement | null {
+  if (typeof document === "undefined" || !/^[\w:-]+$/.test(mapId)) return null;
+  return document.querySelector<HTMLElement>(`[data-linkkit-map][data-map-id="${mapId}"] [${MAP_PAGE_ATTRIBUTE}]`);
+}
+
+/**
+ * For "click where the box should go, start typing", in ONE gesture, on a
+ * map that is not being edited yet: opens map `mapId` for editing and adds
+ * a box at `at` (the map's page units, see `whiteboardMapPagePoint`), or
+ * at the nearest spot that overlaps no box, with its name open for typing.
+ * `sizes`: the boxes' drawn sizes, when known (a typical box otherwise).
+ * A spot left of or above the page's corner moves everything else right
+ * and down instead (the map's shift, as a box dragged there does). The new
+ * box's id, or `null` when nothing was added: the map isn't there, or is a
+ * decision tree, flowchart or bracket (`useWhiteboardMapAdding` says how
+ * those take boxes). The map is open for editing either way, if it is there.
+ */
+export function addWhiteboardMapBox(mapId: string, at: Point, sizes: ReadonlyMap<NodeId, Size> = new Map()): string | null {
+  if (!openWhiteboardMap(mapId)) return null;
+  const s = useMapStore.getState();
+  if (s.map.kind !== "connections") return null;
+  return s.addBoxNear(at, sizes, WHITEBOARD_ADD);
+}
+
+/**
+ * The same from a point on the screen (client px, a click or double-click
+ * on the map's widget or anywhere on the whiteboard's page): the point is
+ * read against the map as it is drawn now, before it opens for editing.
+ * `null` also when the map isn't drawn.
+ */
+export function addWhiteboardMapBoxAtScreenPoint(mapId: string, clientX: number, clientY: number): string | null {
+  const at = whiteboardMapPagePoint(mapId, clientX, clientY);
+  const page = drawnPage(mapId);
+  if (!at || !page) return null;
+  return addWhiteboardMapBox(mapId, at, boxSizes(page));
 }
 
 /** The map being edited is done with (`closeOpenMap`). */

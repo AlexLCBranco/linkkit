@@ -113,7 +113,7 @@ function ShownMap({ mapId, onContent }: Omit<WhiteboardMapProps, "editing" | "on
   return (
     <MapStoreContext.Provider value={display.store}>
       <WhiteboardCanvasContext.Provider value={canvas}>
-        <div className={styles.map} data-linkkit-map="" data-editing="false">
+        <div className={styles.map} data-linkkit-map="" data-map-id={mapId} data-editing="false">
           <MapCanvas key={mapId} />
         </div>
       </WhiteboardCanvasContext.Provider>
@@ -140,7 +140,7 @@ function EditingMap({ mapId, onContent, onPage }: Omit<WhiteboardMapProps, "edit
   if (shownId !== mapId) return null;
   return (
     <WhiteboardCanvasContext.Provider value={canvas}>
-      <div className={styles.map} data-linkkit-map="" data-editing="true">
+      <div className={styles.map} data-linkkit-map="" data-map-id={mapId} data-editing="true">
         <MapCanvas key={mapId} />
       </div>
     </WhiteboardCanvasContext.Provider>
