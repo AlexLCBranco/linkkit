@@ -38,7 +38,7 @@ import { SaveTemplateDialog } from "./SaveTemplateDialog";
 import { BackupMenuItems } from "./BackupMenuItems";
 import { exportAllMaps, restoreFrom } from "./backupFile";
 import { KindHelp } from "./KindHelp";
-import { NEW_MAP_HELP } from "./newMapHelp";
+import { NEW_MAP_HELP, NEW_MAP_NAMES } from "./newMapHelp";
 import { MapSearch } from "./MapSearch";
 import styles from "./MapSwitcher.module.css";
 import { useNow } from "./useNow";
@@ -266,12 +266,21 @@ export function MapSwitcher() {
           )}
           <DropdownMenuSeparator />
 
-          {/* Every kind of new map in one place, in the same order as the
-              gallery: plain, tree rules, steps, bracket, then the ways that
+          {/* Every kind of new map in one place, each named for what you
+              get (`NEW_MAP_NAMES`; owner, 2026-11-13), the decision tree
+              first: tree, flowchart, free map, bracket, then the ways that
               start from something already made. */}
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>+ New</DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
+              <DropdownMenuItem onSelect={() => (newTreeAfterClose.current = true)}>
+                {NEW_MAP_NAMES.tree}
+                <KindHelp text={NEW_MAP_HELP.tree} />
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => (newStepsAfterClose.current = true)}>
+                {NEW_MAP_NAMES.steps}
+                <KindHelp text={NEW_MAP_HELP.steps} />
+              </DropdownMenuItem>
               <DropdownMenuItem
                 onSelect={() => {
                   newMap();
@@ -279,21 +288,13 @@ export function MapSwitcher() {
                   focusNameAfterClose.current = true;
                 }}
               >
-                Map
+                {NEW_MAP_NAMES.map}
                 <KindHelp text={NEW_MAP_HELP.map} />
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => (newTreeAfterClose.current = true)}>
-                Map with tree rules
-                <KindHelp text={NEW_MAP_HELP.tree} />
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => (newStepsAfterClose.current = true)}>
-                Process
-                <KindHelp text={NEW_MAP_HELP.steps} />
               </DropdownMenuItem>
               <DropdownMenuSub>
                 {/* The "?" takes the free space, so the arrow sits right after it. */}
                 <DropdownMenuSubTrigger className="[&>svg:last-child]:ml-1">
-                  Bracket
+                  {NEW_MAP_NAMES.bracket}
                   <KindHelp text={NEW_MAP_HELP.bracket} />
                 </DropdownMenuSubTrigger>
                 <DropdownMenuSubContent>

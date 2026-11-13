@@ -305,7 +305,7 @@ test("Linkkit + Boardkit side by side (BRIDGE-CHECKLIST 1-8)", async ({ context 
 
   // ---- 3. Link a throwaway tree
   await check("3.1", "New tree ZZ bridge test with List A (A1, A2) and List B (B1, B2)", async () => {
-    await mapMenu(lk, "+ New", "Map with tree rules");
+    await mapMenu(lk, "+ New", "Decision tree");
     await expect(lk.getByRole("textbox", { name: "Box name" })).toBeFocused();
     await lk.keyboard.type(NAME);
     await lk.keyboard.press("Enter");

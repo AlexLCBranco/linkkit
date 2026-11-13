@@ -59,7 +59,7 @@ export async function mapMenu(lk: Page, ...path: string[]) {
 
 /** A new tree map whose start box is `name`. */
 export async function newTree(lk: Page, name: string) {
-  await mapMenu(lk, "+ New", "Map with tree rules");
+  await mapMenu(lk, "+ New", "Decision tree");
   await expect(lk.getByRole("textbox", { name: "Box name" })).toBeFocused();
   await lk.keyboard.type(name);
   await lk.keyboard.press("Enter");

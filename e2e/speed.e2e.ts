@@ -308,3 +308,42 @@ test("G: Tab on a new Choice's first branch, still blank, keeps every branch and
   await expect(boxes(page)).toHaveCount(branches + 1);
   expect((await names(page)).filter(Boolean)).toEqual(["Which?", "Next one"]);
 });
+
+test("H: the + New entries say what you get, the decision tree first, and each still makes its kind", async ({ page }) => {
+  await open(page);
+  await page.getByRole("button", { name: /^Switch map/ }).click();
+  await page.getByRole("menuitem", { name: /^\+ New/ }).click();
+  const entries = (await page.getByRole("menu").last().getByRole("menuitem").allInnerTexts()).map((t) => t.trim());
+  expect(entries.slice(0, 4)).toEqual([
+    "Decision tree (arranges itself)",
+    "Flowchart (Yes/No and choices, arranges itself)",
+    "Free map (you place the boxes)",
+    "Bracket",
+  ]);
+  // Each "?" says the same thing in a sentence.
+  await page.getByRole("menuitem", { name: /^Flowchart/ }).getByRole("button", { name: "What is this?" }).hover();
+  await expect(page.getByRole("tooltip")).toContainText("A flowchart");
+  await shot(page, "H");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toHaveCount(0);
+
+  // Decision tree: a start box, and a child from its +.
+  await newMap(page, /^Decision tree/);
+  await expect(field(page)).toBeFocused();
+  await page.keyboard.type("Start here");
+  await page.keyboard.press("Enter");
+  await named(page, "Start here").hover();
+  await expect(named(page, "Start here").getByRole("button", { name: "Add a child", exact: true })).toBeVisible();
+
+  // Flowchart: a first step with the Add next menu.
+  await newFlowchart(page, "First");
+  await named(page, "First").hover();
+  await expect(named(page, "First").getByRole("button", { name: "Add next" })).toBeVisible();
+
+  // Free map: empty paper; a double-click adds a box that stands on its own.
+  await newPlainMap(page);
+  await addBoxAt(page, 500, 300, "Loose");
+  await named(page, "Loose").hover();
+  await expect(named(page, "Loose").getByRole("button", { name: "Add a linked box" })).toBeVisible();
+});
