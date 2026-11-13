@@ -13,7 +13,7 @@ const switcher = (page: Page) => page.getByRole("button", { name: /^Switch map/ 
 async function newMap(page: Page, name: string) {
   await switcher(page).click();
   await page.getByRole("menuitem", { name: "+ New", exact: true }).click();
-  await page.getByRole("menuitem", { name: /^Map(?! with)/ }).click();
+  await page.getByRole("menuitem", { name: /^Free map/ }).click();
   const field = page.getByRole("textbox", { name: "Map name" });
   await expect(field).toBeFocused();
   await field.fill(name);
@@ -28,10 +28,10 @@ test("map menu: recent 8, All maps, search, This map ▸ Rename and Delete", asy
   // clicking it shows the same and makes no map.
   await switcher(page).click();
   await page.getByRole("menuitem", { name: "+ New", exact: true }).click();
-  // The item's name includes its "?" ("Process What is this?").
-  const help = page.getByRole("menuitem", { name: /^Process What is this\?$/ }).getByRole("button", { name: "What is this?" });
+  // The item's name includes its "?" ("Flowchart (…) What is this?").
+  const help = page.getByRole("menuitem", { name: /^Flowchart .*What is this\?$/ }).getByRole("button", { name: "What is this?" });
   await help.hover();
-  await expect(page.getByRole("tooltip")).toContainText("A process in order");
+  await expect(page.getByRole("tooltip")).toContainText("a process in order");
   await page.getByRole("menuitem", { name: "Bracket" }).getByRole("button", { name: "What is this?" }).click();
   await expect(page.getByRole("tooltip")).toContainText("knockout tournament");
   await expect(page.getByRole("menuitem", { name: "Bracket" })).toBeVisible();

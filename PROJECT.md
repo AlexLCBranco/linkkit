@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-10-23, v0.0.113 (links on boxes: right-click or Ctrl+K, opened from a link icon)_
+_Last updated: 2026-11-13, v0.0.115 (making a map fast: + and Enter chains on free maps, edge band for arrows, pasted lists, flowchart Enter/Tab)_
 
 ## What it is
 
@@ -43,6 +43,22 @@ browser folder standing in for the folder picker); it makes and removes its own
 "ZZ bridge test" map and board and checks every other record is untouched.
 
 ## What works now
+
+**Making a map fast (the speed round, owner's brief, 2026-11-13, v0.0.115).**
+A free map's box has "+" (a linked box beside it, name open), a dot or the
+box's edge dragged onto bare paper adds a linked box there, and Enter after
+its name adds the next from the same parent (Esc, a click away or a blank
+Enter stops; only that blank box goes). A ~10 px band round any box's border
+starts an arrow (crosshair); the middle still moves it. A copied list pasted
+with Ctrl+V becomes boxes: under the selected box, or on their own with none
+selected (Linkkit's own copied boxes come first; not on the whiteboard).
+Flowcharts: Enter and Tab go on to the next unnamed branch; Tab no longer
+removes a blank new split; numbers start hidden. "+ New" reads Decision tree /
+Flowchart / Free map / Bracket (`NEW_MAP_NAMES`). Tests: `e2e/speed.e2e.ts`.
+NOT done: item E (Choice with two unlabelled branches): the spec says three,
+"Option A/B/C"; waiting for the owner. New whiteboard exports for gauntlet:
+`openWhiteboardMapWithFirstBox`, `addWhiteboardMapBox`,
+`addWhiteboardMapBoxAtScreenPoint`, `whiteboardMapPagePoint`.
 
 **Links on boxes (gauntlet's "links on everything", owner, 2026-10-23,
 v0.0.113).** A box can hold a web link (`MapNode.url`): right-click it →

@@ -79,7 +79,7 @@ test("a board renamed in Boardkit shows its new name everywhere its linked map i
   await lk.bringToFront();
   await lk.getByRole("button", { name: /^Switch map/ }).click();
   await lk.getByRole("menuitem", { name: "+ New", exact: true }).click();
-  await lk.getByRole("menuitem", { name: /^Map(?! with)/ }).click();
+  await lk.getByRole("menuitem", { name: /^Free map/ }).click();
   await lk.keyboard.press("Escape");
   await lk.waitForTimeout(1_000);
   const other = await lk.evaluate(() => localStorage.getItem("linkkit:active")!);
