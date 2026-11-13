@@ -27,6 +27,9 @@ import { useWhiteboardCanvas } from "./whiteboardCanvas";
     only carries position. */
 export type BoxFlowNode = Node<Record<string, never>, "box">;
 
+/** The four strips of the band round a box's border (`.edge`). */
+const EDGE_SIDES = ["top", "right", "bottom", "left"] as const;
+
 /** Buttons on a box do their own thing: a press on them must not start a
     drag, and a double-click must not open the name. */
 const keepToButton = (e: PointerEvent | MouseEvent) => e.stopPropagation();
@@ -36,7 +39,9 @@ const keepToButton = (e: PointerEvent | MouseEvent) => e.stopPropagation();
  * to `--box-max-width`, then wraps. While a box is selected, every box
  * shows whether the selected one needs it, breaks without it, or neither.
  *
- * Mouse: click selects, drag moves, double-click renames. On hover (or
+ * Mouse: click selects, drag moves, double-click renames. A drag that
+ * starts on the band round its border (about 10 px, crosshair cursor)
+ * draws an arrow instead, from any side. On hover (or
  * while selected) it shows a dot on its right edge to drag an arrow from,
  * and a toolbar above it to rename, colour or delete it (Treekit's hover
  * toolbar; the prototype had a corner ×). Right-click opens the same
@@ -138,6 +143,8 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   const { dragging, onBoxPointerDown, onDotPointerDown } = useBoxGestures(nodeId);
   if (!node) return null;
 
+  // Where an arrow may start: the dot, and the band round the border.
+  const canStartArrow = (!isTreeShaped || addable) && stepGoesOn;
   const style = node.color ? ({ "--box-accent": `var(--palette-${node.color})` } as CSSProperties) : undefined;
   const rename = () => startEditing({ kind: "box", id: nodeId });
 
@@ -166,6 +173,13 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
     >
       {/* React Flow only draws an edge between nodes that have handles.
           Arrows are drawn box-to-box by LinkEdgeView, so these stay hidden. */}
+      {/* The band round the border: an arrow starts from any side (the
+          same gesture as the dot's). First, so the badges, the dot and the
+          toolbar, drawn after it, stay on top where they overlap it. */}
+      {canStartArrow &&
+        EDGE_SIDES.map((side) => (
+          <span key={side} className={styles.edge} data-side={side} data-arrow-edge="" onPointerDown={onDotPointerDown} aria-hidden />
+        ))}
       <Handle type="target" position={Position.Top} className={styles.handle} isConnectable={false} />
       <InlineEditable
         value={node.name}
@@ -259,7 +273,7 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
           and every other box already has its one way in). In a Steps map
           it joins a later step (from a branch's last step) or, let go on
           the paper, adds a step; not on an End or a Yes / No. */}
-      {(!isTreeShaped || addable) && stepGoesOn && (
+      {canStartArrow && (
         <span
           className={styles.dot}
           onPointerDown={onDotPointerDown}

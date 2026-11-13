@@ -347,3 +347,114 @@ test("H: the + New entries say what you get, the decision tree first, and each s
   await named(page, "Loose").hover();
   await expect(named(page, "Loose").getByRole("button", { name: "Add a linked box" })).toBeVisible();
 });
+
+const cursorAt = (page: Page, x: number, y: number) => page.evaluate(([px, py]) => getComputedStyle(document.elementFromPoint(px, py)!).cursor, [x, y]);
+
+/** A press at `from`, dragged to `to` in a few steps, let go there. */
+async function dragPoints(page: Page, from: { x: number; y: number }, to: { x: number; y: number }) {
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move((from.x + to.x) / 2, (from.y + to.y) / 2, { steps: 4 });
+  await page.mouse.move(to.x, to.y, { steps: 4 });
+  await page.mouse.up();
+}
+
+test("I: a band round a box's border starts an arrow from any side; the middle still moves the box; relinking and the marquee still work", async ({ page }) => {
+  await open(page);
+  await newPlainMap(page);
+  await addBoxAt(page, 400, 300, "Alpha");
+  await addBoxAt(page, 800, 300, "Beta");
+  const alpha = named(page, "Alpha");
+  const beta = named(page, "Beta");
+  const a = await centre(alpha);
+  const b = await centre(beta);
+
+  // 3 px inside each side, and 2 px outside the left one: a crosshair, and a drag from there draws the arrow.
+  const starts = {
+    left: { x: a.left + 3, y: a.y },
+    top: { x: a.x, y: a.top + 3 },
+    bottom: { x: a.x, y: a.bottom - 3 },
+    right: { x: a.right - 3, y: a.top + 5 },
+    "just outside": { x: a.left - 2, y: a.y },
+  };
+  for (const [side, from] of Object.entries(starts)) {
+    await page.mouse.move(from.x, from.y);
+    // The toolbar eases into place over the box's top edge for a moment.
+    await page.waitForTimeout(300);
+    expect(await cursorAt(page, from.x, from.y), `cursor on the ${side} band`).toBe("crosshair");
+    await page.mouse.down();
+    await page.mouse.move((from.x + b.x) / 2, (from.y + b.y) / 2, { steps: 4 });
+    await page.mouse.move(b.x, b.y, { steps: 4 });
+    if (side === "top") await shot(page, "I");
+    await page.mouse.up();
+    await expect(arrows(page), `an arrow from the ${side} band`).toHaveCount(1);
+    expect((await centre(alpha)).x, "the box did not move").toBeCloseTo(a.x, 0);
+    await page.keyboard.press("Control+z");
+    await expect(arrows(page)).toHaveCount(0);
+  }
+
+  // The middle: the open hand, and a drag moves the box (no arrow).
+  expect(await cursorAt(page, a.x, a.y)).toBe("grab");
+  await dragPoints(page, { x: a.x, y: a.y }, { x: a.x + 60, y: a.y + 150 });
+  const moved = await centre(alpha);
+  expect(moved.x - a.x).toBeGreaterThan(50);
+  expect(moved.y - a.y).toBeGreaterThan(140);
+  await expect(arrows(page)).toHaveCount(0);
+  await page.keyboard.press("Control+z");
+  await expect.poll(async () => Math.round((await centre(alpha)).x)).toBe(Math.round(a.x));
+
+  // A click on the band selects the box; a double-click there renames it.
+  await clickAway(page);
+  await page.mouse.click(a.left + 3, a.y);
+  await expect(alpha).toHaveAttribute("data-highlight", "selected");
+  await page.mouse.dblclick(a.left + 3, a.y);
+  await expect(field(page)).toBeFocused();
+  await page.keyboard.press("Escape");
+  // Nothing selected again: the status line is as it was, and so is where the boxes are on screen.
+  await clickAway(page);
+  expect(Math.round((await centre(alpha)).y)).toBe(Math.round(a.y));
+
+  // From the band onto bare paper: a new linked box there (item B), and an arrow to a box as before.
+  await dragPoints(page, starts.bottom, { x: 400, y: 560 });
+  await expect(field(page)).toBeFocused();
+  await page.keyboard.type("Gamma");
+  await clickAway(page);
+  await dragPoints(page, starts.top, { x: b.x, y: b.y });
+  await expect(arrows(page)).toHaveCount(2);
+
+  // Relinking: pick the arrow to Beta and drag its far end onto a third box.
+  const g = await centre(named(page, "Gamma"));
+  const ends = page.locator(".react-flow__edge circle");
+  await addBoxAt(page, 800, 560, "Delta");
+  const d = await centre(named(page, "Delta"));
+  await page.mouse.click(a.right + (b.left - a.right) * 0.25, a.y);
+  await expect(ends).toHaveCount(2);
+  const toEnd = (await ends.nth(1).boundingBox())!;
+  await dragPoints(page, { x: toEnd.x + toEnd.width / 2, y: toEnd.y + toEnd.height / 2 }, { x: d.x, y: d.y });
+  await clickAway(page);
+  await alpha.click();
+  await expect(named(page, "Delta")).toHaveAttribute("data-highlight", "teal");
+  await expect(beta).not.toHaveAttribute("data-highlight", "teal");
+  await expect(arrows(page)).toHaveCount(2);
+
+  // The marquee: a drag across bare paper picks the boxes it holds.
+  await clickAway(page);
+  await dragPoints(page, { x: a.left - 60, y: a.top - 40 }, { x: b.right + 40, y: b.bottom + 30 });
+  await expect(page.locator("[data-box-id][data-picked]")).toHaveCount(2);
+  expect(g.y).toBeGreaterThan(b.bottom + 30);
+});
+
+test("I: in a decision tree the band starts an arrow too (onto the paper: a child)", async ({ page }) => {
+  await open(page);
+  await newMap(page, /^Decision tree/);
+  await expect(field(page)).toBeFocused();
+  await page.keyboard.type("Start");
+  await page.keyboard.press("Enter");
+  const s = await centre(named(page, "Start"));
+  await dragPoints(page, { x: s.x, y: s.bottom - 3 }, { x: s.x + 200, y: s.y + 250 });
+  await expect(field(page)).toBeFocused();
+  await page.keyboard.type("Child");
+  await page.keyboard.press("Enter");
+  await expect(boxes(page)).toHaveCount(2);
+  await expect(arrows(page)).toHaveCount(1);
+});

@@ -59,6 +59,10 @@
   /* The connect dot on a box's right edge, the buttons in a box's hover
      toolbar, and the × on an arrow's label. */
   --box-handle-size: 14px;
+  /* The band round a box's border that starts an arrow: how wide it is,
+     and how much of that lies outside the border (the rest is inside). */
+  --box-edge-band: 10px;
+  --box-edge-out: 3px;
   --box-button-size: 22px;
   --delete-button-size: 16px;
   /* A colour swatch in the colour menus. */

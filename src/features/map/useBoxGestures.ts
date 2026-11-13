@@ -26,7 +26,8 @@ let dragCount = 0;
  *   another box becomes that box's last next step, and let go in a gap
  *   between siblings goes there (`dropTargetAt`); the tree re-tidies.
  *   Let go anywhere else, a tree's boxes glide home (`cancelDrag`).
- * - Press on the box's dot: drags out a dashed arrow; letting go over
+ * - Press on the box's dot, or on the band round its border: drags out a
+ *   dashed arrow (a press that doesn't travel is a click on the box); letting go over
  *   another box draws the arrow, if the rules allow it. Letting go on
  *   empty paper adds a box there with the arrow into it, its name open (a
  *   tree's next step; in a map without tree rules, a linked box).
@@ -188,18 +189,31 @@ export function useBoxGestures(id: NodeId) {
       const onPaper = (x: number, y: number) =>
         (hasTreeShape(useMapStore.getState().map.kind) || useMapStore.getState().map.kind === "connections") &&
         (!!document.elementFromPoint(x, y)?.classList.contains("react-flow__pane") || (onWhiteboard && !!whiteboard?.onPage?.(x, y)));
-      const update = (ev: PointerEvent | ReactPointerEvent) =>
+      // An arrow only once the pointer has travelled: a press that doesn't
+      // is a click on the box (the band round its border is part of it).
+      const startClient = { x: e.clientX, y: e.clientY };
+      let moved = false;
+      const update = (ev: PointerEvent) => {
+        if (!moved && Math.hypot(ev.clientX - startClient.x, ev.clientY - startClient.y) < DRAG_THRESHOLD) return;
+        moved = true;
         useMapStore.getState().setConnecting({
           from: id,
           at: screenToFlowPosition({ x: ev.clientX, y: ev.clientY }),
           target: targetAt(ev.clientX, ev.clientY),
           refused: refusedAt(ev.clientX, ev.clientY),
         });
+      };
 
       const end = (ev: PointerEvent) => {
         el.removeEventListener("pointermove", update);
         el.removeEventListener("pointerup", end);
         el.removeEventListener("pointercancel", end);
+        if (!moved) {
+          if (ev.type !== "pointerup") return;
+          if (ev.shiftKey) useMapStore.getState().toggleSelected(id);
+          else useMapStore.getState().select(id);
+          return;
+        }
         const { setConnecting, connect } = useMapStore.getState();
         const to = ev.type === "pointerup" ? targetAt(ev.clientX, ev.clientY) : null;
         const refused = ev.type === "pointerup" ? refusedAt(ev.clientX, ev.clientY) : null;
@@ -214,7 +228,6 @@ export function useBoxGestures(id: NodeId) {
           useMapStore.getState().addNextStep(id, at, plain ? boxRoom(el, onWhiteboard) : undefined);
         }
       };
-      update(e);
       el.addEventListener("pointermove", update);
       el.addEventListener("pointerup", end);
       el.addEventListener("pointercancel", end);

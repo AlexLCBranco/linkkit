@@ -148,6 +148,59 @@
   transform: scale(1.25);
 }
 
+/* The band round the whole border: a press there drags out an arrow, from
+   any side (the dot alone was a small target); the middle of the box still
+   moves it. Four strips, so the middle stays the box's own. Invisible: the
+   crosshair says what a press will do. The 1px is the box's border, which
+   the strips are placed inside of. */
+.edge {
+  --edge-start: calc(-1 * (var(--box-edge-out) + 1px));
+  position: absolute;
+  cursor: crosshair;
+}
+
+.edge[data-side="top"],
+.edge[data-side="bottom"] {
+  left: var(--edge-start);
+  right: var(--edge-start);
+  height: var(--box-edge-band);
+}
+
+.edge[data-side="left"],
+.edge[data-side="right"] {
+  top: var(--edge-start);
+  bottom: var(--edge-start);
+  width: var(--box-edge-band);
+}
+
+.edge[data-side="top"] {
+  top: var(--edge-start);
+}
+
+.edge[data-side="bottom"] {
+  bottom: var(--edge-start);
+}
+
+.edge[data-side="left"] {
+  left: var(--edge-start);
+}
+
+.edge[data-side="right"] {
+  right: var(--edge-start);
+}
+
+/* The top strip fills the gap up to the toolbar, so it keeps the hover
+   there itself: the toolbar's bridge would only cover it. */
+.box:has(.edge) .toolbar::after {
+  pointer-events: none;
+}
+
+/* Not while typing in the box or moving it. */
+.box.box[data-editing] .edge,
+.box.box[data-dragging] .edge {
+  pointer-events: none;
+}
+
 /* The hover toolbar: a pill centred just above the box (rename, delete),
    as on a Treekit node, so its buttons never crowd the box's edges. */
 .toolbar {
