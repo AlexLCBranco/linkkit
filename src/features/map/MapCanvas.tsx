@@ -19,7 +19,7 @@ import { layoutMap } from "../../domain/layout";
 import { scrollToReveal } from "../../domain/navigation";
 import { shownMap } from "../../domain/shown";
 import { boxesIn, marqueeSelection, rectBetween, type Rect } from "../../domain/marquee";
-import { alignFor, boxBounds, clampToPage, contentBox, keepOnPage, layoutRoom, pageSize, placeBlockBeside, placeOnPage, resizedByEdit } from "../../domain/page";
+import { alignFor, boxBounds, clampToPage, contentBox, cornerShift, keepOnPage, layoutRoom, pageSize, placeBlockBeside, placeOnPage, resizedByEdit } from "../../domain/page";
 import { fitZoom, scrollAfterZoom, scrollToContent, ZOOM_MAX, ZOOM_MIN, zoomPage, type ZoomedPage } from "../../domain/zoom";
 import type { Bounds } from "../../domain/layout";
 import { hasTreeShape, type ArrowLength, type LayoutDirection, type LinkId, type LinkMap, type NodeId, type Point, type Size } from "../../domain/types";
@@ -620,12 +620,16 @@ function MapCanvasInner() {
         ? { x: seen.left + seen.width / 2, y: seen.top + PAGE_MARGIN.y - PASTE_BLOCK.gap }
         : { x: seen.left + PAGE_MARGIN.x - PASTE_BLOCK.gap, y: seen.top + seen.height / 2 };
     const beside = anchor ? box(anchor.id) : { center: corner, size: { width: 0, height: 0 } };
-    const positions = placeBlockBeside(layout, beside, others, PASTE_BLOCK, s.map.direction);
-    const from = new Map<NodeId, Point>([...ids].map((id) => [id, { x: s.map.nodes[id].x, y: s.map.nodes[id].y }]));
-    s.nudgeBoxes(positions);
+    const spots = placeBlockBeside(layout, beside, others, PASTE_BLOCK, s.map.direction);
+    // On the whiteboard a box can't go past the page's corner (the selected
+    // box may sit right at it): everything moves right and down instead.
+    const d = whiteboard ? cornerShift(spots, sizes, MAP_LAYOUT.fallbackSize, PAGE_INSETS.edge) : { x: 0, y: 0 };
+    const positions = new Map([...spots].map(([id, p]) => [id, { x: p.x + d.x, y: p.y + d.y }]));
+    const from = new Map<NodeId, Point>([...ids].map((id) => [id, { x: s.map.nodes[id].x + d.x, y: s.map.nodes[id].y + d.y }]));
+    s.nudgeBoxes(positions, d.x || d.y ? d : undefined);
     // From the box they came from, they glide; from nowhere, they appear.
     if (anchor) startGlide(from, shownNow(api.getState().map).nodes);
-  }, [placeRequest, allMeasured, screen, needsTidy, sizes, startGlide, api]);
+  }, [placeRequest, allMeasured, screen, needsTidy, sizes, startGlide, api, whiteboard]);
 
   const placedAt = useCallback((id: NodeId): Point => glide.shown?.get(id) ?? map.nodes[id], [glide.shown, map.nodes]);
   const at = useCallback(

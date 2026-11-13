@@ -217,10 +217,12 @@ export interface PastePress {
  * selected box, or standing on their own with none selected (a map
  * without tree rules). Linkkit's own copied boxes come first (`onMapKey`
  * pastes them and no paste event follows); one line of text is not a
- * list. Not on the gauntlet whiteboard, where a paste is the page's.
+ * list. On the gauntlet whiteboard too, while the map is edited there
+ * (only then is this listening, `useMapShortcuts`): the whiteboard leaves
+ * a paste alone while one of its items is edited.
  */
 export function onMapPaste(e: PastePress): void {
-  if (onWhiteboard || isTyping(e.target) || inOverlay(e.target)) return;
+  if (isTyping(e.target) || inOverlay(e.target)) return;
   const store = useMapStore.getState();
   if (store.editing || store.clipboard) return;
   const text = e.clipboardData?.getData("text/plain") ?? "";

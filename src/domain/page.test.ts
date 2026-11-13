@@ -12,6 +12,7 @@ import {
   clampGroupMove,
   clampToPage,
   contentBox,
+  cornerShift,
   defaultPageSize,
   freeSpot,
   keepOnPage,
@@ -320,5 +321,21 @@ describe("besideSpot (a new box linked from another)", () => {
     map = moveNode(map, asNodeId("b"), { x: 200, y: 196 });
     const wide = new Map<NodeId, Size>([[asNodeId("b"), { width: 300, height: 40 }]]);
     expect(besideSpot(map, wide, { x: 200, y: 196 }, "TB", size, options).x - 200).toBeGreaterThanOrEqual(210 + 16);
+  });
+});
+
+describe("cornerShift", () => {
+  const id = (s: string) => asNodeId(s);
+  const size: Size = { width: 120, height: 40 };
+  it("is nothing when every box keeps the edge clear", () => {
+    expect(cornerShift(new Map([[id("a"), { x: 84, y: 44 }]]), new Map(), size, 24)).toEqual({ x: 0, y: 0 });
+  });
+  it("moves everything far enough for the box furthest past the left or top edge", () => {
+    const positions = new Map([
+      [id("a"), { x: -78, y: 124 }],
+      [id("b"), { x: 74, y: 10 }],
+    ]);
+    // a: 60 + 24 - (-78) = 162 right; b (measured 72 x 44): 22 + 24 - 10 = 36 down.
+    expect(cornerShift(positions, new Map([[id("b"), { width: 72, height: 44 }]]), size, 24)).toEqual({ x: 162, y: 36 });
   });
 });

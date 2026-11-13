@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-11-13, v0.0.116 (making a map fast; a Choice starts with two unlabelled branches)_
+_Last updated: 2026-11-13, v0.0.117 (a pasted list on the gauntlet whiteboard)_
 
 ## What it is
 
@@ -51,7 +51,9 @@ its name adds the next from the same parent (Esc, a click away or a blank
 Enter stops; only that blank box goes). A ~10 px band round any box's border
 starts an arrow (crosshair); the middle still moves it. A copied list pasted
 with Ctrl+V becomes boxes: under the selected box, or on their own with none
-selected (Linkkit's own copied boxes come first; not on the whiteboard).
+selected (Linkkit's own copied boxes come first). On the gauntlet whiteboard
+too, while the map is edited there (v0.0.117); a block that would go past the
+page's corner moves the whole map right and down instead (`cornerShift`).
 Flowcharts: Enter and Tab go on to the next unnamed branch; Tab no longer
 removes a blank new split; numbers start hidden. "+ New" reads Decision tree /
 Flowchart / Free map / Bracket (`NEW_MAP_NAMES`). Tests: `e2e/speed.e2e.ts`.

@@ -428,3 +428,21 @@ export function placeBlockBeside(
   const dy = spot.top - b.top;
   return new Map([...block.positions].map(([id, p]) => [id, { x: p.x + dx, y: p.y + dy }]));
 }
+
+/**
+ * How far everything must move right and down so every one of these boxes
+ * (centres, with their sizes; `fallbackSize` for one not measured yet)
+ * keeps `edge` clear of the page's left and top edges. On the gauntlet
+ * whiteboard a box may not go past the page's corner: the whole map moves
+ * instead (the map's shift, `shiftMap`). `{ x: 0, y: 0 }` when none is past.
+ */
+export function cornerShift(positions: ReadonlyMap<NodeId, Point>, sizes: ReadonlyMap<NodeId, Size>, fallbackSize: Size, edge: number): Point {
+  let x = 0;
+  let y = 0;
+  for (const [id, p] of positions) {
+    const size = sizes.get(id) ?? fallbackSize;
+    x = Math.max(x, Math.ceil(size.width / 2 + edge - p.x));
+    y = Math.max(y, Math.ceil(size.height / 2 + edge - p.y));
+  }
+  return { x, y };
+}

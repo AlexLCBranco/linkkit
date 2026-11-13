@@ -225,6 +225,21 @@ describe("Ctrl+V on the map", () => {
     expect(Object.values(s().map.links).every((l) => l.from === a)).toBe(true);
   });
 
+  it("on the gauntlet whiteboard (the map being edited there) the pasted list becomes boxes too", async () => {
+    const { s, a, onMapPaste } = await plain();
+    const { setMapKeysOnWhiteboard } = await import("./useMapShortcuts");
+    setMapKeysOnWhiteboard(true);
+    try {
+      s().select(a);
+      const paste = pasteOf("One\nTwo");
+      onMapPaste(paste);
+      expect(paste.preventDefault).toHaveBeenCalled();
+      expect(namesOf(s)).toEqual(["A", "One", "Two"]);
+    } finally {
+      setMapKeysOnWhiteboard(false);
+    }
+  });
+
   it("one line, or a name being typed, is left alone", async () => {
     const { s, a, onMapPaste } = await plain();
     const one = pasteOf("Just one line");

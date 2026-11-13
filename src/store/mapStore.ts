@@ -373,8 +373,9 @@ export interface MapState {
       step. */
   moveBox(id: NodeId, to: Point, gesture?: string): void;
   /** Moves boxes back onto the page after a change made them stick out (a
-      longer name). Part of that change, so it joins the latest undo step. */
-  nudgeBoxes(positions: ReadonlyMap<NodeId, Point>): void;
+      longer name). Part of that change, so it joins the latest undo step.
+      `shift`: everything moves by it first (`shiftMap`, on the whiteboard). */
+  nudgeBoxes(positions: ReadonlyMap<NodeId, Point>, shift?: Point): void;
   /** Re-places a saved bracket as it opens, so a change to how brackets
       are laid out (their headings' room, say) reaches maps saved before
       it. Not an undo step: its matches can't be moved by hand, so the
@@ -1266,9 +1267,9 @@ const globalMapStore = create<MapState>()((set, get) => ({
     return pasted.added.every((id) => get().map.nodes[id]) ? pasted.added.length : 0;
   },
   moveBox: (id, to, gesture) => set((s) => commit(s, moveNode(s.map, id, to), gesture ?? null)),
-  nudgeBoxes: (positions) =>
+  nudgeBoxes: (positions, shift) =>
     set((s) => {
-      const next = moveNodes(s.map, positions);
+      const next = moveNodes(shift ? shiftMap(s.map, shift) : s.map, positions);
       if (next === s.map) return {};
       // With no step to join (boxes from another app, tidied in, after the
       // last step or with none), the room made is not something to undo.
