@@ -85,3 +85,71 @@ describe("a plain map's + (addNextStep without tree rules)", () => {
     expect(s().history.past.length).toBe(steps);
   });
 });
+
+describe("Enter keeps the chain going (enterOnBox)", () => {
+  it("keeps the name and opens another new box from the same parent, beside the last", async () => {
+    const { s, a } = await plainMap();
+    const b = s().addNextStep(a)!;
+    s().enterOnBox(b, "B");
+    expect(s().map.nodes[b].name).toBe("B");
+    const c = s().editing!.id as NodeId;
+    expect(c).not.toBe(b);
+    expect(linksFrom(s, a)).toEqual([b, c]);
+    expect(s().map.nodes[c].y).toBe(s().map.nodes[b].y);
+    expect(s().map.nodes[c].x).toBeGreaterThan(s().map.nodes[b].x);
+    // And again.
+    s().enterOnBox(c, "C");
+    expect(linksFrom(s, a)).toHaveLength(3);
+    expect(s().editing!.id).not.toBe(c);
+  });
+
+  it("left blank, the chain stops and only the blank box goes", async () => {
+    const { s, a } = await plainMap();
+    const b = s().addNextStep(a)!;
+    s().enterOnBox(b, "B");
+    const c = s().editing!.id as NodeId;
+    const steps = s().history.past.length;
+    s().enterOnBox(c, "");
+    expect(s().editing).toBeNull();
+    expect(s().map.nodes[c]).toBeUndefined();
+    expect(Object.values(s().map.nodes).map((n) => n.name).sort()).toEqual(["A", "B"]);
+    expect(linksFrom(s, a)).toEqual([b]);
+    expect(s().history.past.length).toBe(steps - 1);
+  });
+
+  it("Esc (or a click away) on the blank one does the same", async () => {
+    const { s, a } = await plainMap();
+    const b = s().addNextStep(a)!;
+    s().enterOnBox(b, "B");
+    s().stopEditing(true);
+    expect(Object.values(s().map.nodes).map((n) => n.name).sort()).toEqual(["A", "B"]);
+    expect(s().chain).toBeNull();
+  });
+
+  it("an empty name never deletes a box that already had a name", async () => {
+    const { s, a } = await plainMap();
+    const b = s().addNextStep(a)!;
+    s().enterOnBox(b, "B");
+    s().stopEditing(true);
+    // Renamed later, B is no longer "just added": blank stays a blank box.
+    s().startEditing({ kind: "box", id: b });
+    s().enterOnBox(b, "");
+    expect(s().map.nodes[b]).toMatchObject({ name: "" });
+    expect(s().editing).toBeNull();
+    s().startEditing({ kind: "box", id: a });
+    s().stopEditing(true);
+    expect(s().map.nodes[a].name).toBe("A");
+    expect(linksFrom(s, a)).toEqual([b]);
+  });
+
+  it("a later rename of a chained box does not start a chain again", async () => {
+    const { s, a } = await plainMap();
+    const b = s().addNextStep(a)!;
+    s().enterOnBox(b, "B");
+    s().stopEditing(true);
+    s().startEditing({ kind: "box", id: b });
+    s().enterOnBox(b, "B2");
+    expect(s().editing).toBeNull();
+    expect(Object.keys(s().map.nodes)).toHaveLength(2);
+  });
+});

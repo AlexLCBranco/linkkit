@@ -102,6 +102,7 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
   const startEditing = useMapStore((s) => s.startEditing);
   const stopEditing = useMapStore((s) => s.stopEditing);
   const renameBox = useMapStore((s) => s.renameBox);
+  const enterOnBox = useMapStore((s) => s.enterOnBox);
   const pasteOutline = useMapStore((s) => s.pasteOutline);
   const deleteBox = useMapStore((s) => s.deleteBox);
   const setBoxColor = useMapStore((s) => s.setBoxColor);
@@ -170,6 +171,8 @@ export const BoxView = memo(function BoxView({ id }: NodeProps<BoxFlowNode>) {
         value={node.name}
         editing={isEditing}
         onCommit={(name) => renameBox(nodeId, name)}
+        // Enter keeps the name and goes on to what is typed next.
+        onEnter={(name) => enterOnBox(nodeId, name, boxRoom(document.querySelector(`[${BOX_ID_ATTRIBUTE}="${nodeId}"]`), onWhiteboard))}
         // Several lines pasted: an outline, one box per line.
         // Not in a Steps map: an outline's indents would make splits with
         // no type. Lines pasted there stay lines of the name.

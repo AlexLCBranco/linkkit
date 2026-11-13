@@ -258,6 +258,11 @@ export interface MapState {
       across maps; never saved. */
   readonly clipboard: { readonly fragment: MapFragment; readonly pastes: number } | null;
   readonly editing: Editing | null;
+  /** A map without tree rules: the box being named was just added from
+      `parent` (its "+", or an arrow let go on bare paper), so Enter on its
+      name goes on to another new box from the same parent (`enterOnBox`).
+      Gone the moment typing ends any other way. */
+  readonly chain: { readonly box: NodeId; readonly parent: NodeId } | null;
   readonly connecting: Connecting | null;
   readonly dropping: Dropping | null;
   /** The arrow picked by clicking its line (its ends then show handles to
@@ -585,6 +590,12 @@ export interface MapState {
    */
   openBoardAsMap(boardId: string): boolean;
 
+  /** Enter on a box's name: keeps `name`, then goes on where there is
+      more to type. A box just added from another in a map without tree
+      rules (`chain`): another new box from the same parent, beside the
+      last, its name open; left blank instead, the chain stops and that
+      blank box goes (as Esc), and no other box is touched. */
+  enterOnBox(id: NodeId, name: string, room?: BoxRoom): void;
   startEditing(editing: Editing): void;
   /** Ends typing. A box may stay blank (it shows a faint "Untitled").
       `cancelled` (Esc) on a box just added and still blank takes the add
@@ -1072,6 +1083,7 @@ const globalMapStore = create<MapState>()((set, get) => ({
   group: [],
   clipboard: null,
   editing: null,
+  chain: null,
   connecting: null,
   dropping: null,
   selectedLink: null,
@@ -1407,12 +1419,14 @@ const globalMapStore = create<MapState>()((set, get) => ({
     set({ trashedMaps });
   },
   addNextStep: (from, at, room = UNMEASURED_ROOM) => {
+    // Enter on the box added last from `from`: the next goes beside it.
+    const last = get().chain?.parent === from ? get().map.nodes[get().chain!.box] : undefined;
     get().stopEditing();
     const { map } = get();
     const parent = map.nodes[from];
     if (map.kind === "connections" && parent) {
       const offset = NEXT_STEP_OFFSET[map.direction];
-      const start = { x: parent.x + offset.x, y: parent.y + offset.y };
+      const start = last && map.nodes[last.id] ? { x: last.x, y: last.y } : { x: parent.x + offset.x, y: parent.y + offset.y };
       const spot = at ?? besideSpot(map, room.sizes, start, map.direction, room.size, { ...room, fallbackSize: room.size });
       // Kept on the page: its left and top edges hold it back, or on the
       // whiteboard everything else makes way.
@@ -1422,7 +1436,11 @@ const globalMapStore = create<MapState>()((set, get) => ({
       };
       const added = addNextStep(room.whiteboard ? shiftMap(map, d) : map, from, { x: spot.x + d.x, y: spot.y + d.y });
       if (!added) return null;
-      set((s) => ({ ...commit(s, added.map, newBoxKey(added.nodeId)), editing: { kind: "box", id: added.nodeId } }));
+      set((s) => ({
+        ...commit(s, added.map, newBoxKey(added.nodeId)),
+        editing: { kind: "box", id: added.nodeId },
+        chain: { box: added.nodeId, parent: from },
+      }));
       return added.nodeId;
     }
     if (map.kind === "steps" && parent) {
@@ -1807,7 +1825,19 @@ const globalMapStore = create<MapState>()((set, get) => ({
     return true;
   },
 
-  startEditing: (editing) => set({ editing }),
+  enterOnBox: (id, name, room) => {
+    const s = get();
+    const node = s.map.nodes[id];
+    if (!node) return s.stopEditing();
+    // Only a box still being named for the first time goes on.
+    const chain = s.chain?.box === id && s.stepKey === newBoxKey(id) ? s.chain : null;
+    if (name !== node.name) s.renameBox(id, name);
+    if (!chain) return get().stopEditing();
+    // Left blank: the chain stops here, and the blank box goes (as Esc).
+    if (get().map.nodes[id]?.name === "") return get().stopEditing(true);
+    get().addNextStep(chain.parent, undefined, room);
+  },
+  startEditing: (editing) => set({ editing, chain: null }),
   stopEditing: (cancelled = false) =>
     set((s) => {
       const e = s.editing;
@@ -1818,13 +1848,13 @@ const globalMapStore = create<MapState>()((set, get) => ({
         // Its parent is selected again, ready for another Tab.
         const parent = Object.values(s.map.links).find((l) => l.to === e.id)?.from;
         const back = parent && step?.map.nodes[parent] ? selecting([parent]) : {};
-        if (step) return { ...forget({ ...s, ...back }, step.map), history: step.history, stepKey: null, editing: null };
+        if (step) return { ...forget({ ...s, ...back }, step.map), history: step.history, stepKey: null, editing: null, chain: null };
       }
       // A new tree step just named: its final size is known now, so the
       // tree makes room for it (joined to the same step, see settleRequest).
       const named = e?.kind === "box" && hasTreeShape(s.map.kind) && s.stepKey === newBoxKey(e.id);
       // Typing is over: a later rename of this box is its own step.
-      return { editing: null, stepKey: null, settleRequest: s.settleRequest + (named ? 1 : 0) };
+      return { editing: null, chain: null, stepKey: null, settleRequest: s.settleRequest + (named ? 1 : 0) };
     }),
 }));
 

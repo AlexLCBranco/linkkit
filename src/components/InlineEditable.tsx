@@ -26,6 +26,10 @@ interface InlineEditableProps {
       and Tab keep the text and ask for the next field (`1`), Shift+Tab
       for the one before (`-1`). Called after `onDone`. */
   readonly onStep?: (step: 1 | -1) => void;
+  /** Enter hands the typed text (trimmed) here instead of `onCommit` and
+      `onDone`: the parent keeps it and decides what is typed next (a box
+      name: another new box, a flowchart's next branch). */
+  readonly onEnter?: (value: string) => void;
   /** Shown (not typed), web addresses in the text are links, opened in a
       new tab; a press on one never reaches the box (no select, no drag). */
   readonly linkify?: boolean;
@@ -99,6 +103,7 @@ function EditField({
   onPasteLines,
   multiline = false,
   onStep,
+  onEnter,
 }: Omit<InlineEditableProps, "editing">) {
   const [draft, setDraft] = useState(value);
   // Set once the edit has ended, so the blur that follows Enter/Esc (as the
@@ -184,7 +189,11 @@ function EditField({
             // A new line in the name: the browser types it.
           } else if (pressed(event, "save")) {
             event.preventDefault();
-            finish(true);
+            if (!onEnter) finish(true);
+            else if (!finishedRef.current) {
+              finishedRef.current = true;
+              onEnter(draft.trim());
+            }
           } else if (pressed(event, "cancel")) {
             event.preventDefault();
             finish(false);

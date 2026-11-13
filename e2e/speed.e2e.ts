@@ -150,3 +150,69 @@ test("B: a box's dot dragged onto empty paper adds a linked box there, name open
   await expect(boxes(page)).toHaveCount(1);
   await expect(arrows(page)).toHaveCount(0);
 });
+
+test("C: Enter keeps the chain going from the same parent; Esc, a click away or a blank Enter stops it and only the blank box goes", async ({ page }) => {
+  await open(page);
+  await newPlainMap(page);
+  await addBoxAt(page, 300, 250, "Alpha");
+  const alpha = named(page, "Alpha");
+
+  // From the +: three names, Enter after each.
+  await alpha.hover();
+  await alpha.getByRole("button", { name: "Add a linked box" }).click();
+  for (const name of ["One", "Two", "Three"]) {
+    await expect(field(page)).toBeFocused();
+    await page.keyboard.type(name);
+    await page.keyboard.press("Enter");
+  }
+  // A fourth is open and blank: Esc stops, and only it goes.
+  await expect(field(page)).toBeFocused();
+  await expect(boxes(page)).toHaveCount(5);
+  await shot(page, "C");
+  await page.keyboard.press("Escape");
+  await expect(field(page)).toHaveCount(0);
+  expect(await names(page)).toEqual(["Alpha", "One", "Two", "Three"]);
+  await expect(arrows(page)).toHaveCount(3);
+  // All three hang off Alpha, side by side.
+  await alpha.click();
+  for (const name of ["One", "Two", "Three"]) await expect(named(page, name)).toHaveAttribute("data-highlight", "teal");
+  const [one, two, three] = await Promise.all(["One", "Two", "Three"].map((n) => centre(named(page, n))));
+  expect(two.left).toBeGreaterThan(one.right);
+  expect(three.left).toBeGreaterThan(two.right);
+  expect(Math.abs(three.y - one.y)).toBeLessThan(3);
+
+  // From a dot dragged onto the paper: the chain goes on beside that box; a click away stops it.
+  await alpha.hover();
+  await drag(page, dot(alpha), { x: 500, y: 560 });
+  await page.keyboard.type("Four");
+  await page.keyboard.press("Enter");
+  await expect(field(page)).toBeFocused();
+  await page.keyboard.type("Five");
+  await page.keyboard.press("Enter");
+  await expect(field(page)).toBeFocused();
+  await clickAway(page);
+  expect(await names(page)).toEqual(["Alpha", "One", "Two", "Three", "Four", "Five"]);
+  const [four, five] = await Promise.all(["Four", "Five"].map((n) => centre(named(page, n))));
+  expect(five.left).toBeGreaterThan(four.right);
+  expect(Math.abs(five.y - four.y)).toBeLessThan(3);
+
+  // A blank Enter stops it too.
+  await alpha.hover();
+  await alpha.getByRole("button", { name: "Add a linked box" }).click();
+  await page.keyboard.type("Six");
+  await page.keyboard.press("Enter");
+  await expect(field(page)).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(field(page)).toHaveCount(0);
+  expect(await names(page)).toEqual(["Alpha", "One", "Two", "Three", "Four", "Five", "Six"]);
+
+  // A named box renamed to nothing stays (shown as "Untitled"), with its arrow.
+  await named(page, "Six").dblclick();
+  await expect(field(page)).toBeFocused();
+  await page.keyboard.press("Control+a");
+  await page.keyboard.press("Delete");
+  await page.keyboard.press("Enter");
+  await expect(field(page)).toHaveCount(0);
+  await expect(boxes(page)).toHaveCount(7);
+  await expect(arrows(page)).toHaveCount(6);
+});
