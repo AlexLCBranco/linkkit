@@ -110,3 +110,43 @@ test("A: a plain map's + adds a linked box beside the box, name open, stepped as
   expect(await names(page)).toEqual(["Alpha", "Beta"]);
 });
 
+
+/** Drags from the middle of `from` to a point on the screen. */
+async function drag(page: Page, from: Locator, to: { x: number; y: number }) {
+  const r = (await from.boundingBox())!;
+  await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2);
+  await page.mouse.down();
+  await page.mouse.move((r.x + to.x) / 2, (r.y + to.y) / 2, { steps: 4 });
+  await page.mouse.move(to.x, to.y, { steps: 4 });
+  await page.mouse.up();
+}
+
+const dot = (box: Locator) => box.locator("[title='Drag to another box to connect']");
+
+test("B: a box's dot dragged onto empty paper adds a linked box there, name open", async ({ page }) => {
+  await open(page);
+  await newPlainMap(page);
+  await addBoxAt(page, 400, 250, "Alpha");
+  const alpha = named(page, "Alpha");
+
+  await alpha.hover();
+  await drag(page, dot(alpha), { x: 760, y: 520 });
+  await expect(field(page)).toBeFocused();
+  await expect(boxes(page)).toHaveCount(2);
+  await expect(arrows(page)).toHaveCount(1);
+  await page.keyboard.type("Delta");
+  await shot(page, "B");
+  await clickAway(page);
+  const d = await centre(named(page, "Delta"));
+  expect(Math.abs(d.x - 760)).toBeLessThan(6);
+  expect(Math.abs(d.y - 520)).toBeLessThan(6);
+  // The arrow runs from Alpha to the new box: Alpha selected, Delta is what it needs.
+  await alpha.click();
+  await expect(named(page, "Delta")).toHaveAttribute("data-highlight", "teal");
+
+  // One undo step.
+  await clickAway(page);
+  await page.keyboard.press("Control+z");
+  await expect(boxes(page)).toHaveCount(1);
+  await expect(arrows(page)).toHaveCount(0);
+});

@@ -6,6 +6,7 @@ import { canLink, linkRefusalText } from "../../domain/rules";
 import { useHint } from "../../store/hint";
 import { hasTreeShape, type NodeId, type Point } from "../../domain/types";
 import { useMapStore } from "../../store/mapStore";
+import { boxRoom } from "./boxRoom";
 import { dropTargetAt } from "./dropTarget";
 import { DRAG_THRESHOLD, MAP_LAYOUT, PAGE_INSETS } from "./layoutConfig";
 import { BOX_ID_ATTRIBUTE, boxSizes, MAP_PAGE_ATTRIBUTE, MAP_VIEW_ATTRIBUTE, screenSize } from "./pageMarkers";
@@ -26,8 +27,9 @@ let dragCount = 0;
  *   between siblings goes there (`dropTargetAt`); the tree re-tidies.
  *   Let go anywhere else, a tree's boxes glide home (`cancelDrag`).
  * - Press on the box's dot: drags out a dashed arrow; letting go over
- *   another box draws the arrow, if the rules allow it. In a tree, letting
- *   go on empty paper adds a next step there.
+ *   another box draws the arrow, if the rules allow it. Letting go on
+ *   empty paper adds a box there with the arrow into it, its name open (a
+ *   tree's next step; in a map without tree rules, a linked box).
  *
  * Both are hand-written with pointer events instead of React Flow's own
  * dragging and connecting, because those keep their own copy of positions
@@ -179,11 +181,12 @@ export function useBoxGestures(id: NodeId) {
         const verdict = to ? canLink(map, id, to) : null;
         return to && verdict && !verdict.ok ? { box: to, text: linkRefusalText(map, id, to, verdict.reason) } : null;
       };
-      /** Over the bare paper of a tree (not a box, arrow or label). Edited
+      /** Over the bare paper (not a box, arrow or label) of a map that
+          takes a new box there: a tree, or one without tree rules. Edited
           on the whiteboard, its whole page is the map's paper: anywhere
           the whiteboard says is bare (past the map's edge too). */
       const onPaper = (x: number, y: number) =>
-        hasTreeShape(useMapStore.getState().map.kind) &&
+        (hasTreeShape(useMapStore.getState().map.kind) || useMapStore.getState().map.kind === "connections") &&
         (!!document.elementFromPoint(x, y)?.classList.contains("react-flow__pane") || (onWhiteboard && !!whiteboard?.onPage?.(x, y)));
       const update = (ev: PointerEvent | ReactPointerEvent) =>
         useMapStore.getState().setConnecting({
@@ -204,7 +207,11 @@ export function useBoxGestures(id: NodeId) {
         if (to) connect(id, to);
         else if (refused) useHint.getState().show(refused.text, screenToFlowPosition({ x: ev.clientX, y: ev.clientY }));
         else if (ev.type === "pointerup" && onPaper(ev.clientX, ev.clientY)) {
-          useMapStore.getState().addNextStep(id, screenToFlowPosition({ x: ev.clientX, y: ev.clientY }));
+          // A tree's new step glides from there into its place; without
+          // tree rules the new box stays where the arrow was let go.
+          const plain = useMapStore.getState().map.kind === "connections";
+          const at = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
+          useMapStore.getState().addNextStep(id, at, plain ? boxRoom(el, onWhiteboard) : undefined);
         }
       };
       update(e);
