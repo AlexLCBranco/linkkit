@@ -254,3 +254,29 @@ test("D: in a flowchart Enter keeps the name and opens the next unnamed branch; 
   await expect(field(page)).toHaveCount(0);
   expect(await names(page)).toEqual(["Ready?", "Go ahead", "Stop"]);
 });
+
+const stepNumbers = (page: Page) => page.locator("[data-box-id] [aria-label^='Step ']");
+const numbersSwitch = (page: Page) => page.getByRole("button", { name: "Step numbers" });
+
+test("F: a new flowchart starts with its step numbers off; the header's Numbers switch turns them on, and that is kept", async ({ page }) => {
+  await open(page);
+  await newFlowchart(page, "Ready?");
+  await addNext(page, named(page, "Ready?"), "Yes / No");
+  await page.keyboard.type("Go");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("Stop");
+  await page.keyboard.press("Enter");
+  await expect(boxes(page)).toHaveCount(3);
+  await expect(stepNumbers(page)).toHaveCount(0);
+  await expect(numbersSwitch(page)).toHaveAttribute("aria-pressed", "false");
+  await shot(page, "F");
+
+  // The switch still shows them, and the map keeps its setting over a reload.
+  await numbersSwitch(page).click();
+  await expect(stepNumbers(page)).toHaveCount(3);
+  await page.waitForTimeout(1_500);
+  await page.reload();
+  await expect(page.locator("[data-ready]")).toBeVisible(READY);
+  await expect(stepNumbers(page)).toHaveCount(3);
+  await expect(numbersSwitch(page)).toHaveAttribute("aria-pressed", "true");
+});

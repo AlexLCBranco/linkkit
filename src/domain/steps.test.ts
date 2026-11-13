@@ -642,3 +642,23 @@ describe("nextUnnamedBranch (Enter moves on through a split's branches)", () => 
     expect(nextUnnamedBranch(buildTree("q", ["a", "b"], [["q", "a"], ["q", "b"]]), asNodeId("a"))).toBeNull();
   });
 });
+
+describe("a new flowchart's step numbers", () => {
+  it("start hidden, in every preset", () => {
+    for (const preset of ["blank", "decision", "check"] as const) {
+      expect(createSteps(asMapId("m"), "New", { width: 800, height: 600 }, preset).map.hideNumbers).toBe(true);
+    }
+  });
+
+  it("stay hidden through a save and a load, and a map saved with them shown keeps them shown", () => {
+    const { map } = createSteps(asMapId("m"), "New", { width: 800, height: 600 });
+    const back = (m: LinkMap) => {
+      const read = readMap(JSON.parse(JSON.stringify(serializeMap(m))), page);
+      if (read.status === "unreadable") throw new Error("unreadable");
+      return read.map;
+    };
+    expect(back(map).hideNumbers).toBe(true);
+    const { hideNumbers: _, ...shown } = map;
+    expect(back(shown).hideNumbers).toBeUndefined();
+  });
+});

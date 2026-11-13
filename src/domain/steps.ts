@@ -607,7 +607,10 @@ export function createSteps(
   newNodeId: () => NodeId = createNodeId,
   newLinkId: () => LinkId = createLinkId,
 ): { map: LinkMap; startId: NodeId } {
-  const blank: LinkMap = { ...createMap(id, name, page, "steps"), arrowStyle: "elbow", labelStyle: "treekit" };
+  // Step numbers start hidden (owner, 2026-11-13: a new flowchart is
+  // quicker to read without "1a.1a.1"); the header's Numbers switch shows
+  // them. Maps made before keep their setting.
+  const blank: LinkMap = { ...createMap(id, name, page, "steps"), arrowStyle: "elbow", labelStyle: "treekit", hideNumbers: true };
   const startId = newNodeId();
   let map = addNode(blank, { x: 0, y: 0 }, "", startId).map;
   const step = (at: NodeId, type: StepType, names: string[]): NodeId[] => {

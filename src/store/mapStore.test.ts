@@ -1492,15 +1492,19 @@ describe("map store (Steps)", () => {
     expect(useMapStore.getState().map.nodes[start]).toBeDefined();
   });
 
-  it("hides the numbers as an undo step, saved with the map", async () => {
+  it("starts with the numbers hidden; showing them is an undo step, saved with the map", async () => {
     const { useMapStore } = await stepsMap();
-    useMapStore.getState().setHideNumbers(true);
+    // A new flowchart: numbers off (owner, 2026-11-13).
+    expect(useMapStore.getState().map.hideNumbers).toBe(true);
+    useMapStore.getState().setHideNumbers(false);
     const { map } = useMapStore.getState();
-    expect(map.hideNumbers).toBe(true);
+    expect(map.hideNumbers).toBeUndefined();
     saveMap(map);
-    expect(loadMap(map.id, PAGE)?.hideNumbers).toBe(true);
+    expect(loadMap(map.id, PAGE)?.hideNumbers).toBeUndefined();
     useMapStore.getState().undo();
-    expect(useMapStore.getState().map.hideNumbers).toBeUndefined();
+    expect(useMapStore.getState().map.hideNumbers).toBe(true);
+    saveMap(useMapStore.getState().map);
+    expect(loadMap(map.id, PAGE)?.hideNumbers).toBe(true);
   });
 
   it("drags a step to a new place as one undo step, renumbered and picked", async () => {

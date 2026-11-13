@@ -147,3 +147,15 @@ describe("history across a change from outside (step 26)", () => {
     expect(Object.values(back.map.links).filter((l) => l.from === c || l.to === c)).toEqual([]);
   });
 });
+
+describe("history: a step that takes an optional field away", () => {
+  it("undo puts the field back (showing a flowchart's hidden numbers, undone)", () => {
+    const hidden = { ...build(["a"]), kind: "steps" as const, hideNumbers: true as const };
+    const { hideNumbers: _, ...shown } = hidden;
+    const h = record(EMPTY_HISTORY, hidden, shown);
+    expect(h.past).toHaveLength(1);
+    const back = undo(h, shown);
+    expect(back?.map.hideNumbers).toBe(true);
+    expect(redo(back!.history, back!.map)?.map.hideNumbers).toBeUndefined();
+  });
+});

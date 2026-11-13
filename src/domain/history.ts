@@ -53,7 +53,10 @@ const HISTORY_LIMIT = 200;
 function diff(prev: LinkMap, next: LinkMap): HistoryEntry {
   const before: Record<string, unknown> = {};
   const after: Record<string, unknown> = {};
-  for (const key of Object.keys(next) as (keyof LinkMap)[]) {
+  // Both maps' fields: an optional one that the step took away (a Steps
+  // map's `hideNumbers`, the whiteboard `shift`) is absent from `next`,
+  // and undo must still put it back.
+  for (const key of new Set([...Object.keys(prev), ...Object.keys(next)]) as Set<keyof LinkMap>) {
     if (prev[key] !== next[key]) {
       before[key] = prev[key];
       after[key] = next[key];
