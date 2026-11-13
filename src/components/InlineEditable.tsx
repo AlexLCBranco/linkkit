@@ -26,7 +26,7 @@ interface InlineEditableProps {
       and Tab keep the text and ask for the next field (`1`), Shift+Tab
       for the one before (`-1`). Called after `onDone`. */
   readonly onStep?: (step: 1 | -1) => void;
-  /** Enter hands the typed text (trimmed) here instead of `onCommit` and
+  /** Enter (and Tab) hands the typed text (trimmed) here instead of `onCommit` and
       `onDone`: the parent keeps it and decides what is typed next (a box
       name: another new box, a flowchart's next branch). */
   readonly onEnter?: (value: string) => void;
@@ -187,7 +187,12 @@ function EditField({
             onStep(step);
           } else if (pressed(event, "newLine") && multiline) {
             // A new line in the name: the browser types it.
-          } else if (pressed(event, "save")) {
+          } else if (pressed(event, "save") || (onEnter && event.key === "Tab")) {
+            // Tab too, where Enter goes on (a box name): left to the
+            // browser it moved the focus away, which ended typing as a
+            // click away does, so a new split's first branch still blank
+            // took all its branches with it, and the keys typed next were
+            // shortcuts (N opened Notes).
             event.preventDefault();
             if (!onEnter) finish(true);
             else if (!finishedRef.current) {

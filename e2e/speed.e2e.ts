@@ -280,3 +280,31 @@ test("F: a new flowchart starts with its step numbers off; the header's Numbers 
   await expect(stepNumbers(page)).toHaveCount(3);
   await expect(numbersSwitch(page)).toHaveAttribute("aria-pressed", "true");
 });
+
+test("G: Tab on a new Choice's first branch, still blank, keeps every branch and moves on to the next; the keys typed next go into its name", async ({ page }) => {
+  await open(page);
+  await newFlowchart(page, "Which?");
+  await addNext(page, named(page, "Which?"), "Choice");
+  const branches = (await boxes(page).count()) - 1;
+  expect(branches).toBeGreaterThanOrEqual(2);
+  const first = await typingIn(page);
+  expect(first).not.toBeNull();
+
+  // Before 0.0.115 this Tab took every new branch away and left the focus on the page.
+  await page.keyboard.press("Tab");
+  await expect(boxes(page)).toHaveCount(branches + 1);
+  await expect(field(page)).toBeFocused();
+  const second = await typingIn(page);
+  expect(second).not.toBe(first);
+
+  // "N" is typed, not the Notes shortcut.
+  await page.keyboard.type("Next one");
+  await expect(field(page)).toHaveValue("Next one");
+  await expect(page.getByRole("textbox", { name: /notes/i })).toHaveCount(0);
+  await shot(page, "G");
+  await page.keyboard.press("Enter");
+  await page.keyboard.press("Escape");
+  await expect(field(page)).toHaveCount(0);
+  await expect(boxes(page)).toHaveCount(branches + 1);
+  expect((await names(page)).filter(Boolean)).toEqual(["Which?", "Next one"]);
+});
