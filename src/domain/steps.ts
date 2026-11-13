@@ -284,6 +284,20 @@ export function addBranch(
   return { map: { ...added, links, order: withNextStep(added.order, at, id) }, nodeId: id };
 }
 
+/**
+ * Typing a split's branches one after another: the next branch after
+ * `id`, in sibling order, that has no name yet; `null` after the last one
+ * (or when `id` is not the first step of a split's branch). Never one
+ * before `id`, so it ends.
+ */
+export function nextUnnamedBranch(map: LinkMap, id: NodeId): NodeId | null {
+  if (map.kind !== "steps" || !map.nodes[id]) return null;
+  const parents = parentsOf(map, id);
+  if (parents.length !== 1 || !splits(map, parents[0])) return null;
+  const branches = branchStarts(map, parents[0]);
+  return branches.slice(branches.indexOf(id) + 1).find((b) => map.nodes[b].name === "") ?? null;
+}
+
 /** The arrows into `id` lead on to `goesTo` instead (same id and label),
     each in `id`'s place among its parent's next steps; an arrow that can't
     (no `goesTo`, or the parent already leads there) goes. Parents in

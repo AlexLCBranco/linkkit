@@ -153,3 +153,45 @@ describe("Enter keeps the chain going (enterOnBox)", () => {
     expect(Object.keys(s().map.nodes)).toHaveLength(2);
   });
 });
+
+describe("a flowchart's Enter (enterOnBox in a Steps map)", () => {
+  async function yesNo() {
+    const useMapStore = await freshStore();
+    const s = () => useMapStore.getState();
+    s().newSteps();
+    const start = Object.keys(s().map.nodes)[0] as NodeId;
+    s().placeAll(new Map([[start, { x: 300, y: 100 }]]), { width: 900, height: 600 });
+    s().enterOnBox(start, "Ready?");
+    const first = s().addStep(start, "yesno")!;
+    const second = (Object.keys(s().map.nodes) as NodeId[]).find((n) => n !== start && n !== first)!;
+    return { s, start, first, second };
+  }
+
+  it("keeps the name and opens the next unnamed branch, selected; after the last it stops", async () => {
+    const { s, first, second } = await yesNo();
+    expect(s().editing).toEqual({ kind: "box", id: first });
+    s().enterOnBox(first, "Go");
+    expect(s().map.nodes[first].name).toBe("Go");
+    expect(s().editing).toEqual({ kind: "box", id: second });
+    expect(s().selected).toBe(second);
+    s().enterOnBox(second, "Stop");
+    expect(s().editing).toBeNull();
+    expect(s().map.nodes[first].name).toBe("Go");
+    expect(s().map.nodes[second].name).toBe("Stop");
+  });
+
+  it("Esc on the second branch, still blank, keeps both branches", async () => {
+    const { s, first, second } = await yesNo();
+    s().enterOnBox(first, "Go");
+    s().stopEditing(true);
+    expect(s().map.nodes[first].name).toBe("Go");
+    expect(s().map.nodes[second]).toBeDefined();
+  });
+
+  it("a first branch left blank is kept, and the second opens", async () => {
+    const { s, first, second } = await yesNo();
+    s().enterOnBox(first, "");
+    expect(s().map.nodes[first]).toBeDefined();
+    expect(s().editing).toEqual({ kind: "box", id: second });
+  });
+});

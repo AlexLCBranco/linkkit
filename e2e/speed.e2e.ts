@@ -216,3 +216,41 @@ test("C: Enter keeps the chain going from the same parent; Esc, a click away or 
   await expect(boxes(page)).toHaveCount(7);
   await expect(arrows(page)).toHaveCount(6);
 });
+
+/** A new flowchart whose first step is named `start`. */
+async function newFlowchart(page: Page, start: string) {
+  await newMap(page, /^(Flowchart|Process)/);
+  await expect(field(page)).toBeFocused();
+  await page.keyboard.type(start);
+  await page.keyboard.press("Enter");
+  await expect(field(page)).toHaveCount(0);
+}
+
+/** A step's "Add next" menu, and one of its entries. */
+async function addNext(page: Page, step: Locator, entry: string) {
+  await step.hover();
+  await step.getByRole("button", { name: "Add next" }).click();
+  await page.getByRole("menuitem", { name: entry }).click();
+  await expect(field(page)).toBeFocused();
+}
+
+test("D: in a flowchart Enter keeps the name and opens the next unnamed branch; after the last it stops", async ({ page }) => {
+  await open(page);
+  await newFlowchart(page, "Ready?");
+  await addNext(page, named(page, "Ready?"), "Yes / No");
+  await expect(boxes(page)).toHaveCount(3);
+  const first = await typingIn(page);
+  await page.keyboard.type("Go ahead");
+  await page.keyboard.press("Enter");
+  // The second branch is open now, not the first again.
+  await expect(field(page)).toBeFocused();
+  const second = await typingIn(page);
+  expect(second).not.toBeNull();
+  expect(second).not.toBe(first);
+  await page.keyboard.type("Stop");
+  await shot(page, "D");
+  await page.keyboard.press("Enter");
+  // After the last branch typing ends.
+  await expect(field(page)).toHaveCount(0);
+  expect(await names(page)).toEqual(["Ready?", "Go ahead", "Stop"]);
+});

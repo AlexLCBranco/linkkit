@@ -76,6 +76,7 @@ import {
   addBranch,
   addNext,
   addNextRefusal,
+  nextUnnamedBranch,
   createSteps,
   deleteSteps,
   joinBranches,
@@ -594,7 +595,9 @@ export interface MapState {
       more to type. A box just added from another in a map without tree
       rules (`chain`): another new box from the same parent, beside the
       last, its name open; left blank instead, the chain stops and that
-      blank box goes (as Esc), and no other box is touched. */
+      blank box goes (as Esc), and no other box is touched. A flowchart:
+      the next branch of the same split that has no name yet opens (and is
+      selected); after the last one typing ends. */
   enterOnBox(id: NodeId, name: string, room?: BoxRoom): void;
   startEditing(editing: Editing): void;
   /** Ends typing. A box may stay blank (it shows a faint "Untitled").
@@ -1832,6 +1835,13 @@ const globalMapStore = create<MapState>()((set, get) => ({
     // Only a box still being named for the first time goes on.
     const chain = s.chain?.box === id && s.stepKey === newBoxKey(id) ? s.chain : null;
     if (name !== node.name) s.renameBox(id, name);
+    // A flowchart's split: on to its next branch still without a name.
+    const branch = nextUnnamedBranch(get().map, id);
+    if (branch) {
+      get().stopEditing();
+      set({ editing: { kind: "box", id: branch }, ...selecting([branch]) });
+      return;
+    }
     if (!chain) return get().stopEditing();
     // Left blank: the chain stops here, and the blank box goes (as Esc).
     if (get().map.nodes[id]?.name === "") return get().stopEditing(true);

@@ -23,6 +23,8 @@ import {
 } from "./steps";
 import { restoreFromTrash, trashEntryId } from "./trash";
 import { buildSteps, buildTree } from "./testMaps";
+import { nextUnnamedBranch } from "./steps";
+import { renameNode } from "./map";
 import type { LinkMap, NodeId } from "./types";
 
 const id = asNodeId;
@@ -613,5 +615,30 @@ describe("drawing a join", () => {
     // Each refusal says which way to go instead.
     expect(linkRefusalText(map, id("y1"), id("n1"), "goes-on")).toMatch(/already goes on/);
     expect(linkRefusalText(map, id("s"), id("k"), "goes-on")).toMatch(/splits into branches/);
+  });
+});
+
+describe("nextUnnamedBranch (Enter moves on through a split's branches)", () => {
+  const blank = (map: LinkMap, ...names: string[]) => names.reduce((m, n) => renameNode(m, asNodeId(n), ""), map);
+  const choice = buildSteps("q", ["a", "b", "c", "after"], [["q", "a"], ["q", "b"], ["q", "c"], ["a", "after"]], { q: "choice" });
+
+  it("is the next branch in order that has no name", () => {
+    expect(nextUnnamedBranch(blank(choice, "a", "b", "c"), asNodeId("a"))).toBe("b");
+    expect(nextUnnamedBranch(blank(choice, "a", "b", "c"), asNodeId("b"))).toBe("c");
+  });
+
+  it("skips branches that already have a name", () => {
+    expect(nextUnnamedBranch(blank(choice, "c"), asNodeId("a"))).toBe("c");
+  });
+
+  it("stops after the last one: never back to an earlier branch", () => {
+    expect(nextUnnamedBranch(blank(choice, "a", "b", "c"), asNodeId("c"))).toBeNull();
+    expect(nextUnnamedBranch(blank(choice, "a"), asNodeId("b"))).toBeNull();
+  });
+
+  it("is nothing for a step that is not a split's branch, or outside a Steps map", () => {
+    expect(nextUnnamedBranch(blank(choice, "after"), asNodeId("after"))).toBeNull();
+    expect(nextUnnamedBranch(choice, asNodeId("q"))).toBeNull();
+    expect(nextUnnamedBranch(buildTree("q", ["a", "b"], [["q", "a"], ["q", "b"]]), asNodeId("a"))).toBeNull();
   });
 });
