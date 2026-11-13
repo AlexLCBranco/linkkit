@@ -19,7 +19,7 @@ export interface AddNextItem {
 export const ADD_NEXT_ITEMS: readonly AddNextItem[] = [
   { type: "step", label: "Step", hint: "One next step", Icon: ArrowDown },
   { type: "yesno", label: "Yes / No", hint: "This step asks a question: two branches, “Yes” and “No”", Icon: CircleHelp },
-  { type: "choice", label: "Choice", hint: "Pick one of several branches (Option A, B, C …)", Icon: Split },
+  { type: "choice", label: "Choice", hint: "Pick one of two branches; its + adds another branch", Icon: Split },
   { type: "parallel", label: "Parallel", hint: "Branches that all happen, then join", Icon: Columns3 },
   { type: "end", label: "End", hint: "The process ends here: nothing comes after it", Icon: CircleStop },
 ];

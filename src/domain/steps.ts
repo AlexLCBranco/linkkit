@@ -29,10 +29,13 @@ import type { Link, LinkId, LinkMap, MapId, NodeId, Size, StepType } from "./typ
 export const stepTypeOf = (map: LinkMap, id: NodeId): StepType => map.nodes[id]?.stepType ?? "step";
 
 /** How many branches a split starts with, and their arrows' labels
-    (editable afterwards like any label). */
+    (editable afterwards like any label). A Choice starts with two
+    unlabelled branches (owner, 2026-11-13, over the spec's three "Option
+    A/B/C": two is the common case, and a label is quicker typed than
+    corrected); its "+" adds one more (`addBranch`). */
 export const BRANCH_LABELS: Readonly<Record<"yesno" | "choice" | "parallel", readonly string[]>> = {
   yesno: ["Yes", "No"],
-  choice: ["Option A", "Option B", "Option C"],
+  choice: ["", ""],
   parallel: ["", ""],
 };
 
@@ -179,7 +182,7 @@ const linkBetween = (map: LinkMap, from: NodeId, to: NodeId): Link | undefined =
  *    the new step goes in between (the rest of the process follows it);
  *    an End only goes after the last step of a path;
  *  - "yesno" / "choice" / "parallel": `at` becomes the split, with its
- *    branches (2, 3 or 2 new steps; arrows labelled as `BRANCH_LABELS`).
+ *    branches (two new steps; arrows labelled as `BRANCH_LABELS`).
  *    If `at` already went on, every branch joins back into what came next.
  *
  * Returns the new steps in order, or `null` when `at` can't go on that
@@ -263,8 +266,8 @@ export function addNextRefusal(map: LinkMap, at: NodeId, type: StepType): string
   return null;
 }
 
-/** One more branch on a Choice ("Option D" …) or a Parallel split, last
-    in order and not yet joined. `null` for Yes / No (two branches only) or
+/** One more branch on a Choice or a Parallel split (its arrow unlabelled,
+    as the first ones are), last in order and not yet joined. `null` for Yes / No (two branches only) or
     anything that isn't such a split. */
 export function addBranch(
   map: LinkMap,
@@ -279,8 +282,7 @@ export function addBranch(
   const id = newNodeId();
   const added = addNode(map, { x: node.x + count * BRANCH_SPREAD, y: node.y + NEW_STEP_DROP }, "", id).map;
   const linkId = newLinkId();
-  const label = type === "choice" ? `Option ${branchLetter(count).toUpperCase()}` : "";
-  const links = { ...added.links, [linkId]: { id: linkId, from: at, to: id, label } };
+  const links = { ...added.links, [linkId]: { id: linkId, from: at, to: id, label: "" } };
   return { map: { ...added, links, order: withNextStep(added.order, at, id) }, nodeId: id };
 }
 

@@ -255,6 +255,39 @@ test("D: in a flowchart Enter keeps the name and opens the next unnamed branch; 
   expect(await names(page)).toEqual(["Ready?", "Go ahead", "Stop"]);
 });
 
+test("E: a Choice starts with two branches and no labels; its + adds one more", async ({ page }) => {
+  await open(page);
+  await newFlowchart(page, "Drink?");
+  const choice = named(page, "Drink?");
+  await addNext(page, choice, "Choice");
+  // Two branches (three boxes with the Choice itself), and no "Option A/B/C" on the arrows.
+  await expect(boxes(page)).toHaveCount(3);
+  await expect(arrows(page)).toHaveCount(2);
+  await expect(page.getByText(/Option [A-Z]/)).toHaveCount(0);
+  await page.keyboard.type("Tea");
+  await page.keyboard.press("Enter");
+  await expect(field(page)).toBeFocused();
+  await page.keyboard.type("Coffee");
+  await page.keyboard.press("Enter");
+  await expect(field(page)).toHaveCount(0);
+
+  // One more branch: the Choice's own +, name open, still unlabelled.
+  await choice.hover();
+  const more = choice.getByRole("button", { name: "Add a branch" });
+  await expect(more).toBeVisible();
+  await expect(more).toHaveAttribute("title", /another branch/);
+  await shot(page, "E");
+  await more.click();
+  await expect(field(page)).toBeFocused();
+  await expect(boxes(page)).toHaveCount(4);
+  await page.keyboard.type("Water");
+  await page.keyboard.press("Enter");
+  await expect(field(page)).toHaveCount(0);
+  expect(await names(page)).toEqual(["Drink?", "Tea", "Coffee", "Water"]);
+  await expect(arrows(page)).toHaveCount(3);
+  await expect(page.getByText(/Option [A-Z]/)).toHaveCount(0);
+});
+
 const stepNumbers = (page: Page) => page.locator("[data-box-id] [aria-label^='Step ']");
 const numbersSwitch = (page: Page) => page.getByRole("button", { name: "Step numbers" });
 

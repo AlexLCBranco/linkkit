@@ -197,7 +197,8 @@ describe("Add next", () => {
     const labels = (m: LinkMap) => nextSteps(m, startId).map((n) => Object.values(m.links).find((l) => l.to === n)!.label);
     expect(stepTypeOf(yesNo.map, startId)).toBe("yesno");
     expect(labels(yesNo.map)).toEqual(["Yes", "No"]);
-    expect(labels(addNext(map, startId, "choice", c.node, c.link)!.map)).toEqual(["Option A", "Option B", "Option C"]);
+    // A Choice: two branches, no labels (owner, 2026-11-13).
+    expect(labels(addNext(map, startId, "choice", c.node, c.link)!.map)).toEqual(["", ""]);
     expect(labels(addNext(map, startId, "parallel", c.node, c.link)!.map)).toEqual(["", ""]);
   });
 
@@ -210,12 +211,14 @@ describe("Add next", () => {
     expect(numbers(split.map)[next]).toBe("2");
   });
 
-  it("adds Choice branches with the next letter, never on Yes / No", () => {
+  it("adds one more unlabelled branch to a Choice, numbered with the next letter, never on Yes / No", () => {
     const { map, startId, c } = blank();
     const choice = addNext(map, startId, "choice", c.node, c.link)!.map;
+    expect(nextSteps(choice, startId)).toHaveLength(2);
     const more = addBranch(choice, startId, c.node, c.link)!;
-    expect(Object.values(more.map.links).find((l) => l.to === more.nodeId)!.label).toBe("Option D");
-    expect(numbers(more.map)[more.nodeId]).toBe("1d.1");
+    expect(nextSteps(more.map, startId)).toHaveLength(3);
+    expect(Object.values(more.map.links).find((l) => l.to === more.nodeId)!.label).toBe("");
+    expect(numbers(more.map)[more.nodeId]).toBe("1c.1");
     expect(addBranch(addNext(map, startId, "yesno", c.node, c.link)!.map, startId)).toBeNull();
   });
 

@@ -1424,11 +1424,14 @@ describe("map store (Steps)", () => {
     expect(Object.keys(useMapStore.getState().map.nodes)).toHaveLength(2);
     useMapStore.getState().addStep(second, "choice");
     useMapStore.getState().stopEditing();
+    const branches = () => nextSteps(useMapStore.getState().map, second).length;
+    expect(branches()).toBe(2);
     expect(useMapStore.getState().addNextStep(second)).not.toBeNull();
-    expect(Object.values(useMapStore.getState().map.links).map((l) => l.label)).toContain("Option D");
+    expect(branches()).toBe(3);
     useMapStore.getState().addStep(start, "end");
-    // Refused (the start already goes on): nothing added.
-    expect(Object.keys(useMapStore.getState().map.nodes)).toHaveLength(6);
+    // Refused (the start already goes on): nothing added. Start, the
+    // second step and the Choice's three branches (two, and one more).
+    expect(Object.keys(useMapStore.getState().map.nodes)).toHaveLength(5);
   });
 
   it("Join here leads a Parallel's open branches into a new step, open for typing; undo takes it back", async () => {

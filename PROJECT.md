@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-11-13, v0.0.115 (making a map fast: + and Enter chains on free maps, edge band for arrows, pasted lists, flowchart Enter/Tab)_
+_Last updated: 2026-11-13, v0.0.116 (making a map fast; a Choice starts with two unlabelled branches)_
 
 ## What it is
 
@@ -55,8 +55,9 @@ selected (Linkkit's own copied boxes come first; not on the whiteboard).
 Flowcharts: Enter and Tab go on to the next unnamed branch; Tab no longer
 removes a blank new split; numbers start hidden. "+ New" reads Decision tree /
 Flowchart / Free map / Bracket (`NEW_MAP_NAMES`). Tests: `e2e/speed.e2e.ts`.
-NOT done: item E (Choice with two unlabelled branches): the spec says three,
-"Option A/B/C"; waiting for the owner. New whiteboard exports for gauntlet:
+A Choice starts with two unlabelled branches and its "+" adds one more
+(v0.0.116; the owner's decision, 2026-11-13, over the spec's three "Option
+A/B/C": `reference/steps-spec.md` is kept as written). New whiteboard exports for gauntlet:
 `openWhiteboardMapWithFirstBox`, `addWhiteboardMapBox`,
 `addWhiteboardMapBoxAtScreenPoint`, `whiteboardMapPagePoint`.
 

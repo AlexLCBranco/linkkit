@@ -30,7 +30,7 @@ export function AddNextButton({ nodeId, className }: { readonly nodeId: NodeId; 
         className={className}
         onClick={() => useMapStore.getState().addStepBranch(nodeId)}
         aria-label="Add a branch"
-        title="Add a branch (Tab)"
+        title="Add another branch (Tab)"
       >
         <Plus size={14} />
       </button>
