@@ -139,3 +139,38 @@ describe("whiteboardMapPagePoint and addWhiteboardMapBoxAtScreenPoint", () => {
     expect(w.s().editing).toEqual({ kind: "box", id });
   });
 });
+
+describe("copyWhiteboardMap / readWhiteboardMap / writeWhiteboardMap / deleteWhiteboardMap (copies on the whiteboard)", () => {
+  it("copies a map under a new id and a copy's name, listed, its boxes kept; the original untouched", async () => {
+    const w = await load();
+    const { map: tree } = w.createTree("tree1" as MapId, "Week 46", PAGE);
+    w.persist.saveMap(tree);
+    const made = w.copyWhiteboardMap("tree1")!;
+    expect(made.id).not.toBe("tree1");
+    expect(made.name).toBe("Week 46 (copy)");
+    expect(w.whiteboardMaps().map((m) => m.name)).toContain("Week 46 (copy)");
+    const copy = w.readWhiteboardMap(made.id)!;
+    expect(Object.keys(copy.nodes)).toEqual(Object.keys(tree.nodes));
+    expect(copy.linkedBoard).toBeUndefined();
+    expect(w.readWhiteboardMap("tree1")!.name).toBe("Week 46");
+    // A second copy is named apart.
+    expect(w.copyWhiteboardMap("tree1")!.name).toBe("Week 46 (copy 2)");
+  });
+
+  it("deletes a copy for good and puts it back as it was", async () => {
+    const w = await load();
+    const { map: tree } = w.createTree("tree1" as MapId, "Week 46", PAGE);
+    w.persist.saveMap(tree);
+    const made = w.copyWhiteboardMap("tree1")!;
+    const kept = w.readWhiteboardMap(made.id)!;
+    expect(w.deleteWhiteboardMap(made.id)).toBe(true);
+    expect(w.readWhiteboardMap(made.id)).toBeNull();
+    expect(w.whiteboardMaps().map((m) => m.id)).not.toContain(made.id);
+    expect(w.writeWhiteboardMap(kept)).toBe(true);
+    expect(w.readWhiteboardMap(made.id)).toEqual(kept);
+    expect(w.whiteboardMaps().map((m) => m.id)).toContain(made.id);
+    // Never the last map.
+    expect(w.deleteWhiteboardMap(made.id)).toBe(true);
+    expect(w.deleteWhiteboardMap("tree1")).toBe(false);
+  });
+});

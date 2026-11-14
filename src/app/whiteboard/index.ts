@@ -17,6 +17,7 @@ initOtherTabs();
 export { WhiteboardMap, type WhiteboardMapProps } from "./WhiteboardMap";
 export { MapParts } from "./MapParts";
 export { onMapHistory, redoMap, undoMap } from "./history";
+export { copyWhiteboardMap, deleteWhiteboardMap, readWhiteboardMap, writeWhiteboardMap } from "./maps";
 export { closeWhiteboardMap, createLinkedWhiteboardMap, createWhiteboardMap, doubleClickOnWhiteboardMap, restoreWhiteboardMapRecord, unlinkWhiteboardMap, deleteEmptyWhiteboardMap, linkedMapOf, linkedMaps, mapTakesEscape, openWhiteboardMap, renameWhiteboardMap, useWhiteboardMapAdding, whiteboardMaps } from "./maps";
 // Making a map fast (v0.0.115): a new map's first box, and a box at a point,
 // each with its name open in the gesture that starts editing.

@@ -1,5 +1,7 @@
 import { createMapId } from "../../domain/ids";
-import { createMap } from "../../domain/map";
+import { createMap, duplicateMap } from "../../domain/map";
+import { copyName } from "../../domain/registry";
+import type { LinkMap } from "../../domain/types";
 import { numberedName, UNTITLED_MAP } from "../../domain/names";
 import { hasTreeShape, type MapId, type NodeId, type Point, type Size } from "../../domain/types";
 import { WHITEBOARD_ADD } from "../../features/map/layoutConfig";
@@ -12,7 +14,7 @@ import { loadBoard } from "../../store/persistBoard";
 import { deleteStoredMap, mapKey, peekMap, peekMapList, saveMap } from "../../store/persistMap";
 import { wroteHere } from "../../store/storedHere";
 import { useSaveHealth } from "../../store/saveHealth";
-import { cancelSave } from "../../store/saveQueue";
+import { cancelSave, flushSave } from "../../store/saveQueue";
 
 /**
  * The gauntlet whiteboard's ways in to Linkkit's maps: the list (its Map
@@ -101,6 +103,63 @@ export function unlinkWhiteboardMap(id: string): string | null {
   useMapStore.getState().unlinkFromBoard();
   if (!wasOpen) closeOpenMap();
   return before;
+}
+
+/**
+ * A stored map, its latest edit included: what the gauntlet whiteboard
+ * keeps of a copy it made (its speed session Part 6), to tell whether the
+ * copy was changed and to put it back (a redo). `null` when it is not
+ * stored or in the trash.
+ */
+export function readWhiteboardMap(id: string): LinkMap | null {
+  if (useMapStore.getState().map.id === id) flushSave();
+  const read = peekMap(id as MapId, newPageSize());
+  return read.status === "ok" ? read.map : null;
+}
+
+/**
+ * A copy of map `id` under a new id and name ("X (copy)"), as Linkkit's own
+ * "Duplicate" makes one (its trash left behind), stored at once so Linkkit
+ * lists it: a map widget copied on the whiteboard. `linkedBoard`: the copy
+ * is linked to that board (a copy of the original's board: a linked pair
+ * copied as a new pair). `null` when it could not be read or stored.
+ */
+export function copyWhiteboardMap(id: string, linkedBoard?: string): { readonly id: string; readonly name: string } | null {
+  const from = readWhiteboardMap(id);
+  if (!from) return null;
+  let copy = duplicateMap(from, createMapId(), copyName(from.name, peekMapList()));
+  if (linkedBoard) {
+    // A linked tree's top box is its board's name: the copy's is the new
+    // board's ("X (copy)"), or saving it would rename that board back.
+    const name = boardChoices().find((c) => c.id === linkedBoard)?.name;
+    const root = from.linkedBoard as NodeId | undefined;
+    const nodes = name && root && copy.nodes[root] ? { ...copy.nodes, [root]: { ...copy.nodes[root], name } } : copy.nodes;
+    copy = { ...copy, name: name ?? copy.name, nodes, linkedBoard };
+  }
+  return writeWhiteboardMap(copy) ? { id: copy.id, name: copy.name } : null;
+}
+
+/** Stores `map` as it is (one `readWhiteboardMap` gave), listed: a copy put
+    back. False when it could not be stored. */
+export function writeWhiteboardMap(map: LinkMap): boolean {
+  saveMap(map);
+  if (useSaveHealth.getState().failing.includes(mapKey(map.id))) {
+    deleteStoredMap(map.id);
+    return false;
+  }
+  return true;
+}
+
+/** Deletes map `id` for good (a copy the whiteboard made, its copy undone).
+    Never the last map. True when it was deleted. */
+export function deleteWhiteboardMap(id: string): boolean {
+  if (localStorage.getItem(mapKey(id as MapId)) === null || peekMapList().length <= 1) return false;
+  if (useMapStore.getState().map.id === id) {
+    closeOpenMap();
+    cancelSave();
+  }
+  deleteStoredMap(id as MapId);
+  return true;
 }
 
 /** Puts a map's stored record back as it was (`unlinkWhiteboardMap`'s
