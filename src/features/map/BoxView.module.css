@@ -37,7 +37,8 @@
 /* Hover, as on a Treekit node: a stronger shadow and an inner accent ring.
    No lift here: a box's size is measured for the arrows, and a moving box
    would make them jitter. */
-.box:hover {
+.box:hover,
+.box[data-pointer-over] {
   box-shadow:
     var(--shadow-md),
     inset 0 0 0 1px var(--box-accent);
@@ -506,7 +507,8 @@
   top: calc(100% + var(--fold-badge-size) / 2 + var(--space-2));
 }
 
-.box:hover .notesPreview {
+.box:hover .notesPreview,
+.box[data-pointer-over] .notesPreview {
   opacity: 1;
   transform: translate(-50%, 0);
   transition-delay: var(--delay-hover-preview);

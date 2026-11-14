@@ -57,7 +57,7 @@ import {
 } from "./layoutConfig";
 import { LinkEdgeView, type LinkFlowEdge } from "./LinkEdgeView";
 import styles from "./MapCanvas.module.css";
-import { MAP_PAGE_ATTRIBUTE, MAP_SHEET_ATTRIBUTE, MAP_VIEW_ATTRIBUTE, screenSize } from "./pageMarkers";
+import { BOX_ID_ATTRIBUTE, MAP_PAGE_ATTRIBUTE, MAP_SHEET_ATTRIBUTE, MAP_VIEW_ATTRIBUTE, screenSize } from "./pageMarkers";
 import { boxFlowNode } from "./flowNodes";
 import { usePagePoint } from "./pagePoint";
 import { useGlide } from "./useGlide";
@@ -194,6 +194,41 @@ function MapCanvasInner() {
   // A read-only copy on the whiteboard takes no keys: only the map being
   // edited does.
   useMapShortcuts(!whiteboard || whiteboard.editing);
+
+  // A read-only copy on the whiteboard ignores the pointer (the whiteboard
+  // moves it as a whole): the box under the pointer is marked
+  // (`data-pointer-over`, from the pointer's position) for its hover look
+  // and its notes preview, as on Linkkit's page (BoxView.module.css; the
+  // gauntlet's speed session Part 5). Not its dots or toolbar: those are
+  // for editing, which starts on a double-click.
+  const readOnlyCopy = !!whiteboard && !whiteboard.editing;
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!readOnlyCopy || !view) return;
+    let marked: Element | null = null;
+    const mark = (el: Element | null) => {
+      if (el === marked) return;
+      marked?.removeAttribute("data-pointer-over");
+      el?.setAttribute("data-pointer-over", "");
+      marked = el;
+    };
+    const onMove = (e: PointerEvent) => {
+      let hit: Element | null = null;
+      for (const box of view.querySelectorAll(`[${BOX_ID_ATTRIBUTE}]`)) {
+        const r = box.getBoundingClientRect();
+        if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) hit = box;
+      }
+      mark(hit);
+    };
+    const off = () => mark(null);
+    window.addEventListener("pointermove", onMove, { passive: true });
+    document.documentElement.addEventListener("pointerleave", off);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      document.documentElement.removeEventListener("pointerleave", off);
+      off();
+    };
+  }, [readOnlyCopy]);
 
   // Measured sizes are view state, not map data: they depend on fonts and
   // CSS, so they live here, never in the saved map.

@@ -1,6 +1,6 @@
 # Linkkit — project summary
 
-_Last updated: 2026-11-13, v0.0.117 (a pasted list on the gauntlet whiteboard)_
+_Last updated: 2026-11-14, v0.0.118 (a box's hover on the gauntlet whiteboard)_
 
 ## What it is
 
@@ -43,6 +43,12 @@ browser folder standing in for the folder picker); it makes and removes its own
 "ZZ bridge test" map and board and checks every other record is untouched.
 
 ## What works now
+
+**Hovering a map on the gauntlet whiteboard (v0.0.118, its speed session
+Part 5).** A map shown there and not being edited ignores the pointer (the
+whiteboard moves it as a whole); the box under the pointer is marked
+(`data-pointer-over`, MapCanvas) and gets its hover look and notes preview
+as on Linkkit's page. Its dots and toolbar stay for editing.
 
 **Making a map fast (the speed round, owner's brief, 2026-11-13, v0.0.115).**
 A free map's box has "+" (a linked box beside it, name open), a dot or the
