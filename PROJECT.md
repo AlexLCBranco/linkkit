@@ -1391,6 +1391,10 @@ in"). Loops and arrows into the start are refused in both. Code:
 
 ## What's next
 
+Planned work lives only in `FEATURE_BACKLOG.md`, shipped work in `BUILT.md`, ideas in `IDEAS.md`. Everything
+below in this section is history (old plans, all done or not queued).
+
+
 Every numbered step below is done (2026-10-16). Next: whatever the owner
 asks for; the v2 ideas under each plan are not queued.
 

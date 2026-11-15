@@ -2,7 +2,7 @@
 
 Shipped work only, newest first. Planned work is in `FEATURE_BACKLOG.md`, never here.
 Entries dated before 2026-11-16 were backfilled from the git commit messages (data, docs, test-only, merge and
-spec commits left out). New entries name their backlog ID (see CLAUDE.md, "Feature backlog and built list").
+spec commits left out). New entries name their backlog ID (see CLAUDE.md, "Feature backlog, built list and ideas").
 
 ## 2026-11-14
 - Whiteboard copies: copy, read, write and delete a whole map for the gauntlet (v0.0.119)
